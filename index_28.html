@@ -1,0 +1,3082 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22Il%20Fortunato%20%5Cu2014%20Estoque%22%2C%20%22short_name%22%3A%20%22Il%20Fortunato%22%2C%20%22start_url%22%3A%20%22.%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23F2F4F8%22%2C%20%22theme_color%22%3A%20%22%232C4A87%22%2C%20%22icons%22%3A%20%5B%7B%22src%22%3A%20%22data%3Aimage/png%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAEf0lEQVR4nO3cv4scZRzH8WfPH226FClsbc7KVNoqB2ehNhZik4BCKktz1sIZBLE7THOdpZ0HgWDrH2AqS4uDpJFDBFHkrDYkudvbnZ0fz8x8Xq8yR3af4vue78ztcosyMrv7h%2Be1z0C/Hp0cLGqfYanqQQw7S7WiGPxNDT3rDBnDYG9k8GlqiBB6fwODT1t9htDbCxt8utZHCJ2/oMGnb12GsNPVC5Vi%2BBlGl3PWSUkGn1raboPWG8DwU1Pb%2BWsVgOFnDNrM4dYBGH7GZNt53CoAw88YbTOXjQMw/IxZ0/lsFIDhZwqazOnGARh%2BpmTTed0oAMPPFG0yt2sDMPxM2br57fSrEDA1Vwbg6s8cXDXHKwMw/MzJqnl2C0S0SwNw9WeOLptrG4BoFwJw9WfOXpxvG4BozwXg6k%2BCZ%2BfcBiDa0wBc/UmynHcbgGgCINqiFLc/5LIBiCYAogmAaAIg2o4HYJLZAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQLSXax%2BgrQfHd8qN69eqnmHv9lE5fXy28udjOGPfPv/qx/LzL7/VPkZjNgDRBEA0ARBNAESb/EPw3q2jK3/%2B7Zcflnfffn3r1z99crb2Pdbp%2B4z//PtfefODb7b%2B/0188dk75ZP3bw7yXkOwAYgmAKIJgGgCIJoAiCYAogmAaAIg2uQ/CGNY9%2B4/LPfuP6x9jM7YAEQTANEEQDQBEM1DMKWUUo6//rjcfOO1C//%2B3qffl99P/6hwomHYAEQTANEEQDQBEE0ARBMA0QRANJ8DzMCrr7xUfv3pbu1jTJINQDQBEE0ARBMA0TwEz0AXfxpx1Zfh5s4GIJoAiCYAogmAaAIgmgCIJgCi%2BRyAUkopt%2B7%2BUPsIVdgARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRFrv7h%2Be1D9HGg%2BM75cb1a1XPsHf7qJw%2BPlv58zGccemtj74rf/71d%2B1jjIYNQDQBEE0ARBMA0Sb/EAxt2ABEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBt59HJwaL2IaAWG4BoAiCaAIgmAKLtlFKKB2ESPTo5WNgARBMA0Z4G4DaIJMt5twGI9lwAtgAJnp1zG4BoFwKwBZizF%2BfbBiDapQHYAszRZXNtAxBtZQC2AHOyap6v3AAiYA6ummO3QERbG4AtwJStm9%2BNNoAImKJN5nbjWyARMCWbzmujZwARMAVN5rTxQ7AIGLOm87nVb4FEwBhtM5db/xpUBIzJtvPY6nMAETAGbeaw9QdhIqCmtvPX6fDu7h%2Bed/l6sEpXF95OvwphGzCELuest4G1DehaHxfY3q/YQqCtPu8sBrtlEQJNDXFLPfg9uxBYZ8hnyaoPrWJgqdYvUP4HlaQDUrj4rHgAAAAASUVORK5CYII%3D%22%2C%20%22sizes%22%3A%20%22192x192%22%2C%20%22type%22%3A%20%22image/png%22%7D%2C%20%7B%22src%22%3A%20%22data%3Aimage/png%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAANPElEQVR4nO3dP49mZQGH4TOTLUyMJTUNJYYvYQUhfARjCJ2FFSulFUJsJaGwsLEwRkJIoDORwoLYEEloaKQgMZpQ%2BAGwMAPL7M7OvO%2BcP88593X1bM77TPG73%2BfMLhcTQ3r%2BxTe/2foZAOby2YdvXGz9DHyfH8hGDDzAdwTC%2Bhz4Cow9wOlEwbIc7gIMPsD8BMG8HOYMDD7A%2BgTB/Ti8Mxl9gHGIgdM5sBMYfYDxiYG7cUi3MPoA%2ByUGbuZgbmD4AY5DCDzOgTzC6AMcnxj4P4cwGX6AonoIpD%2B84QegGgLJD234AbiuFgKpD2v4AbhNJQQSH9LwA3Cqo4fA5dYPsDTjD8A5jr4fh62bo//gAFjPEW8DDveBDD8ASzlSCBzqFYDxB2BJR9qZQ5TMkX4gAOzD3m8Ddn8DYPwB2MLe92fXAbD3wwdg3/a8Q7u8vtjzgQNwTHt7JbC7GwDjD8CI9rZPuwqAvR0uAC172qldXFfs6UABYJrGfyUw/A2A8Qdgj0bfr6EDYPTDA4CnGXnHhg2AkQ8NAO5q1D0bMgBGPSwAOMeIuzZcAIx4SABwX6Pt21ABMNrhAMCcRtq5YQJgpEMBgKWMsndDBMAohwEAaxhh9zYPgBEOAQDWtvX%2BbRoAW394ANjSlju4WQAYfwDYbg83CQDjDwDf2WIXVw8A4w8Aj1t7H1cNAOMPADdbcydXCwDjDwC3W2svVwkA4w8Ad7fGbm7%2B7wAAAOtbPAB8%2BweA0y29n4sGgPEHgPMtuaOLBYDxB4D7W2pP/Q4AAAQtEgC%2B/QPAfJbY1dkDwPgDwPzm3tdZA8D4A8By5txZvwMAAEGzBYBv/wCwvLn2dpYAMP4AsJ45dtcrAAAIuncA%2BPYPAOu77/66AQCAoHsFgG//ALCd%2B%2Bzw2QFg/AFge%2BfusVcAABB0VgD49g8A4zhnl90AAEDQyQHg2z8AjOfUfXYDAABBJwWAb/8AMK5TdtoNAAAE3TkAfPsHgPHdda/dAABA0J0CwLd/ANiPu%2By2GwAACBIAABB0awC4/geA/bltv90AAEDQUwPAt38A2K%2Bn7bgbAAAIEgAAEHRjALj%2BB4D9u2nP3QAAQJAAAICgJwaA638AOI4n7bobAAAIEgAAEPRYALj%2BB4Djub7vbgAAIEgAAECQAACAoO8FgPf/AHBcj%2B68GwAACBIAABAkAAAg6NsA8P4fAI7vau/dAABAkAAAgCABAABBAgAAgi6myS8AAkCNGwAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIu/RsAANDjBgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIerD1A7C9Tz94OF1eXmz9GIf10mvvTl9%2B9fWsf6afGUv6%2Bz%2B%2BnH72yz9s/RgszA0AAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkP8bINMLL781%2B5/5ox/%2BYPrbH38x%2B5%2B7pJ/89LfTv/7z360f4078zID7cgMAAEFuAIDdev2t96ePPv5868cY0qcfPJwuLy%2B2fgwG5gYAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQ%2B2fgAA5vfCy29t/QgMzg0AAAQJAAAIEgAAECQAACBIAABAkAAAgCB/DRBgBc89%2B8z03juvnv3f//7Pn0y/%2Bd1fZnwi6twAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABD3Y%2BgEAzvX2w1emtx%2B%2BsvVjwC65AQCAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIOjB1g8AcK7X33p/%2Bujjz7d%2BjDt57tlnpvfeeXXrx4BvuQEAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIEgAAECQAACBIAABAkAAAgCABAABBAgAAggQAAAQJAAAIerD1AwAUfPHPf08/funXWz8GfMsNAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAIAgAQAAQQIAAIIunn/xzW%2B2fgi29ekHD6fLy4utH%2BOwXnrt3enLr76e9c/0M1vfz3/1p%2Bmvn3yx9WPAbNwAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABPm/AQJAkBsAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAIAEAAEECAACCBAAABAkAAAgSAAAQJAAAIEgAAECQAACAoMvPPnzjYuuHAADW5QYAAIIEAAAECQAACBIAABAkAAAgSAAAQJAAAICgy2maJv8WAAB0fPbhGxduAAAgSAAAQJAAAIAgAQAAQd8GgF8EBIDju9p7NwAAECQAACBIAABA0PcCwO8BAMBxPbrzbgAAIEgAAECQAACAoMcCwO8BAMDxXN93NwAAECQAACDoiQHgNQAAHMeTdt0NAAAECQAACLoxALwGAID9u2nP3QAAQJAAAICgpwaA1wAAsF9P23E3AAAQdGsAuAUAgP25bb/dAABAkAAAgKA7BYDXAACwH3fZbTcAABB05wBwCwAA47vrXrsBAICgkwLALQAAjOuUnXYDAABBJweAWwAAGM%2Bp%2B%2BwGAACCzgoAtwAAMI5zdtkNAAAEnR0AbgEAYHvn7vG9bgBEAABs5z477BUAAATdOwDcAgDA%2Bu67v24AACBolgBwCwAA65ljd2e7ARABALC8ufbWKwAACJo1ANwCAMBy5tzZ2W8ARAAAzG/ufV3kFYAIAID5LLGrfgcAAIIWCwC3AABwf0vt6aI3ACIAAM635I4u/gpABADA6ZbeT78DAABBqwSAWwAAuLs1dnO1GwARAAC3W2svV30FIAIA4GZr7uTqvwMgAgDgcWvv4ya/BCgCAOA7W%2BziZn8LQAQAwHZ7uOlfAxQBAJRtuYOb/zsAIgCAoq33b/MAmKbtDwEA1jTC7g0RANM0xmEAwNJG2bthAmCaxjkUAFjCSDs3VABM01iHAwBzGW3fhguAaRrvkADgPkbctSEDYJrGPCwAONWoezZsAEzTuIcGAHcx8o4NHQDTNPbhAcBNRt%2BvoR/uuudffPObrZ8BAJ5m9OG/MvwNwKP2cqgANO1pp3YVANO0r8MFoGNv%2B7Srh73OKwEAtra34b%2ByuxuAR%2B310AE4hj3v0K4DYJr2ffgA7Nfe92fXD3%2BdVwIALG3vw39l9zcAjzrKDwWAMR1pZw7zQa5zGwDAXI40/FcO94GuEwIAnOuIw3/lUK8AnuTIPzwAlnP0/Tj0h7vObQAAtzn68F9JfMjrhAAA11WG/0rqw14nBACoDf%2BV5Ie%2BTggA9FSH/0r6w18nBACOrz78VxzCDcQAwHEY/cc5kFsIAYD9Mvw3czAnEAMA4zP6d%2BOQziQGAMZh9E/nwGYgBgDWZ/Tvx%2BEtQBAAzM/gz8thrkAQAJzO4C/L4W5EFAB8x9iv738hkk1ZU9xD8QAAAABJRU5ErkJggg%3D%3D%22%2C%20%22sizes%22%3A%20%22512x512%22%2C%20%22type%22%3A%20%22image/png%22%7D%5D%7D">
+<meta name="theme-color" content="#2C4A87">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Il Fortunato">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEH0lEQVR4nO3cMW9bVQCG4WOLX0DXDO2IFImdoWIlqGJkQGJLmZhpNtQlomKCLuEvVCytGpcJqb+giKDuDGwIlq4NA0rVNHbie33uPb5fnmdMVPsMb74e21FmZQvs7h2etj4DdZwcH8xaPn+TJxfw9TF24KM9mYgZI+5Bn0DErDJU3IM8qJBZV+2w5zUfrBQx003tXqr9dAiZTdVY6yoLLWZqqNHRRj8RQmYofde690KLmSH17atX0GJmDH066xy0mBlT1946BS1mWujS3dpBi5mW1u1vraDFzDZYp8MrgxYz2+SqHqt/9A0tXRq0dWYbXdblyqDFzDZb1acrB1GWBm2dmYJlnV4IWsxMybu9unIQ5VzQ1pkpertbC00UQRPlTdCuG0zZWb8WmiiCJsqsFNcNclhoogiaKIImytz9mSQWmiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJsp7rQ/Qx62dG+Xx0X6T5360eFHuP3y29HstzzWkT/ePyp9//dP6GGux0EQRNFEETRRBE2WW+Pehv/7ydrn7+Ue9/u3f/74qH3/xY+UT/W+Tc71+fVo+vPNd5ROd98ntD8qDbz678HUvCqERQRNF0EQRNFEETRRBE0XQRBE0USb523YMY/H8ZVk8f9n6GBux0EQRNFFcOa6JJ0d3y82d98997emvf5R73z9pdKJhWGiiCJoogiaKoIkiaKIImiiCJor3oSdiPp+V35/ea32MrWehiSJoogiaKIImiheFE7HpH5pZ9stJiSw0UQRNFEETRdBEETRRBE0UQRPF+9DXxJ2vfmp9hFFYaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiTLb3Ts8bX2Irm7t3CiPj/abPPejxYty/+Gzpd9rea4z3/6wKD//8lvTM7RkoYkiaKIImiiCJsokXxTCKhaaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJMj85Ppi1PgTUYqGJImiiCJoo81JKcY8mwcnxwcxCE0XQRHkTtGsHU3bWr4UmiqCJci5o1w6m6O1uLTRRLgRtpZmSd3tdutCiZgqWderKQZSVQVtpttmqPi9daFGzjS7r0pWDKFcGbaXZJlf1uNZCi5ptsE6Ha185RE1L6/bX6Q4talro0l3nF4WiZkxde+v1LoeoGUOfznq/bSdqhtS3rypR7u4dntZ4HNh0KKt8sGKtqaFGR9VDtNZ0VXMQq3/0ba3ponYvg8ZnrVllqOEbbU3FzRj/eze5Hoj7+hj7CvofzWj3UNVd2DwAAAAASUVORK5CYII=">
+<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAEf0lEQVR4nO3cv4scZRzH8WfPH226FClsbc7KVNoqB2ehNhZik4BCKktz1sIZBLE7THOdpZ0HgWDrH2AqS4uDpJFDBFHkrDYkudvbnZ0fz8x8Xq8yR3af4vue78ztcosyMrv7h+e1z0C/Hp0cLGqfYanqQQw7S7WiGPxNDT3rDBnDYG9k8GlqiBB6fwODT1t9htDbCxt8utZHCJ2/oMGnb12GsNPVC5Vi+BlGl3PWSUkGn1raboPWG8DwU1Pb+WsVgOFnDNrM4dYBGH7GZNt53CoAw88YbTOXjQMw/IxZ0/lsFIDhZwqazOnGARh+pmTTed0oAMPPFG0yt2sDMPxM2br57fSrEDA1Vwbg6s8cXDXHKwMw/MzJqnl2C0S0SwNw9WeOLptrG4BoFwJw9WfOXpxvG4BozwXg6k+CZ+fcBiDa0wBc/UmynHcbgGgCINqiFLc/5LIBiCYAogmAaAIg2o4HYJLZAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQLSXax+grQfHd8qN69eqnmHv9lE5fXy28udjOGPfPv/qx/LzL7/VPkZjNgDRBEA0ARBNAESb/EPw3q2jK3/+7Zcflnfffn3r1z99crb2Pdbp+4z//PtfefODb7b+/0188dk75ZP3bw7yXkOwAYgmAKIJgGgCIJoAiCYAogmAaAIg2uQ/CGNY9+4/LPfuP6x9jM7YAEQTANEEQDQBEM1DMKWUUo6//rjcfOO1C//+3qffl99P/6hwomHYAEQTANEEQDQBEE0ARBMA0QRANJ8DzMCrr7xUfv3pbu1jTJINQDQBEE0ARBMA0TwEz0AXfxpx1Zfh5s4GIJoAiCYAogmAaAIgmgCIJgCi+RyAUkopt+7+UPsIVdgARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRFrv7h+e1D9HGg+M75cb1a1XPsHf7qJw+Plv58zGccemtj74rf/71d+1jjIYNQDQBEE0ARBMA0Sb/EAxt2ABEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBNAEQTANEEQDQBEE0ARBMA0QRANAEQTQBEEwDRBEA0ARBt59HJwaL2IaAWG4BoAiCaAIgmAKLtlFKKB2ESPTo5WNgARBMA0Z4G4DaIJMt5twGI9lwAtgAJnp1zG4BoFwKwBZizF+fbBiDapQHYAszRZXNtAxBtZQC2AHOyap6v3AAiYA6ummO3QERbG4AtwJStm9+NNoAImKJN5nbjWyARMCWbzmujZwARMAVN5rTxQ7AIGLOm87nVb4FEwBhtM5db/xpUBIzJtvPY6nMAETAGbeaw9QdhIqCmtvPX6fDu7h+ed/l6sEpXF95OvwphGzCELuest4G1DehaHxfY3q/YQqCtPu8sBrtlEQJNDXFLPfg9uxBYZ8hnyaoPrWJgqdYvUP4HlaQDUrj4rHgAAAAASUVORK5CYII=">
+<title>Il Fortunato — Gestão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F2F4F8;
+    --card:#FFFFFF;
+    --terracotta:#3D63AD;
+    --terracotta-dark:#2C4A87;
+    --olive:#5B6B85;
+    --olive-dark:#3D4A5F;
+    --ink:#1F2733;
+    --ink-soft:#68707D;
+    --line:#E1E5EC;
+    --warn-bg:#FDF0DC;
+    --warn-text:#8A5A10;
+    --danger-bg:#FBE3E1;
+    --danger-text:#B03A32;
+    --ok-bg:#E4EEE7;
+    --ok-text:#2F6B49;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    padding:0 0 60px;
+  }
+  h1,h2,h3{font-family:'Playfair Display',serif;font-weight:600;margin:0;}
+  .topbar{
+    padding:28px 32px 18px;
+    border-bottom:2px solid var(--terracotta);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .topbar h1{font-size:28px;color:var(--terracotta-dark);letter-spacing:.08em;text-transform:uppercase;}
+  .topbar .sub{color:var(--terracotta-dark);font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-weight:600;border-top:1px solid var(--line);padding-top:6px;margin-top:2px;}
+  nav{
+    display:flex;
+    gap:4px;
+    padding:14px 32px 0;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  nav button{
+    border:none;
+    background:none;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:500;
+    color:var(--ink-soft);
+    padding:10px 16px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  nav button.active{color:var(--terracotta-dark);border-bottom-color:var(--terracotta);}
+  main{padding:26px 32px;max-width:1100px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .row.between{justify-content:space-between;}
+  select,input[type=text],input[type=number]{
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--card);
+    color:var(--ink);
+  }
+  label.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-soft);}
+  button.btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:9px 16px;
+    border-radius:8px;
+    border:1px solid var(--terracotta);
+    background:var(--terracotta);
+    color:#fff;
+    cursor:pointer;
+  }
+  button.btn.secondary{
+    background:transparent;
+    color:var(--terracotta-dark);
+  }
+  button.btn.small{padding:5px 10px;font-size:12px;}
+  button.icon-btn{
+    border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:13px;
+    text-decoration:underline;padding:2px;
+  }
+  button.icon-btn.danger{color:var(--danger-text);}
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--radius);overflow:hidden;}
+  thead th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    background:#FBF7EF;
+  }
+  thead th.sortable{cursor:pointer;user-select:none;}
+  thead th.sortable:hover{color:var(--terracotta-dark);}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  .badge{
+    display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:600;
+  }
+  .badge.warn{background:var(--warn-bg);color:var(--warn-text);}
+  .badge.danger{background:var(--danger-bg);color:var(--danger-text);}
+  .badge.ok{background:var(--ok-bg);color:var(--ok-text);}
+  .badge.area{background:#EFE7D8;color:var(--olive-dark);}
+  .card{background:var(--card);border-radius:var(--radius);padding:18px;border:1px solid var(--line);}
+  .empty{color:var(--ink-soft);font-size:14px;padding:24px;text-align:center;}
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(43,38,32,.45);display:none;
+    align-items:center;justify-content:center;z-index:20;padding:20px;
+  }
+  .modal-bg.open{display:flex;}
+  .modal{
+    background:var(--cream);border-radius:14px;padding:24px;max-width:520px;width:100%;
+    max-height:88vh;overflow-y:auto;
+  }
+  .modal h3{margin-bottom:16px;}
+  .modal .field-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .modal .field-row label.field{flex:1;min-width:140px;}
+  .price-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .price-row select{flex:1.4;}
+  .price-row input{flex:1;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .stat{font-size:22px;font-family:'Playfair Display',serif;font-weight:600;}
+  .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
+  .stats-row{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .stats-row .card{flex:1;min-width:150px;}
+  .save-note{font-size:12px;color:var(--ink-soft);}
+  .toggle-group{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .toggle-group button{
+    border:none;background:var(--card);padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;color:var(--ink-soft);
+  }
+  .toggle-group button.active{background:var(--olive);color:#fff;}
+
+  #printArea{padding:20px;}
+  .print-sheet{margin-bottom:40px;}
+  .print-sheet h2{font-size:20px;margin-bottom:4px;}
+  .print-meta{display:flex;gap:28px;margin:10px 0 16px;font-size:13px;color:var(--ink-soft);}
+  .print-sheet table{width:100%;border-collapse:collapse;}
+  .print-sheet th,.print-sheet td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left;}
+  .print-blank{min-width:60px;}
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{display:block !important;position:absolute;top:0;left:0;width:100%;padding:0;}
+    .print-sheet{page-break-after:always;}
+  }
+  .grupo-btn{
+    display:block; width:100%; text-align:left; padding:16px; margin-bottom:10px;
+    border:1px solid var(--line); border-radius:10px; background:var(--card); cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:16px; font-weight:600; color:var(--ink);
+  }
+  .grupo-btn:active{ background:var(--cream); }
+  .warn-box{ background:var(--warn-bg); color:var(--warn-text); border-radius:10px; padding:16px; margin-bottom:16px; font-size:14px; }
+  .area-header{
+    font-family:'Playfair Display',serif; font-weight:600; color:var(--terracotta-dark);
+    margin:20px 0 8px; font-size:15px; border-bottom:1px solid var(--line); padding-bottom:4px;
+  }
+  .produto-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  .produto-row .info{ flex:1; }
+  .produto-row .nome{ font-weight:500; }
+  .produto-row .categoria{ font-size:12px; color:var(--ink-soft); }
+  .produto-row input{ width:84px; text-align:center; }
+  .oper-screen{ display:none; max-width:640px; margin:0 auto; }
+  .oper-screen.active{ display:block; }
+  .footer-bar{
+    position:sticky; bottom:0; background:var(--cream); border-top:1px solid var(--line);
+    padding:14px 20px; margin:20px -20px -20px;
+  }
+  .top-actions{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .link-btn{ background:none;border:none;color:var(--ink-soft);font-size:13px;text-decoration:underline;cursor:pointer;padding:6px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+
+<div id="loginGate" style="position:fixed;inset:0;background:var(--cream);z-index:100;display:flex;flex-direction:column;overflow-y:auto;">
+  <div class="topbar">
+    <div>
+      <h1>Il Fortunato</h1>
+      <div class="sub">Cucina Italiana</div>
+    </div>
+  </div>
+  <div style="padding:24px 60px 0;">
+    <p style="font-size:19px;color:var(--ink);margin:0;">Estoque e Gestão de Produtos</p>
+  </div>
+  <div style="display:flex;justify-content:flex-end;padding:24px 60px 60px;">
+    <div class="modal" style="max-width:380px;width:100%;">
+      <h3 style="margin-bottom:16px;">Entrar</h3>
+      <label class="field">Email
+        <input type="email" id="gateEmail" autocomplete="username" style="width:100%;">
+      </label>
+      <label class="field">Password
+        <input type="password" id="gateSenha" autocomplete="current-password" style="width:100%;">
+      </label>
+      <button class="btn" style="width:100%;" onclick="fazerLoginGate()">Entrar</button>
+      <div class="save-note" id="gateErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalTrocarSenha">
+  <div class="modal" style="max-width:380px;">
+    <h3 style="margin-bottom:12px;">Define a tua password</h3>
+    <p class="save-note" style="margin-bottom:14px;">Ainda estás a usar a password inicial (123456). Por segurança, escolhe uma nova antes de continuares.</p>
+    <label class="field">Nova password
+      <input type="password" id="novaSenhaInput" style="width:100%;">
+    </label>
+    <button class="btn" style="width:100%;" onclick="trocarSenhaObrigatoria()">Guardar e continuar</button>
+    <div class="save-note" id="trocarSenhaErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+
+<div class="topbar">
+  <div>
+    <h1>Il Fortunato</h1>
+    <div class="sub">Produtos · fornecedores · áreas · estoque</div>
+  </div>
+  <div class="row" style="gap:14px;align-items:center;">
+    <div class="save-note" id="saveNote">Dados carregados</div>
+    <button class="link-btn" onclick="sairAdmin()">sair</button>
+  </div>
+</div>
+
+<nav>
+  <button data-view="produtos" class="active">Produtos</button>
+  <button data-view="fornecedores">Fornecedores</button>
+  <button data-view="areas">Áreas</button>
+  <button data-view="estoque">Estoque</button>
+  <button data-view="contagens">Contagens <span id="navContagensBadge"></span></button>
+  <button data-view="checklists">Checklists</button>
+  <button data-view="producao">Produção</button>
+  <button data-view="utilizadores">Utilizadores</button>
+</nav>
+
+<main>
+
+  <!-- PRODUTOS -->
+  <div class="view active" id="view-produtos">
+    <div class="row between">
+      <div class="row" style="gap:8px;">
+        <input type="text" id="prodSearch" placeholder="Procurar produto...">
+        <select id="prodFiltroCategoria" onchange="renderProdutos()"><option value="">Todas as categorias</option></select>
+        <select id="prodFiltroFornecedor" onchange="renderProdutos()"><option value="">Todos os fornecedores</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="prodMostrarForaDeUso" onchange="renderProdutos()"> Mostrar fora de uso
+        </label>
+        <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="excluirTodosForaDeUso()">Excluir todos os Fora de uso</button>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn secondary" id="btnImportar" onclick="importSeedData()">Importar produtos da planilha</button>
+        <button class="btn secondary" onclick="renumerarCodigos()">Renumerar códigos (1 a N)</button>
+        <button class="btn" onclick="openProdutoModal()">+ Novo produto</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="sortable" onclick="setProdSort('codigo')">Cód. <span id="sortIcon-codigo"></span></th>
+        <th class="sortable" onclick="setProdSort('nome')">Produto <span id="sortIcon-nome"></span></th>
+        <th class="sortable" onclick="setProdSort('categoria')">Categoria <span id="sortIcon-categoria"></span></th>
+        <th class="sortable" onclick="setProdSort('tipo')">Tipo <span id="sortIcon-tipo"></span></th>
+        <th class="sortable" onclick="setProdSort('area')">Área <span id="sortIcon-area"></span></th>
+        <th class="sortable" onclick="setProdSort('minima')">Mínima <span id="sortIcon-minima"></span></th>
+        <th class="sortable" onclick="setProdSort('preco')">Melhor preço <span id="sortIcon-preco"></span></th>
+        <th class="sortable" onclick="setProdSort('fornecedor')">Melhor fornecedor <span id="sortIcon-fornecedor"></span></th>
+        <th></th>
+      </tr></thead>
+      <tbody id="produtosBody"></tbody>
+    </table>
+  </div>
+
+  <!-- FORNECEDORES -->
+  <div class="view" id="view-fornecedores">
+    <div class="row between">
+      <div></div>
+      <button class="btn" onclick="openFornecedorModal()">+ Novo fornecedor</button>
+    </div>
+    <table>
+      <thead><tr><th>Fornecedor</th><th>Dias de entrega</th><th>Dias de contagem</th><th></th></tr></thead>
+      <tbody id="fornecedoresBody"></tbody>
+    </table>
+
+    <div class="card" style="margin-top:22px;">
+      <div class="row between" style="margin-bottom:10px;">
+        <h3 style="font-size:16px;">Grupos de compra (para a contagem dos colaboradores)</h3>
+        <button class="btn secondary" onclick="openGrupoModal()">+ Novo grupo</button>
+      </div>
+      <div class="save-note" style="margin-bottom:10px;">Ex: "Grupo 1" = Italmarket + Dream Plus. Cada colaborador escolhe um destes grupos para contar na página de contagem.</div>
+      <table>
+        <thead><tr><th>Grupo</th><th>Fornecedores</th><th>Dias de contagem</th><th></th></tr></thead>
+        <tbody id="gruposBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AREAS -->
+  <div class="view" id="view-areas">
+    <div class="row between">
+      <div></div>
+      <button class="btn" onclick="openAreaModal()">+ Nova área</button>
+    </div>
+    <table>
+      <thead><tr><th>Área</th><th>Produtos alocados</th><th></th></tr></thead>
+      <tbody id="areasBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ESTOQUE -->
+  <div class="view" id="view-estoque">
+    <div class="stats-row">
+      <div class="card"><div class="stat-label">A comprar (itens)</div><div class="stat" id="statAComprar">0</div></div>
+      <div class="card"><div class="stat-label">Valor em estoque</div><div class="stat" id="statValor">€0.00</div></div>
+      <div class="card"><div class="stat-label">Abaixo do mínimo</div><div class="stat" id="statAbaixo">0</div></div>
+    </div>
+
+    <div class="row between">
+      <div class="toggle-group">
+        <button id="tgArea" class="active" onclick="setEstoqueMode('area')">Ver por área</button>
+        <button id="tgCompras" onclick="setEstoqueMode('compras')">Lista de compras por fornecedor</button>
+        <button id="tgGrupo" onclick="setEstoqueMode('grupo')">Comprar por grupo</button>
+      </div>
+      <div class="row" id="estoqueFiltroWrap">
+        <label class="field">Área
+          <select id="filtroArea" onchange="renderEstoque()"><option value="">Todas</option></select>
+        </label>
+        <button class="btn secondary" onclick="imprimirContagem()">Imprimir folha de contagem</button>
+        <button class="btn secondary" onclick="exportarContagemExcel()">Exportar Excel p/ colaboradores</button>
+        <button class="btn secondary" onclick="document.getElementById('inputImportarContagem').click()">Importar Excel preenchido</button>
+        <input type="file" id="inputImportarContagem" accept=".xlsx,.xls" style="display:none;" onchange="importarContagemExcel(this.files[0])">
+        <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="zerarContagemEstoque()">Zerar contagem (nova semana)</button>
+      </div>
+      <div class="row" id="estoqueFiltroGrupoWrap" style="display:none;">
+        <label class="field">Grupo
+          <select id="filtroGrupo" onchange="renderEstoque()"><option value="">Escolhe um grupo</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div id="estoqueContent"></div>
+  </div>
+
+  <!-- CONTAGENS -->
+  <div class="view" id="view-contagens">
+    <div class="toggle-group" style="margin-bottom:14px;">
+      <button id="tgContagemPendentes" class="active" onclick="setContagensMode('pendentes')">Pendentes</button>
+      <button id="tgContagemHistorico" onclick="setContagensMode('historico')">Histórico</button>
+    </div>
+    <div class="save-note" id="contagensAjuda" style="margin-bottom:14px;">Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.</div>
+    <div class="row" id="historicoFiltroWrap" style="display:none;margin-bottom:14px;">
+      <label class="field">Filtrar por grupo
+        <select id="filtroHistoricoGrupo" onchange="renderContagens()">
+          <option value="">Todos</option>
+        </select>
+      </label>
+    </div>
+    <div id="contagensContent"></div>
+  </div>
+
+  <!-- CHECKLISTS -->
+  <div class="view" id="view-checklists">
+    <div class="toggle-group" style="margin-bottom:14px;">
+      <button id="tgChecklistItens" class="active" onclick="setChecklistAdminMode('itens')">Itens</button>
+      <button id="tgChecklistHistorico" onclick="setChecklistAdminMode('historico')">Histórico</button>
+    </div>
+
+    <div id="checklistItensView">
+      <div class="card" style="margin-bottom:20px;max-width:640px;">
+        <h3 style="font-size:16px;margin-bottom:4px;">Importar lista inicial</h3>
+        <div class="save-note" style="margin-bottom:10px;">110 tarefas já classificadas por área/tipo, prontas a editar depois. Só funciona se ainda não tiveres itens.</div>
+        <button class="btn secondary" onclick="importarChecklistSeed()">Importar lista inicial</button>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;max-width:640px;">
+        <h3 style="font-size:16px;margin-bottom:10px;">Adicionar várias tarefas de uma vez</h3>
+        <div class="field-row">
+          <label class="field">Área
+            <select id="checklistBulkArea">
+              <option>Salão</option><option>Área de Pizza</option><option>Bar</option><option>Cozinha</option>
+            </select>
+          </label>
+          <label class="field">Tipo
+            <select id="checklistBulkTipo">
+              <option value="abertura">Abertura</option><option value="fecho">Fecho</option><option value="manutencao">Manutenção</option><option value="entrada_turno">Entrada de turno</option><option value="saida_turno">Saída de turno</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">Tarefas (uma por linha)
+          <textarea id="checklistBulkTexto" rows="6" style="width:100%;font-family:'Inter',sans-serif;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;"></textarea>
+        </label>
+        <button class="btn" onclick="adicionarChecklistEmMassa()">Adicionar todas</button>
+      </div>
+
+      <div class="row between" style="margin-bottom:10px;">
+        <div class="row" style="gap:8px;">
+          <select id="checklistFiltroArea" onchange="renderChecklistItens()"><option value="">Todas as áreas</option></select>
+          <select id="checklistFiltroTipo" onchange="renderChecklistItens()">
+            <option value="">Todos os tipos</option><option value="abertura">Abertura</option><option value="fecho">Fecho</option><option value="manutencao">Manutenção</option><option value="entrada_turno">Entrada de turno</option><option value="saida_turno">Saída de turno</option>
+          </select>
+        </div>
+        <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="apagarChecklistSelecionados()">Apagar selecionados</button>
+        <button class="btn" onclick="openChecklistItemModal()">+ Novo item</button>
+      </div>
+      <table>
+        <thead><tr><th><input type="checkbox" id="checklistSelecionarTodos" onchange="toggleSelecionarTodosChecklist(this)"></th><th>Área</th><th>Tipo</th><th>Tarefa</th><th></th></tr></thead>
+        <tbody id="checklistItensBody"></tbody>
+      </table>
+    </div>
+
+    <div id="checklistHistoricoView" style="display:none;">
+      <div class="save-note" style="margin-bottom:14px;">Últimos dias, por área e tipo — quem fez e quando. "—" significa que ainda não foi feito nesse dia.</div>
+      <div id="checklistHistoricoContent"></div>
+    </div>
+  </div>
+
+  <!-- PRODUÇÃO -->
+  <div class="view" id="view-producao">
+    <div class="toggle-group" style="margin-bottom:14px;">
+      <button id="tgProducaoInsumos" class="active" onclick="setProducaoCategoria('insumos')">Insumos</button>
+      <button id="tgProducaoImpasto" onclick="setProducaoCategoria('impasto')">Impasto</button>
+    </div>
+
+    <div class="row between" style="margin-bottom:10px;">
+      <select id="producaoFiltroArea" onchange="renderProducaoItens()"><option value="">Todas as áreas</option></select>
+      <button class="btn" onclick="openProducaoItemModal()">+ Novo item</button>
+    </div>
+    <div class="save-note" style="margin-bottom:10px;">Define a quantidade a produzir de cada item, por dia da semana. Em branco = não produzir nesse dia.</div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Área</th><th>Item</th>
+          <th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th><th>Dom</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="producaoItensBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- UTILIZADORES -->
+  <div class="view" id="view-utilizadores">
+    <div class="card" style="max-width:520px;">
+      <h3 style="font-size:16px;margin-bottom:4px;">Criar utilizador</h3>
+      <div class="save-note" style="margin-bottom:14px;">Cria o login de um colaborador ou de outro administrador. A password inicial sugerida é 123456 — a pessoa é obrigada a trocá-la no primeiro acesso.</div>
+      <label class="field">Email<input type="email" id="novoUserEmail" placeholder="colaborador@exemplo.com"></label>
+      <label class="field">Password inicial<input type="text" id="novoUserSenha" value="123456"></label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0 16px;cursor:pointer;">
+        <input type="checkbox" id="novoUserAdmin"> Dar acesso de administrador (gestão completa)
+      </label>
+      <button class="btn" onclick="criarUtilizador()">Criar utilizador</button>
+      <div class="save-note" id="novoUserMsg" style="margin-top:10px;min-height:16px;"></div>
+    </div>
+
+    <div class="card" style="max-width:640px;margin-top:20px;">
+      <h3 style="font-size:16px;margin-bottom:6px;">Utilizadores criados por aqui</h3>
+      <div class="save-note" style="margin-bottom:10px;">"Remover" tira o acesso (de admin, ou da lista) mas não apaga o login em si — para apagar mesmo a conta, é preciso ir ao painel do Supabase (Authentication → Users).</div>
+      <table>
+        <thead><tr><th>Email</th><th>Criado em</th><th>Função</th><th></th></tr></thead>
+        <tbody id="utilizadoresBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="printArea" style="display:none;"></div>
+
+
+</main>
+
+<!-- MODAL PRODUTO -->
+<div class="modal-bg" id="modalProduto">
+  <div class="modal">
+    <h3 id="produtoModalTitle">Novo produto</h3>
+    <input type="hidden" id="produtoId">
+    <div class="field-row">
+      <label class="field">Código<input type="text" id="produtoCodigo" placeholder="ex: 42"></label>
+      <label class="field">Nome<input type="text" id="produtoNome" placeholder="ex: Farinha Caputo 25kg"></label>
+    </div>
+    <div class="field-row">
+      <label class="field">Categoria<input type="text" id="produtoCategoria" placeholder="ex: Mercearia"></label>
+      <label class="field">Tipo
+        <select id="produtoTipo">
+          <option value="materia_prima">Matéria-prima</option>
+          <option value="semi_preparado">Semi-preparado</option>
+        </select>
+      </label>
+      <label class="field">Áreas onde pode estar
+        <select id="produtoArea" multiple size="4" style="min-height:88px;"></select>
+      </label>
+    </div>
+    <div class="save-note" style="margin-top:-8px;margin-bottom:12px;">Ctrl/Cmd + clique para escolher mais do que uma área</div>
+
+    <h3 style="font-size:15px;margin:18px 0 8px;">Preços por fornecedor</h3>
+    <div id="precosList"></div>
+    <button class="icon-btn" onclick="addPrecoRow()">+ adicionar fornecedor</button>
+
+    <div class="field-row" style="margin-top:16px;">
+      <label class="field">Qtd. mínima (estoque)<input type="number" id="produtoQtdMinima" step="any" placeholder="0"></label>
+      <label class="field">Em estoque (contagem)<input type="number" id="produtoQtdAtual" step="any" placeholder="0"></label>
+      <label class="field">Fornecedor escolhido para compra
+        <select id="produtoFornecedorEscolhido"></select>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalProduto')">Cancelar</button>
+      <button class="btn" onclick="saveProduto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FORNECEDOR -->
+<div class="modal-bg" id="modalFornecedor">
+  <div class="modal">
+    <h3>Fornecedor</h3>
+    <input type="hidden" id="fornecedorId">
+    <label class="field">Nome<input type="text" id="fornecedorNome"></label>
+    <div class="field-row">
+      <label class="field">Dias de entrega (interno, só a gestão vê)
+        <select id="fornecedorDiasEntrega" multiple size="7">
+          <option value="Segunda">Segunda</option><option value="Terça">Terça</option><option value="Quarta">Quarta</option>
+          <option value="Quinta">Quinta</option><option value="Sexta">Sexta</option><option value="Sábado">Sábado</option><option value="Domingo">Domingo</option>
+        </select>
+      </label>
+      <label class="field">Dias de contagem (aparece no grupo, para os colaboradores)
+        <select id="fornecedorDiasContagem" multiple size="7">
+          <option value="Segunda">Segunda</option><option value="Terça">Terça</option><option value="Quarta">Quarta</option>
+          <option value="Quinta">Quinta</option><option value="Sexta">Sexta</option><option value="Sábado">Sábado</option><option value="Domingo">Domingo</option>
+        </select>
+      </label>
+    </div>
+    <div class="save-note" style="margin-top:-8px;margin-bottom:10px;">Ctrl/Cmd + clique para escolher mais do que um dia</div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalFornecedor')">Cancelar</button>
+      <button class="btn" onclick="saveFornecedor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ITEM PRODUÇÃO -->
+<div class="modal-bg" id="modalProducaoItem">
+  <div class="modal">
+    <h3>Item de produção</h3>
+    <input type="hidden" id="producaoItemId">
+    <label class="field">Área
+      <select id="producaoItemArea">
+        <option>Salão</option><option>Área de Pizza</option><option>Bar</option><option>Cozinha</option>
+      </select>
+    </label>
+    <label class="field">Nome do item<input type="text" id="producaoItemNome" style="width:100%;"></label>
+    <div class="save-note">As quantidades por dia da semana definem-se depois, direto na grelha.</div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalProducaoItem')">Cancelar</button>
+      <button class="btn" onclick="saveProducaoItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ITEM CHECKLIST -->
+<div class="modal-bg" id="modalChecklistItem">
+  <div class="modal">
+    <h3>Tarefa do checklist</h3>
+    <input type="hidden" id="checklistItemId">
+    <div class="field-row">
+      <label class="field">Área
+        <select id="checklistItemArea">
+          <option>Salão</option><option>Área de Pizza</option><option>Bar</option><option>Cozinha</option>
+        </select>
+      </label>
+      <label class="field">Tipo
+        <select id="checklistItemTipo">
+          <option value="abertura">Abertura</option><option value="fecho">Fecho</option><option value="manutencao">Manutenção</option><option value="entrada_turno">Entrada de turno</option><option value="saida_turno">Saída de turno</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">Tarefa<input type="text" id="checklistItemTexto" style="width:100%;"></label>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalChecklistItem')">Cancelar</button>
+      <button class="btn" onclick="saveChecklistItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GRUPO -->
+<div class="modal-bg" id="modalGrupo">
+  <div class="modal">
+    <h3>Grupo de compra</h3>
+    <input type="hidden" id="grupoId">
+    <div class="field-row">
+      <label class="field">Nome<input type="text" id="grupoNome" placeholder="ex: Grupo 1"></label>
+    </div>
+    <label class="field">Fornecedores deste grupo
+      <select id="grupoFornecedores" multiple size="6" style="min-height:120px;"></select>
+    </label>
+    <div class="save-note" style="margin-top:6px;margin-bottom:14px;">Ctrl/Cmd + clique para escolher mais do que um</div>
+    <label class="field">Dia(s) de contagem deste grupo (o que aparece para os colaboradores)
+      <select id="grupoDiasContagem" multiple size="7">
+        <option value="Segunda">Segunda</option><option value="Terça">Terça</option><option value="Quarta">Quarta</option>
+        <option value="Quinta">Quinta</option><option value="Sexta">Sexta</option><option value="Sábado">Sábado</option><option value="Domingo">Domingo</option>
+      </select>
+    </label>
+    <div class="save-note" style="margin-top:6px;">Ctrl/Cmd + clique para escolher mais do que um dia</div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalGrupo')">Cancelar</button>
+      <button class="btn" onclick="saveGrupo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AREA -->
+<div class="modal-bg" id="modalArea">
+  <div class="modal">
+    <h3>Área</h3>
+    <input type="hidden" id="areaId">
+    <div class="field-row">
+      <label class="field">Nome<input type="text" id="areaNome" placeholder="ex: Área de pizza, Bar, Equipamento 1..."></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalArea')">Cancelar</button>
+      <button class="btn" onclick="saveArea()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+</div> <!-- fim appRoot -->
+
+<!-- MODAL CONFIRM/ALERT (partilhado entre gestão e modo operacional) -->
+<div class="modal-bg" id="modalConfirm">
+  <div class="modal" style="max-width:420px;">
+    <h3 style="font-size:17px;">Aviso</h3>
+    <p id="confirmMessage" style="white-space:pre-line;color:var(--ink-soft);font-size:14px;line-height:1.6;"></p>
+    <div class="modal-actions">
+      <button class="btn secondary" id="confirmCancelBtn">Cancelar</button>
+      <button class="btn" id="confirmOkBtn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="operRoot" style="display:none;padding:20px;">
+  <div class="top-actions">
+    <div class="save-note" id="operUsuarioLabel"></div>
+    <button class="link-btn" onclick="sairOperacional()">sair</button>
+  </div>
+
+  <!-- ECRÃ INICIAL -->
+  <div class="oper-screen active" id="oper-screen-home">
+    <h3 id="operSaudacao" style="margin-bottom:18px;"></h3>
+    <button class="grupo-btn" onclick="mostrarOperScreen('oper-screen-grupos'); renderGruposOperacional();">📦 Contar estoque</button>
+    <button class="grupo-btn" onclick="mostrarOperScreen('oper-screen-checklist-tipo')">✅ Fazer checklist</button>
+    <button class="grupo-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')">🍕 Produção</button>
+  </div>
+
+  <!-- PRODUÇÃO: escolher categoria -->
+  <div class="oper-screen" id="oper-screen-producao-tipo">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">O que vais produzir?</h3>
+    <button class="grupo-btn" onclick="selecionarProducaoCategoria('insumos')">🥬 Insumos</button>
+    <button class="grupo-btn" onclick="selecionarProducaoCategoria('impasto')">🍞 Impasto</button>
+  </div>
+
+  <!-- PRODUÇÃO: escolher área(s) -->
+  <div class="oper-screen" id="oper-screen-producao-areas">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;" id="producaoAreasTitulo">Em que área(s) vais produzir?</h3>
+    <div id="producaoAreasLista"></div>
+    <div class="footer-bar">
+      <button class="btn" onclick="iniciarProducaoItens()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- PRODUÇÃO: lista de itens -->
+  <div class="oper-screen" id="oper-screen-producao-itens">
+    <div class="top-actions">
+      <h3 id="producaoItensTitulo"></h3>
+      <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')">← início</button>
+    </div>
+    <div class="save-note" style="margin-bottom:10px;">Marca um item assim que o produzires — desaparece para todos, para não haver duplicação.</div>
+    <div id="producaoItensLista"></div>
+  </div>
+
+  <div class="oper-screen" id="oper-screen-grupos">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">Qual grupo vais contar?</h3>
+    <div id="operListaGrupos"></div>
+  </div>
+
+  <!-- CONTAGEM: escolher área dentro do grupo -->
+  <div class="oper-screen" id="oper-screen-grupo-areas">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-grupos')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;" id="grupoAreasTitulo"></h3>
+    <div id="grupoAreasLista"></div>
+    <div class="footer-bar">
+      <button class="btn" onclick="iniciarContagemPorAreas()">Continuar</button>
+    </div>
+  </div>
+
+  <div class="oper-screen" id="oper-screen-bloqueado">
+    <button class="link-btn" onclick="voltarParaGruposOperacional()" style="margin-bottom:12px;">← voltar</button>
+    <div class="warn-box" id="operBloqueadoMsg"></div>
+  </div>
+
+  <div class="oper-screen" id="oper-screen-contagem">
+    <div class="top-actions">
+      <h3 id="operContagemTitulo"></h3>
+      <button class="link-btn" onclick="voltarParaGruposOperacional()">← voltar</button>
+    </div>
+    <div id="operListaProdutos"></div>
+    <div class="footer-bar">
+      <button class="btn" onclick="confirmarEnvioOperacional()">OK — enviar contagem</button>
+    </div>
+  </div>
+
+  <div class="oper-screen" id="oper-screen-sucesso">
+    <div class="card" style="text-align:center;">
+      <h3 style="margin-bottom:10px;">Contagem enviada ✓</h3>
+      <p style="color:var(--ink-soft);margin-bottom:16px;">Obrigado! A tua contagem foi enviada e já está à espera de revisão.</p>
+      <button class="btn" onclick="voltarParaGruposOperacional()">Contar outro grupo</button>
+    </div>
+  </div>
+
+  <!-- CHECKLIST: escolher tipo -->
+  <div class="oper-screen" id="oper-screen-checklist-tipo">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">Início do dia, fim do dia, manutenção ou troca de turno?</h3>
+    <button class="grupo-btn" onclick="selecionarChecklistTipo('abertura')">🌅 Início do dia</button>
+    <button class="grupo-btn" onclick="selecionarChecklistTipo('fecho')">🌙 Fim do dia</button>
+    <button class="grupo-btn" onclick="selecionarChecklistTipo('manutencao')">🔧 Manutenção</button>
+    <button class="grupo-btn" onclick="mostrarOperScreen('oper-screen-turno-subtipo')">🔄 Troca de turno</button>
+  </div>
+
+  <!-- CHECKLIST: troca de turno — entrada ou saída -->
+  <div class="oper-screen" id="oper-screen-turno-subtipo">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-checklist-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">Estás a entrar ou a sair?</h3>
+    <button class="grupo-btn" onclick="selecionarChecklistTipo('entrada_turno')">➡️ Estou a entrar</button>
+    <button class="grupo-btn" onclick="selecionarChecklistTipo('saida_turno')">⬅️ Estou a sair</button>
+  </div>
+
+  <!-- CHECKLIST: escolher área(s) -->
+  <div class="oper-screen" id="oper-screen-checklist-areas">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-checklist-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;" id="checklistAreasTitulo">Em que área(s) vais trabalhar?</h3>
+    <div id="checklistAreasLista"></div>
+    <div class="footer-bar">
+      <button class="btn" onclick="iniciarChecklistTarefas()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- CHECKLIST: tarefas -->
+  <div class="oper-screen" id="oper-screen-checklist-tarefas">
+    <div class="top-actions">
+      <h3 id="checklistTarefasTitulo"></h3>
+      <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')">← início</button>
+    </div>
+    <div id="checklistTarefasLista"></div>
+    <div class="footer-bar">
+      <button class="btn" id="btnFinalizarChecklist" onclick="finalizarChecklist()" disabled>Finalizar (marca tudo primeiro)</button>
+    </div>
+  </div>
+
+  <!-- CHECKLIST: sucesso -->
+  <div class="oper-screen" id="oper-screen-checklist-sucesso">
+    <div class="card" style="text-align:center;">
+      <h3 style="margin-bottom:10px;" id="checklistSucessoMsg"></h3>
+      <button class="btn" onclick="mostrarOperScreen('oper-screen-home')">Voltar ao início</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+function showConfirm(message){
+  return new Promise(resolve => {
+    document.getElementById('confirmMessage').textContent = message;
+    const modal = document.getElementById('modalConfirm');
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    cancelBtn.style.display = '';
+    okBtn.textContent = 'Confirmar';
+    modal.classList.add('open');
+    function onOk(){ cleanup(true); }
+    function onCancel(){ cleanup(false); }
+    function cleanup(result){
+      modal.classList.remove('open');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+function showAlert(message){
+  return new Promise(resolve => {
+    document.getElementById('confirmMessage').textContent = message;
+    const modal = document.getElementById('modalConfirm');
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    cancelBtn.style.display = 'none';
+    okBtn.textContent = 'OK';
+    modal.classList.add('open');
+    function onOk(){ cleanup(); }
+    function cleanup(){
+      modal.classList.remove('open');
+      okBtn.removeEventListener('click', onOk);
+      resolve();
+    }
+    okBtn.addEventListener('click', onOk);
+  });
+}
+</script>
+
+<script type="application/json" id="checklistSeedData">[{"area": "Área de Pizza", "tipo": "abertura", "texto": "Fazer massa"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Desligar amassadeira da tomada e limpar"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Tirar brasa e limpar resíduos do forno"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Acender o forno em tripé (10h)"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Conferir a temperatura da massa da pizza (11h, 11h15, 11h30 e 11h45)"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Contar a quantidade exata de massas para o dia (avisar desperdícios)"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Conferir a quantidade de massas disponíveis para venda"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Organizar mise en place finalização (parmesão, manjericão, rúcula, prosciutto, azeite, azeitonas, Nutella, amêndoas, pimenta preta, utensílios)"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Revisar condição dos ingredientes do mise en place da pizza"}, {"area": "Área de Pizza", "tipo": "abertura", "texto": "Apontar quantidade exata de massas para o dia com a cozinha"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Guardar massas não vendidas (contadas, etiquetadas e com filme plástico)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Retirar massas do serviço da noite"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Tampar a pista fria"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Raspar caixas"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Recolher e lavar utensílios da pista fria"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Raspar bancada da pista fria (com álcool)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Guardar/etiquetar itens fora da pista fria (alho, orégano, parmesão)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Guardar/etiquetar rúcula, prosciutto, Nutella e amêndoas"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Lavar pás"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Retirar massas do frio para o próximo turno (se necessário)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Ligar forno (se necessário)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Manter masseira limpa e organizada"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Deixar água gelada preparada para a massa do dia seguinte"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Retirar massas para fora do frio (se necessário)"}, {"area": "Área de Pizza", "tipo": "fecho", "texto": "Guardar/etiquetar mise en place da finalização"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Ligar luzes e computador"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Ligar ar condicionado"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Retirar massas do almoço"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Limpar e higienizar amassadeira com álcool"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Limpar e higienizar superfícies"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Preparar mise en place"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Preencher planilha de recebimento de fornecedores (quando houver entrega)"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Anotar temperatura da câmara fria e balcão refrigerado"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Revisar condição dos ingredientes (disponibilidade, validade, conservação)"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Anotar na planilha de controlo de perdas qualquer perda de produto"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Ligar a vela da santinha"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Montar e conferir mise en place"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Higienizar bancada de trabalho"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Retirar produtos do frio para os bowls"}, {"area": "Cozinha", "tipo": "abertura", "texto": "Organizar utensílios nos devidos lugares"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Recolher lixo"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Preparar mise en place para o dia seguinte"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Recolocar filtro da máquina de lavar loiça com sabão específico"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Limpar prateleiras e tomadas"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Deixar utensílios limpos"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Lavar louça e pás"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Repor dispensers de papel/sabonete"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Raspar caixas"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Raspar e lavar bancadas"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Etiquetar alimentos e conferir etiquetas (inclusive geladeira)"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Manter geladeiras limpas e organizadas (dobradiças, borrachas, gavetas)"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Limpar impressora (cuidado para não molhar)"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Conferir mise en place e avisar faltas ao responsável"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Limpar o chão"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Esvaziar e limpar as lixeiras"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Guardar louça do escorredor"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Manter limpas as pias, portas e laterais"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Lavar e limpar pano de chão e deixar de molho com cloro"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Conferir e limpar armários"}, {"area": "Cozinha", "tipo": "fecho", "texto": "Limpar filtro da máquina de lavar e esvaziá-la, depois desligar"}, {"area": "Bar", "tipo": "abertura", "texto": "Ligar máquina de café e moinho"}, {"area": "Bar", "tipo": "abertura", "texto": "Organizar mise en place do café (açúcar, mexedores, loiças)"}, {"area": "Bar", "tipo": "abertura", "texto": "Repor café no moinho"}, {"area": "Bar", "tipo": "abertura", "texto": "Limpar e higienizar superfícies de trabalho"}, {"area": "Bar", "tipo": "abertura", "texto": "Guardar louças"}, {"area": "Bar", "tipo": "abertura", "texto": "Conferir copos no sítio certo"}, {"area": "Bar", "tipo": "abertura", "texto": "Repor biqueiras de refrigerante e copos de 30 e 50cl"}, {"area": "Bar", "tipo": "abertura", "texto": "Abrir e manter visível o email e o Google Drive"}, {"area": "Bar", "tipo": "fecho", "texto": "Organizar utensílios prontos na bancada para o dia seguinte"}, {"area": "Bar", "tipo": "fecho", "texto": "Organizar copos nos sítios certos e tapar com pano"}, {"area": "Bar", "tipo": "fecho", "texto": "Retirar lixos e repor sacos"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar pia e azulejos ao redor, retirar restos de comida do ralo"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar e manter organizados bancadas, prateleiras, portas, balcões, tomadas e armários"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar impressora (cuidado para não molhar)"}, {"area": "Bar", "tipo": "fecho", "texto": "Desligar impressoras e computador"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar e desligar máquina de café e moinho (3 botões)"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar embaixo da cafeteira (às quintas-feiras)"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar bandeja coletora e torneiras das cervejas com água quente"}, {"area": "Bar", "tipo": "fecho", "texto": "Lavar e esfregar os panos do turno com detergente e deixar de molho com cloro"}, {"area": "Bar", "tipo": "fecho", "texto": "Enxaguar os panos de molho e pôr a secar"}, {"area": "Bar", "tipo": "fecho", "texto": "Repor bebidas no frio e organizar na prateleira"}, {"area": "Bar", "tipo": "fecho", "texto": "Retirar biqueiras da máquina de refrigerante e colocar de molho, repor copos"}, {"area": "Bar", "tipo": "fecho", "texto": "Conferir e repor mise en place para o dia seguinte, avisar faltas"}, {"area": "Bar", "tipo": "fecho", "texto": "Limpar e guardar louças e utensílios"}, {"area": "Bar", "tipo": "fecho", "texto": "Repor mise en place da secção"}, {"area": "Bar", "tipo": "fecho", "texto": "Repor bebidas no frio e no estoque da prateleira"}, {"area": "Bar", "tipo": "fecho", "texto": "Avisar produtos em falta ao supervisor"}, {"area": "Salão", "tipo": "abertura", "texto": "Organizar menus"}, {"area": "Salão", "tipo": "abertura", "texto": "Organizar talheres enrolados com guardanapo no local correto"}, {"area": "Salão", "tipo": "abertura", "texto": "Distribuir panos de Sala, Finalização e Produção por cores conforme o turno"}, {"area": "Salão", "tipo": "abertura", "texto": "Limpar e colocar mesas e cadeiras da esplanada para fora"}, {"area": "Salão", "tipo": "abertura", "texto": "Revisar condições dos WCs (chão, pia, sanitas, lixeiras, dispensers)"}, {"area": "Salão", "tipo": "abertura", "texto": "Preencher planilha de controlo de limpeza dos WCs"}, {"area": "Salão", "tipo": "abertura", "texto": "Colocar placas e pote de água de cães na rua"}, {"area": "Salão", "tipo": "abertura", "texto": "Regar as plantas"}, {"area": "Salão", "tipo": "abertura", "texto": "Ligar todas as luzes"}, {"area": "Salão", "tipo": "abertura", "texto": "Limpar mesas e cadeiras dos 2 pisos"}, {"area": "Salão", "tipo": "abertura", "texto": "Limpar vidros da porta e separador da área de produção"}, {"area": "Salão", "tipo": "abertura", "texto": "Distribuir latas de guardanapos"}, {"area": "Salão", "tipo": "fecho", "texto": "Limpar mesas e cadeiras dos 2 pisos"}, {"area": "Salão", "tipo": "fecho", "texto": "Revisar necessidade de papéis/sabonetes dos banheiros e limpeza"}, {"area": "Salão", "tipo": "fecho", "texto": "Verificar lixos da sala e banheiros"}, {"area": "Salão", "tipo": "fecho", "texto": "Recolher menus"}, {"area": "Salão", "tipo": "fecho", "texto": "Limpar mesas, bancos e chão das salas"}, {"area": "Salão", "tipo": "fecho", "texto": "Guardar mesas e cadeiras da esplanada"}, {"area": "Salão", "tipo": "fecho", "texto": "Recolher placas da rua e pote de água de cães"}, {"area": "Salão", "tipo": "fecho", "texto": "Fechar estores"}, {"area": "Salão", "tipo": "fecho", "texto": "Apagar luzes e luminosos"}, {"area": "Salão", "tipo": "fecho", "texto": "Recolher grades com heras e demais itens da esplanada"}, {"area": "Salão", "tipo": "fecho", "texto": "Virar a placa de \"fechado\" na porta"}]</script>
+<script type="application/json" id="seedData">{"areas": ["BAR", "COZINHA", "EQUIPAMENTO 1", "EQUIPAMENTO 2", "EQUIPAMENTO 3", "EQUIPAMENTO 5", "EQUIPAMETO 4", "ESCRITÓRIO", "ESTOQUE", "FORA DE USO", "SEMI-PREPARADOS", "ÁREA DE PIZZA"], "fornecedores": ["Alcino da Silva", "Aromáticas Vivas", "Auchan", "Continente", "Dream Plus", "GB Foods", "Greenpack", "Il Fortunato", "Italmarket", "Makro", "Mercadona", "Recheio", "Segafredo", "Super Gaia", "Talho Alfredo"], "produtos": [{"codigo": "1", "nome": "Farinha Caputo Nuvola SUPER 25kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 38.26}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "2", "nome": "Farinha Manitoba 5kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 6.99}], "posicoes": ["FORA DE USO"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "3", "nome": "Saco de Gelo 2kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Auchan", "preco": 1.0}], "posicoes": ["EQUIPAMETO 4"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "4", "nome": "Semola de Trigo 10kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 15.25}, {"fornecedor": "Dream Plus", "preco": 9.42}, {"fornecedor": "Makro", "preco": 14.99}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "5", "nome": "Talheres Descartaveis 50unid.", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 6.31}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "6", "nome": "Alcaparra c/gambo 1650kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 13.29}], "posicoes": ["EQUIPAMENTO 3", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "7", "nome": "Azeitonas Verdes 18/20", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 4.095}], "posicoes": ["EQUIPAMENTO 3", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "8", "nome": "Mozzarella Fior de Latte Fresca 125G", "categoria": "Laticínios", "precos": [{"fornecedor": "GB Foods", "preco": 1.3}, {"fornecedor": "Makro", "preco": 0.88}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 10, "qtd_atual": 0}, {"codigo": "9", "nome": "Mozzarella Fior de Latte Ralada 3kg - Fiordoro", "categoria": "Laticínios", "precos": [{"fornecedor": "Italmarket", "preco": 17.98}, {"fornecedor": "GB Foods", "preco": 23.7}, {"fornecedor": "Dream Plus", "preco": 18.0}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 7, "qtd_atual": 0}, {"codigo": "10", "nome": "Tomate Chucha", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 1.98}, {"fornecedor": "Continente", "preco": 2.99}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 8, "qtd_atual": 0}, {"codigo": "11", "nome": "Tomate Cherry Chucha kg CX2KG", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 2.98}, {"fornecedor": "Continente", "preco": 8.36}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "12", "nome": "Pesto Verde 1kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 10.55}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "13", "nome": "Curgete", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 1.72}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "14", "nome": "Pimentos Assados lata", "categoria": "Hortifruti", "precos": [{"fornecedor": "Mercadona", "preco": 2.0}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "15", "nome": "Acetato Balsameco Makro 500ml", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 2.33}, {"fornecedor": "GB Foods", "preco": 3.6}, {"fornecedor": "Italmarket", "preco": 4.5}], "posicoes": ["COZINHA", "ÁREA DE PIZZA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "16", "nome": "Queijo Camembert President 250g", "categoria": "Laticínios", "precos": [{"fornecedor": "Dream Plus", "preco": 2.28}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 6, "qtd_atual": 0}, {"codigo": "17", "nome": "Pêra Rocha", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 2.0}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 6, "qtd_atual": 0}, {"codigo": "18", "nome": "Marsala 1lt", "categoria": "Bebidas", "precos": [{"fornecedor": "Italmarket", "preco": 5.69}, {"fornecedor": "Dream Plus", "preco": 5.7}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "19", "nome": "Pinhãao pac250g", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 7.98}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "20", "nome": "Beterraba Inteira", "categoria": "Hortifruti", "precos": [{"fornecedor": "Recheio", "preco": 0.99}, {"fornecedor": "Makro", "preco": 0.98}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "21", "nome": "Burrata 125g", "categoria": "Laticínios", "precos": [{"fornecedor": "Recheio", "preco": 1.9}, {"fornecedor": "Italmarket", "preco": 1.87}, {"fornecedor": "Dream Plus", "preco": 1.871}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 30, "qtd_atual": 0}, {"codigo": "22", "nome": "Tomate San Marzano La Regina 2550g", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 5.49}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 12, "qtd_atual": 0}, {"codigo": "23", "nome": "Manjericão pé (coloquei 5 porções por pé)", "categoria": "Hortifruti", "precos": [{"fornecedor": "Continente", "preco": 1.9}, {"fornecedor": "Aromáticas Vivas", "preco": 1.79}], "posicoes": ["COZINHA", "ÁREA DE PIZZA"], "qtd_minima": 10, "qtd_atual": 0}, {"codigo": "24", "nome": "Rucula Selvagem pacote250g", "categoria": "Hortifruti", "precos": [{"fornecedor": "Continente", "preco": 2.24}, {"fornecedor": "Makro", "preco": 2.18}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 5, "qtd_atual": 0}, {"codigo": "25", "nome": "Presunto Italiano s/osso 1/2 Montorsi", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 10.95}, {"fornecedor": "Dream Plus", "preco": 12.7}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "26", "nome": "Saco de lixo 10L", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 2.56}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "27", "nome": "Alface Trevisse (Roxo)", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 2.88}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "28", "nome": "Salsa Cogumelos&Tartufo nero 250ml", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 10.5}, {"fornecedor": "Dream Plus", "preco": 9.35}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "29", "nome": "Ovos CAIXA GRANDE (15Duz)", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 33.99}], "posicoes": ["COZINHA", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "30", "nome": "Cogumelos Branco Médio 35/55 cx3kg", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 12.72}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "31", "nome": "Cogumelos Secos Mistura do Bosque cx250g", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 8.98}], "posicoes": ["COZINHA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "32", "nome": "Clara de Ovo Pasteurizada 320ml", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 1.15}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "33", "nome": "Nduja Picante kg", "categoria": "Mercearia", "precos": [{"fornecedor": "GB Foods", "preco": 18.88}, {"fornecedor": "Italmarket", "preco": 12.94}, {"fornecedor": "Dream Plus", "preco": 12.41}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "34", "nome": "Mortadela c/ Pistacho - Simonini KG", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 9.55}, {"fornecedor": "GB Foods", "preco": 12.68}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "35", "nome": "Pistacchio pac1kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Dream Plus", "preco": 34.83}, {"fornecedor": "Makro", "preco": 47.92}], "posicoes": ["COZINHA", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "36", "nome": "Pano Universal em Rolo 100x38cm", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 7.39}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "37", "nome": "Azeitonas Pretas Laminadas 3kg (1,560kg)", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 6.75}, {"fornecedor": "Dream Plus", "preco": 7.07}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "38", "nome": "Amendoas Miolo Laminadas kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Continente", "preco": 16.45}, {"fornecedor": "Makro", "preco": 11.48}, {"fornecedor": "Dream Plus", "preco": 10.35}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "39", "nome": "Guanciale Kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 14.82}, {"fornecedor": "GB Foods", "preco": 16.2}, {"fornecedor": "Italmarket", "preco": 12.38}, {"fornecedor": "Dream Plus", "preco": 13.41}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "40", "nome": "Pimenta Preta c/ moinho 35g", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 3.29}], "posicoes": ["COZINHA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "41", "nome": "Alecrim Kg Pac100g", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 2.88}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "42", "nome": "Gnocchi di patate 500g", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 1.27}, {"fornecedor": "Makro", "preco": 1.39}, {"fornecedor": "GB Foods", "preco": 1.99}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 10, "qtd_atual": 0}, {"codigo": "43", "nome": "Carne de Vaca Picada 1Kg", "categoria": "Proteínas", "precos": [{"fornecedor": "Talho Alfredo", "preco": 9.5}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "44", "nome": "Carne de Porco Rojões 1Kg", "categoria": "Proteínas", "precos": [{"fornecedor": "Talho Alfredo", "preco": 5.99}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "45", "nome": "Cenoura pac2kg", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 1.48}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "46", "nome": "Aipo Kg", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 3.27}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "47", "nome": "Nósmoscada Moida Makro 100g", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 3.65}], "posicoes": ["COZINHA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "48", "nome": "Natas Vaqueiro 1l", "categoria": "Laticínios", "precos": [{"fornecedor": "Makro", "preco": 3.45}, {"fornecedor": "Dream Plus", "preco": 3.31}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 3"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "49", "nome": "Molho Bechamel Parmalat 500ml", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 2.23}], "posicoes": ["COZINHA"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "50", "nome": "Ricota Galbani 250g", "categoria": "Laticínios", "precos": [{"fornecedor": "Makro", "preco": 2.03}, {"fornecedor": "Dream Plus", "preco": 1.45}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "51", "nome": "Biscoito Savoiardi 400g", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 1.97}, {"fornecedor": "GB Foods", "preco": 2.4}, {"fornecedor": "Dream Plus", "preco": 1.91}], "posicoes": ["COZINHA", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 6, "qtd_atual": 0}, {"codigo": "52", "nome": "Mascarpone 500g", "categoria": "Laticínios", "precos": [{"fornecedor": "Italmarket", "preco": 4.68}, {"fornecedor": "Recheio", "preco": 5.39}, {"fornecedor": "GB Foods", "preco": 4.84}, {"fornecedor": "Dream Plus", "preco": 4.58}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 6, "qtd_atual": 0}, {"codigo": "53", "nome": "Chocolate em Barra Pantagruel Culinária barra", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 2.51}], "posicoes": ["COZINHA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "54", "nome": "Bolacha Digestíveis pacote", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 1.03}], "posicoes": ["COZINHA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "55", "nome": "Leite Condensado Nestlè 370g", "categoria": "Laticínios", "precos": [{"fornecedor": "Recheio", "preco": 1.39}, {"fornecedor": "Makro", "preco": 1.38}], "posicoes": ["COZINHA"], "qtd_minima": 6, "qtd_atual": 0}, {"codigo": "58", "nome": "Alho 500g", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 2.78}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "60", "nome": "Cebola Roxa pac1kg", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 1.64}], "posicoes": ["COZINHA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "61", "nome": "Coca-Cola", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.6925}, {"fornecedor": "Super Gaia", "preco": 0.625}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 50, "qtd_atual": 0}, {"codigo": "62", "nome": "Coca-Cola Lata Zero (Imp.)", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.6696}, {"fornecedor": "Super Gaia", "preco": 0.6071}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 65, "qtd_atual": 0}, {"codigo": "63", "nome": "Cerveja Icnusa 33cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Italmarket", "preco": 1.29}, {"fornecedor": "Dream Plus", "preco": 1.37}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 16, "qtd_atual": 0}, {"codigo": "65", "nome": "Aperol 750", "categoria": "Bebidas", "precos": [{"fornecedor": "Alcino da Silva", "preco": 11.1}, {"fornecedor": "Makro", "preco": 11.89}, {"fornecedor": "Super Gaia", "preco": 10.41}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "66", "nome": "Gin Bombay Original 700ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 12.14}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "67", "nome": "Água Tônica 20cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Alcino da Silva", "preco": 0.64}, {"fornecedor": "Makro", "preco": 0.631}, {"fornecedor": "Super Gaia", "preco": 0.63}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 16, "qtd_atual": 0}, {"codigo": "68", "nome": "Café 1kg", "categoria": "Bebidas", "precos": [{"fornecedor": "Segafredo", "preco": 24.43}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "69", "nome": "Vinho do Porto Branco", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 3.95}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "70", "nome": "Vinho do Porto Tany", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 3.93}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "72", "nome": "Cerveja Heinikein 33cl", "categoria": "Bebidas", "precos": [], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 24, "qtd_atual": 0}, {"codigo": "73", "nome": "Cerveja Heinikein 20cl", "categoria": "Bebidas", "precos": [], "posicoes": ["FORA DE USO"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "74", "nome": "Cerveja Super Bock 33cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Alcino da Silva", "preco": 0.575}, {"fornecedor": "Makro", "preco": 0.58}, {"fornecedor": "Super Gaia", "preco": 0.5737}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 100, "qtd_atual": 0}, {"codigo": "75", "nome": "Cerveja Heinikein S/A", "categoria": "Bebidas", "precos": [], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 18, "qtd_atual": 0}, {"codigo": "76", "nome": "Campari 70cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 15.69}, {"fornecedor": "Super Gaia", "preco": 14.92}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "77", "nome": "Vinho Verde Aveleda Branco Alvarinho 750ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 4.69}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 12, "qtd_atual": 0}, {"codigo": "78", "nome": "Vinho Tinto CONSCIÊNCI 750ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 2.67}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 17, "qtd_atual": 0}, {"codigo": "79", "nome": "Vinho Branco CONSCIÊNCIA 750ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 2.75}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 18, "qtd_atual": 0}, {"codigo": "81", "nome": "Água das Pedras LIMÃO 25cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Alcino da Silva", "preco": 0.457}, {"fornecedor": "Makro", "preco": 0.47}, {"fornecedor": "Super Gaia", "preco": 0.4558}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "82", "nome": "ÁguA tônica 1lt", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 1.29}], "posicoes": ["FORA DE USO"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "83", "nome": "Água c/gás San Pelegrino", "categoria": "Bebidas", "precos": [{"fornecedor": "Italmarket", "preco": 1.28}, {"fornecedor": "Dream Plus", "preco": 1.2807}, {"fornecedor": "Super Gaia", "preco": 1.5967}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 18, "qtd_atual": 0}, {"codigo": "84", "nome": "Caixa de Pizza 031x031 100unid.", "categoria": "Descartáveis", "precos": [{"fornecedor": "Greenpack", "preco": 50.38}, {"fornecedor": "Dream Plus", "preco": 25.0}, {"fornecedor": "Makro", "preco": 24.99}], "posicoes": ["ÁREA DE PIZZA", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "85", "nome": "Embalagem para Massas + Tampa 750ml 50und.", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 6.99}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.3, "qtd_atual": 0}, {"codigo": "87", "nome": "Saco de Cartão s/asa 27x17x32cm50und", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 13.43}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "88", "nome": "Guardanapos 40x40 canguru/dobrado 150un", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 2.99}], "posicoes": ["ESTOQUE"], "qtd_minima": 5, "qtd_atual": 0}, {"codigo": "89", "nome": "Salame Picante Italiano Italmarkt 700g", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 9.98}, {"fornecedor": "GB Foods", "preco": 14.95}, {"fornecedor": "Dream Plus", "preco": 10.02}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "90", "nome": "Pepel Charcutaria Silvex 30cmX150m", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 8.44}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "100", "nome": "Orégãos Secos Pote", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 3.03}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "101", "nome": "Hortelã Fresca vaso", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 1.48}, {"fornecedor": "Aromáticas Vivas", "preco": 1.26}], "posicoes": ["COZINHA"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "104", "nome": "Pasta de Azeitonas Pretas", "categoria": "Semi-Preparados", "precos": [], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "105", "nome": "Molho Bolonhesa", "categoria": "Semi-Preparados", "precos": [], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "106", "nome": "Tagliatelle Fresco", "categoria": "Semi-Preparados", "precos": [], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "107", "nome": "Massa Fresca Lasagna", "categoria": "Semi-Preparados", "precos": [], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "108", "nome": "Azeite de Oliva Extra Virgem Makro 5lt", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 24.75}], "posicoes": ["COZINHA", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "109", "nome": "Limoncello 2L", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 15.44}], "posicoes": ["EQUIPAMENTO 2"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "113", "nome": "Farinha de Trigo", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 0.61}], "posicoes": ["FORA DE USO"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "114", "nome": "Açúcar pacote", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 0.8}], "posicoes": ["COZINHA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "115", "nome": "Queijo Grana Padano 200g", "categoria": "Laticínios", "precos": [{"fornecedor": "Makro", "preco": 4.44}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "116", "nome": "Sal 10kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 2.99}], "posicoes": ["ÁREA DE PIZZA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "117", "nome": "Crostini / Pão Torrado", "categoria": "Semi-Preparados", "precos": [{"fornecedor": "Il Fortunato", "preco": 0.0}], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "118", "nome": "Zabaione", "categoria": "Semi-Preparados", "precos": [], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "120", "nome": "Queijo Gorgonzola DOP 1,5kg p/ unidade", "categoria": "Laticínios", "precos": [{"fornecedor": "Makro", "preco": 20.3}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 0.3, "qtd_atual": 0}, {"codigo": "121", "nome": "Leite 1lt", "categoria": "Laticínios", "precos": [{"fornecedor": "Makro", "preco": 0.9}], "posicoes": ["EQUIPAMENTO 3", "ESTOQUE"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "123", "nome": "Cerveja Super Bock Stout 33cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.7475}, {"fornecedor": "Super Gaia", "preco": 0.63}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 30, "qtd_atual": 0}, {"codigo": "124", "nome": "Limão Natural Concentrado Lt.", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 5.48}], "posicoes": ["EQUIPAMENTO 2"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "125", "nome": "Chá Preto pac 20und", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 1.65}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "126", "nome": "Chá de Cidreira pac20und", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 1.65}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "127", "nome": "Chá Verde pac20und", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 1.65}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "128", "nome": "Fanta Laranja lata", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.6318}, {"fornecedor": "Super Gaia", "preco": 0.5179}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "129", "nome": "Seven Up", "categoria": "Bebidas", "precos": [{"fornecedor": "Super Gaia", "preco": 0.5704}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "130", "nome": "Ice Tea Pêssego  lata", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.6537}, {"fornecedor": "Super Gaia", "preco": 0.5704}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "131", "nome": "Ice Tea Limão  lata", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 0.6537}, {"fornecedor": "Super Gaia", "preco": 0.5704}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "132", "nome": "Vinho Rose EA", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 4.65}], "posicoes": ["EQUIPAMENTO 2", "ESTOQUE"], "qtd_minima": 5, "qtd_atual": 0}, {"codigo": "134", "nome": "Cidra Bandida do Pomar 33cl", "categoria": "Bebidas", "precos": [], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 18, "qtd_atual": 0}, {"codigo": "137", "nome": "Água das Pedras 25cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Alcino da Silva", "preco": 0.4458}, {"fornecedor": "Makro", "preco": 0.44}, {"fornecedor": "Super Gaia", "preco": 0.4346}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 13, "qtd_atual": 0}, {"codigo": "138", "nome": "Farinha Bella Napoli Argento 10kg", "categoria": "Mercearia", "precos": [{"fornecedor": "Italmarket", "preco": 15.48}], "posicoes": ["FORA DE USO"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "139", "nome": "Água da Fonte (torneira)", "categoria": "Bebidas", "precos": [{"fornecedor": "Il Fortunato", "preco": 0.01}], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "141", "nome": "Levedura Fresca 500g", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 1.79}], "posicoes": ["EQUIPAMENTO 1"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "142", "nome": "Massa de Pizza 72%", "categoria": "Semi-Preparados", "precos": [{"fornecedor": "Il Fortunato", "preco": 0.329}], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "143", "nome": "Molho de Tomate Pizza", "categoria": "Semi-Preparados", "precos": [{"fornecedor": "Il Fortunato", "preco": 0.242}], "posicoes": ["SEMI-PREPARADOS"], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "144", "nome": "Água Caramulho 50cl", "categoria": "Bebidas", "precos": [{"fornecedor": "Super Gaia", "preco": 0.47}], "posicoes": ["EQUIPAMENTO 5", "ESTOQUE", "ESCRITÓRIO"], "qtd_minima": 60, "qtd_atual": 0}, {"codigo": "146", "nome": "Palhinha Preta Comprida 200und", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 9.29}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.3, "qtd_atual": 0}, {"codigo": "147", "nome": "Tomate Seco 1700g", "categoria": "Mercearia", "precos": [{"fornecedor": "Dream Plus", "preco": 9.83}, {"fornecedor": "Makro", "preco": 9.99}], "posicoes": ["EQUIPAMENTO 3"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "148", "nome": "Grana Padano Ralado pac1kg", "categoria": "Laticínios", "precos": [{"fornecedor": "Italmarket", "preco": 15.48}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 3, "qtd_atual": 0}, {"codigo": "149", "nome": "Película Aderente 300mts", "categoria": "Descartáveis", "precos": [{"fornecedor": "Dream Plus", "preco": 4.18}], "posicoes": ["COZINHA", "ÁREA DE PIZZA", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "150", "nome": "Película Alumínio 200mts", "categoria": "Descartáveis", "precos": [{"fornecedor": "Dream Plus", "preco": 13.78}, {"fornecedor": "Makro", "preco": 9.13}], "posicoes": ["COZINHA"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "151", "nome": "Rolo Seca Mãos 90mts 6unid", "categoria": "Descartáveis", "precos": [{"fornecedor": "Dream Plus", "preco": 12.17}, {"fornecedor": "Makro", "preco": 12.5}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "152", "nome": "Queijo Mozzarella Lasanha pac2kg mimos", "categoria": "Laticínios", "precos": [{"fornecedor": "Italmarket", "preco": 10.98}, {"fornecedor": "Dream Plus", "preco": 11.81}], "posicoes": ["EQUIPAMENTO 1", "EQUIPAMENTO 2"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "153", "nome": "Tamp cx para massas 750ml 50und", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 3.99}], "posicoes": ["ESTOQUE"], "qtd_minima": 0.3, "qtd_atual": 0}, {"codigo": "154", "nome": "Gema de Ovo Pasteurizada 1L", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 8.09}], "posicoes": ["COZINHA", "ESTOQUE"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "155", "nome": "Rolo Térmico caixa 8 und. 80x80x12", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 19.79}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "156", "nome": "Rola máquina de cartão 80x45x12 cx 8unid", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 8.69}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "157", "nome": "Etiqueta de Validade 1000und 2und", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 7.99}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "158", "nome": "Vinho Cheda Blanc de Noir Lavradores de Feitoria", "categoria": "Bebidas", "precos": [{"fornecedor": "Dream Plus", "preco": 5.0}], "posicoes": ["EQUIPAMENTO 5"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "159", "nome": "Saco de Lixo 10x100L  Makro Pro", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 0.98}], "posicoes": ["ESTOQUE"], "qtd_minima": 8, "qtd_atual": 0}, {"codigo": "160", "nome": "Esponja de Loiça Salva unhas und.", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 0.38}], "posicoes": ["ESTOQUE"], "qtd_minima": 4, "qtd_atual": 0}, {"codigo": "161", "nome": "Sabão Lava Loiça Manual 5lt", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 7.2}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "162", "nome": "Sabão Lava Loiça Máquina (therlimpa) 5lt", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 5.76}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "163", "nome": "Sabonete de Mãos (Matro) 5lt", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 4.35}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "164", "nome": "Secante Abrilhantador Máquina (Therlimpa) 5lt", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 9.26}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "165", "nome": "Desengordurante Spay 500ml", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 3.35}], "posicoes": ["ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "166", "nome": "Saquinhos Descartáveis 40x30cm", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 5.0}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "167", "nome": "Spray Limpa Superfícies", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 2.53}], "posicoes": ["COZINHA", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "168", "nome": "Spray Mata Moscas", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 3.91}], "posicoes": ["ESTOQUE"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "169", "nome": "Polpa de Tomate 1lt", "categoria": "Mercearia", "precos": [{"fornecedor": "Makro", "preco": 9.44}], "posicoes": ["COZINHA"], "qtd_minima": 2, "qtd_atual": 0}, {"codigo": "170", "nome": "Etiquetas 1º Produto a Sair 2und", "categoria": "Descartáveis", "precos": [{"fornecedor": "Makro", "preco": 8.47}], "posicoes": ["COZINHA"], "qtd_minima": 0.5, "qtd_atual": 0}, {"codigo": "171", "nome": "Álcool Etilico 96% 250ml cx24und", "categoria": "Hig. e Limpeza", "precos": [{"fornecedor": "Makro", "preco": 18.55}], "posicoes": ["COZINHA", "ESTOQUE"], "qtd_minima": 0.3, "qtd_atual": 0}, {"codigo": "172", "nome": "Xarope de Cana de Açucar 700ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 4.35}], "posicoes": [], "qtd_minima": 0, "qtd_atual": 0}, {"codigo": "173", "nome": "Xarope Mojito 700ml", "categoria": "Bebidas", "precos": [{"fornecedor": "Makro", "preco": 4.35}], "posicoes": ["BAR", "ESTOQUE"], "qtd_minima": 1, "qtd_atual": 0}, {"codigo": "174", "nome": "Laranja Fruta", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 3.47}], "posicoes": ["COZINHA"], "qtd_minima": 5, "qtd_atual": 0}, {"codigo": "175", "nome": "Limão Grande", "categoria": "Hortifruti", "precos": [{"fornecedor": "Makro", "preco": 10.68}], "posicoes": ["BAR"], "qtd_minima": 10, "qtd_atual": 0}]}</script>
+<script>
+let fornecedores = [];
+let areas = [];
+let produtos = [];
+let grupos = [];
+let contagens = [];
+let checklistItens = [];
+let checklistExecucoes = [];
+let producaoItens = [];
+let producaoExecucoes = [];
+let estoqueMode = 'area';
+
+// ====== LIGAÇÃO AO SUPABASE ======
+// Cola aqui os dois valores do teu projeto Supabase (Project Settings > API)
+const SUPABASE_URL = 'https://oenaolbgjqkyzqjxmfzo.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_y6OK894gUh7sXlLoZ9dpVg_Elzl_dcT';
+
+let sbAccessToken = null;
+
+function sbHeadersFn(){
+  return {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${sbAccessToken || SUPABASE_KEY}`,
+    'Content-Type': 'application/json'
+  };
+}
+
+async function sbGet(table){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, { headers: sbHeadersFn() });
+  if(!res.ok) throw new Error('Falha ao carregar ' + table);
+  return res.json();
+}
+
+async function sbReplaceAll(table, rows){
+  // apaga tudo e insere de novo — simples e seguro para o volume de dados deste app
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`, { method: 'DELETE', headers: sbHeadersFn() });
+  if(rows.length === 0) return;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+    body: JSON.stringify(rows)
+  });
+  if(!res.ok) throw new Error('Falha ao guardar ' + table);
+}
+
+async function sbUpdateRow(table, id, patch){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+    body: JSON.stringify(patch)
+  });
+  if(!res.ok) throw new Error('Falha ao atualizar ' + table);
+}
+
+async function sbDeleteRow(table, id){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: sbHeadersFn()
+  });
+  if(!res.ok) throw new Error('Falha ao remover ' + table);
+}
+
+// mapeamento entre os nomes usados no app (camelCase) e na base de dados (snake_case)
+function fornecedorToDb(f){ return {
+  id:f.id, nome:f.nome,
+  dia_entrega: (f.diasEntrega||[]).join(','),
+  dia_contagem: (f.diasContagem||[]).join(',')
+};}
+function fornecedorFromDb(r){ return {
+  id:r.id, nome:r.nome,
+  diasEntrega: r.dia_entrega ? r.dia_entrega.split(',').filter(Boolean) : [],
+  diasContagem: r.dia_contagem ? r.dia_contagem.split(',').filter(Boolean) : []
+};}
+function areaToDb(a){ return { id:a.id, nome:a.nome }; }
+function areaFromDb(r){ return { id:r.id, nome:r.nome }; }
+function produtoToDb(p){ return {
+  id:p.id, codigo:p.codigo||'', nome:p.nome, categoria:p.categoria||'', tipo:p.tipo||'materia_prima',
+  area_ids: p.areaIds||[], precos: p.precos||[], qtd_minima: p.qtdMinima||0, qtd_atual: p.qtdAtual||0,
+  fornecedor_escolhido_id: p.fornecedorEscolhidoId || null
+};}
+function produtoFromDb(r){ return {
+  id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
+  areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
+  fornecedorEscolhidoId: r.fornecedor_escolhido_id || ''
+};}
+function grupoToDb(g){ return {
+  id:g.id, nome:g.nome, fornecedor_ids: g.fornecedorIds||[],
+  dias_contagem: (g.diasContagem||[]).join(',')
+};}
+function grupoFromDb(r){ return {
+  id:r.id, nome:r.nome, fornecedorIds: r.fornecedor_ids||[],
+  diasContagem: r.dias_contagem ? r.dias_contagem.split(',').filter(Boolean) : []
+};}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function eur(v){ return '€' + (Number(v)||0).toFixed(2); }
+function setNote(t){ document.getElementById('saveNote').textContent = t; }
+
+async function loadAll(){
+  try{
+    fornecedores = (await sbGet('fornecedores')).map(fornecedorFromDb);
+    areas = (await sbGet('areas')).map(areaFromDb);
+    produtos = (await sbGet('produtos')).map(produtoFromDb);
+    grupos = (await sbGet('grupos')).map(grupoFromDb);
+    contagens = await sbGet('contagens');
+    checklistItens = await sbGet('checklist_itens');
+    checklistExecucoes = await sbGet('checklist_execucoes');
+    producaoItens = await sbGet('producao_itens');
+    producaoExecucoes = await sbGet('producao_execucoes');
+    setNote('Ligado ao Supabase');
+  }catch(e){
+    fornecedores = []; areas = []; produtos = []; grupos = []; contagens = [];
+    checklistItens = []; checklistExecucoes = [];
+    producaoItens = []; producaoExecucoes = [];
+    setNote('Sem ligação à base de dados — confirma SUPABASE_URL e SUPABASE_KEY no código');
+  }
+
+  if(areas.length === 0 && fornecedores.length === 0 && produtos.length === 0){
+    areas = [
+      {id: uid(), nome: 'Área de pizza'},
+      {id: uid(), nome: 'Bar'},
+      {id: uid(), nome: 'Equipamento 1'}
+    ];
+    await saveAreas();
+  }
+  renderAll();
+}
+
+async function saveFornecedores(){
+  try{ await sbReplaceAll('fornecedores', fornecedores.map(fornecedorToDb)); setNote('Guardado'); }
+  catch(e){ setNote('Erro ao guardar'); }
+}
+async function saveAreas(){
+  try{ await sbReplaceAll('areas', areas.map(areaToDb)); setNote('Guardado'); }
+  catch(e){ setNote('Erro ao guardar'); }
+}
+async function saveProdutos(){
+  try{ await sbReplaceAll('produtos', produtos.map(produtoToDb)); setNote('Guardado'); }
+  catch(e){ setNote('Erro ao guardar'); }
+}
+async function saveGrupos(){
+  try{ await sbReplaceAll('grupos', grupos.map(grupoToDb)); setNote('Guardado'); }
+  catch(e){ setNote('Erro ao guardar'); }
+}
+
+function renderAll(){
+  renderFornecedores();
+  renderAreas();
+  renderProdutos();
+  renderEstoque();
+  renderGrupos();
+  renderContagens();
+  renderUtilizadores();
+  renderChecklistItens();
+  renderChecklistHistorico();
+  renderProducaoItens();
+}
+
+// ---------- FORNECEDORES ----------
+function renderFornecedores(){
+  const body = document.getElementById('fornecedoresBody');
+  if(fornecedores.length === 0){
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Ainda sem fornecedores. Cria o primeiro.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = fornecedores.map(f => `
+    <tr>
+      <td>${f.nome}</td>
+      <td>${(f.diasEntrega||[]).map(d => '<span class="badge area">'+d+'</span>').join(' ') || '—'}</td>
+      <td>${(f.diasContagem||[]).map(d => '<span class="badge ok">'+d+'</span>').join(' ') || '—'}</td>
+      <td>
+        <button class="icon-btn" onclick="openFornecedorModal('${f.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteFornecedor('${f.id}')">remover</button>
+      </td>
+    </tr>
+  `).join('');
+}
+function openFornecedorModal(id){
+  document.getElementById('fornecedorId').value = id || '';
+  const f = fornecedores.find(x => x.id === id);
+  document.getElementById('fornecedorNome').value = f ? f.nome : '';
+  const selEntrega = document.getElementById('fornecedorDiasEntrega');
+  const selContagem = document.getElementById('fornecedorDiasContagem');
+  const diasEntrega = f ? (f.diasEntrega||[]) : [];
+  const diasContagem = f ? (f.diasContagem||[]) : [];
+  Array.from(selEntrega.options).forEach(o => o.selected = diasEntrega.includes(o.value));
+  Array.from(selContagem.options).forEach(o => o.selected = diasContagem.includes(o.value));
+  document.getElementById('modalFornecedor').classList.add('open');
+}
+async function saveFornecedor(){
+  const id = document.getElementById('fornecedorId').value;
+  const nome = document.getElementById('fornecedorNome').value.trim();
+  const diasEntrega = Array.from(document.getElementById('fornecedorDiasEntrega').selectedOptions).map(o => o.value);
+  const diasContagem = Array.from(document.getElementById('fornecedorDiasContagem').selectedOptions).map(o => o.value);
+  if(!nome){ await showAlert('Indica o nome do fornecedor'); return; }
+  if(id){
+    const f = fornecedores.find(x => x.id === id);
+    f.nome = nome; f.diasEntrega = diasEntrega; f.diasContagem = diasContagem;
+  }else{
+    fornecedores.push({id: uid(), nome, diasEntrega, diasContagem});
+  }
+  await saveFornecedores();
+  closeModal('modalFornecedor');
+  renderAll();
+}
+async function deleteFornecedor(id){
+  if(!(await showConfirm('Remover este fornecedor? Preços associados a ele nos produtos ficam sem referência.'))) return;
+  fornecedores = fornecedores.filter(x => x.id !== id);
+  await saveFornecedores();
+  renderAll();
+}
+
+// ---------- GRUPOS DE COMPRA ----------
+function renderGrupos(){
+  const body = document.getElementById('gruposBody');
+  if(!body) return;
+  if(grupos.length === 0){
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Ainda sem grupos. Cria o primeiro.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = grupos.map(g => {
+    const nomes = (g.fornecedorIds||[]).map(id => nomeFornecedor(id)).join(', ') || '—';
+    const dias = (g.diasContagem||[]).join(', ') || '—';
+    return `
+    <tr>
+      <td>${g.nome}</td>
+      <td>${nomes}</td>
+      <td>${dias}</td>
+      <td>
+        <button class="icon-btn" onclick="openGrupoModal('${g.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteGrupo('${g.id}')">remover</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function fornecedoresElegiveis(){
+  // só fornecedores que são efetivamente a fonte de compra de pelo menos um produto
+  // (aparecem na comparação mas nunca ganham um preço não contam, ex: usados só de referência)
+  const idsUsados = new Set();
+  produtos.forEach(p => {
+    const fid = fornecedorEfetivo(p);
+    if(fid) idsUsados.add(fid);
+  });
+  return fornecedores.filter(f => idsUsados.has(f.id));
+}
+
+function openGrupoModal(id){
+  document.getElementById('grupoId').value = id || '';
+  const g = grupos.find(x => x.id === id);
+  document.getElementById('grupoNome').value = g ? g.nome : '';
+  const sel = document.getElementById('grupoFornecedores');
+  const selecionados = g ? (g.fornecedorIds||[]) : [];
+  const elegiveis = fornecedoresElegiveis();
+  sel.innerHTML = elegiveis.map(f => `<option value="${f.id}" ${selecionados.includes(f.id)?'selected':''}>${f.nome}</option>`).join('');
+  const selDias = document.getElementById('grupoDiasContagem');
+  const diasSelecionados = g ? (g.diasContagem||[]) : [];
+  Array.from(selDias.options).forEach(o => o.selected = diasSelecionados.includes(o.value));
+  document.getElementById('modalGrupo').classList.add('open');
+}
+
+async function saveGrupo(){
+  const id = document.getElementById('grupoId').value;
+  const nome = document.getElementById('grupoNome').value.trim();
+  if(!nome){ await showAlert('Indica o nome do grupo'); return; }
+  const fornecedorIds = Array.from(document.getElementById('grupoFornecedores').selectedOptions).map(o => o.value);
+  const diasContagem = Array.from(document.getElementById('grupoDiasContagem').selectedOptions).map(o => o.value);
+
+  if(id){
+    const g = grupos.find(x => x.id === id);
+    g.nome = nome; g.fornecedorIds = fornecedorIds; g.diasContagem = diasContagem;
+  }else{
+    grupos.push({id: uid(), nome, fornecedorIds, diasContagem});
+  }
+  await saveGrupos();
+  closeModal('modalGrupo');
+  renderAll();
+}
+
+async function deleteGrupo(id){
+  if(!(await showConfirm('Remover este grupo de compra?'))) return;
+  grupos = grupos.filter(x => x.id !== id);
+  await saveGrupos();
+  renderAll();
+}
+
+// ---------- CONTAGENS DOS COLABORADORES ----------
+let contagensMode = 'pendentes';
+
+function setContagensMode(mode){
+  contagensMode = mode;
+  document.getElementById('tgContagemPendentes').classList.toggle('active', mode === 'pendentes');
+  document.getElementById('tgContagemHistorico').classList.toggle('active', mode === 'historico');
+  document.getElementById('historicoFiltroWrap').style.display = mode === 'historico' ? 'flex' : 'none';
+  document.getElementById('contagensAjuda').textContent = mode === 'pendentes'
+    ? 'Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.'
+    : 'Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.';
+  renderContagens();
+}
+
+function renderContagens(){
+  const badge = document.getElementById('navContagensBadge');
+  const content = document.getElementById('contagensContent');
+  if(!content) return;
+
+  const pendentes = contagens.filter(c => c.status === 'pendente');
+  if(badge) badge.textContent = pendentes.length > 0 ? `(${pendentes.length})` : '';
+
+  if(contagensMode === 'pendentes'){
+    if(pendentes.length === 0){
+      content.innerHTML = '<div class="empty">Sem contagens novas de momento.</div>';
+      return;
+    }
+    content.innerHTML = pendentes.map(c => {
+      const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
+      const itens = c.itens || [];
+      return `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="row between" style="margin-bottom:10px;">
+          <div>
+            <h3 style="font-size:16px;">${c.grupo_nome || 'Grupo'}${c.area ? ' — ' + c.area : ''}</h3>
+            <div class="save-note">Por ${c.usuario_email || 'desconhecido'} · ${data}</div>
+          </div>
+          <button class="btn" onclick="finalizarContagem('${c.id}')">Aplicar e finalizar</button>
+        </div>
+        <table><thead><tr><th>Produto</th><th>Quantidade contada</th><th>Observação</th></tr></thead>
+        <tbody>${itens.map(it => {
+          const p = produtos.find(x => x.id === it.produto_id);
+          return `<tr><td>${p ? p.nome : it.produto_id}</td><td>${it.quantidade}</td><td>${it.observacao ? '<span class="save-note">'+it.observacao+'</span>' : '—'}</td></tr>`;
+        }).join('')}</tbody></table>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // ---- histórico ----
+  const historico = contagens.filter(c => c.status === 'finalizada').sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
+
+  const filtroSel = document.getElementById('filtroHistoricoGrupo');
+  const nomesGrupo = Array.from(new Set(historico.map(c => c.grupo_nome || 'Sem grupo')));
+  const filtroAtual = filtroSel.value;
+  filtroSel.innerHTML = '<option value="">Todos</option>' + nomesGrupo.map(n => `<option value="${n}">${n}</option>`).join('');
+  filtroSel.value = filtroAtual;
+
+  const filtro = filtroSel.value;
+  const filtrado = filtro ? historico.filter(c => (c.grupo_nome||'Sem grupo') === filtro) : historico;
+
+  if(filtrado.length === 0){
+    content.innerHTML = '<div class="empty">Ainda sem histórico registado.</div>';
+    return;
+  }
+
+  content.innerHTML = filtrado.map(c => {
+    const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
+    const itens = c.itens || [];
+    const valorTotal = itens.reduce((soma, it) => {
+      if(it.valor_unitario !== undefined) return soma + (Number(it.quantidade)||0) * (Number(it.valor_unitario)||0);
+      const p = produtos.find(x => x.id === it.produto_id);
+      const mp = p ? melhorPreco(p) : null;
+      return soma + (Number(it.quantidade)||0) * (mp ? mp.preco : 0);
+    }, 0);
+    return `
+    <div class="card" style="margin-bottom:14px;">
+      <div class="row between" style="margin-bottom:10px;">
+        <div>
+          <h3 style="font-size:16px;">${c.grupo_nome || 'Sem grupo'}${c.area ? ' — ' + c.area : ''}</h3>
+          <div class="save-note">Por ${c.usuario_email || 'desconhecido'} · ${data}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="stat-label">Valor total contado</div>
+          <div class="stat" style="font-size:18px;">${eur(valorTotal)}</div>
+        </div>
+      </div>
+      <table><thead><tr><th>Produto</th><th>Quantidade contada</th><th>Observação</th></tr></thead>
+      <tbody>${itens.map(it => {
+        const p = produtos.find(x => x.id === it.produto_id);
+        return `<tr><td>${p ? p.nome : it.produto_id}</td><td>${it.quantidade}</td><td>${it.observacao ? '<span class="save-note">'+it.observacao+'</span>' : '—'}</td></tr>`;
+      }).join('')}</tbody></table>
+    </div>`;
+  }).join('');
+}
+
+async function finalizarContagem(contagemId){
+  const c = contagens.find(x => x.id === contagemId);
+  if(!c) return;
+  const ok = await showConfirm(`Isto vai aplicar estas quantidades ao estoque e libertar o grupo "${c.grupo_nome}" para uma nova contagem. Continuar?`);
+  if(!ok) return;
+
+  (c.itens||[]).forEach(it => {
+    const p = produtos.find(x => x.id === it.produto_id);
+    if(p) p.qtdAtual = Number(it.quantidade) || 0;
+  });
+  await saveProdutos();
+
+  try{ await sbUpdateRow('contagens', c.id, {status: 'finalizada'}); }
+  catch(e){ await showAlert('Erro ao marcar a contagem como finalizada — tenta novamente.'); return; }
+  c.status = 'finalizada';
+
+  renderAll();
+  await showAlert('Contagem aplicada ao estoque. O grupo já está livre para nova contagem.');
+}
+
+// ---------- AREAS ----------
+function renderAreas(){
+  const body = document.getElementById('areasBody');
+  if(areas.length === 0){
+    body.innerHTML = '<tr><td colspan="3"><div class="empty">Ainda sem áreas. Cria a primeira.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = areas.map(a => {
+    const count = produtos.filter(p => (p.areaIds||[]).includes(a.id)).length;
+    return `
+    <tr>
+      <td>${a.nome}</td>
+      <td>${count} produto(s)</td>
+      <td>
+        <button class="icon-btn" onclick="openAreaModal('${a.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteArea('${a.id}')">remover</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function openAreaModal(id){
+  document.getElementById('areaId').value = id || '';
+  const a = areas.find(x => x.id === id);
+  document.getElementById('areaNome').value = a ? a.nome : '';
+  document.getElementById('modalArea').classList.add('open');
+}
+async function saveArea(){
+  const id = document.getElementById('areaId').value;
+  const nome = document.getElementById('areaNome').value.trim();
+  if(!nome){ await showAlert('Indica o nome da área'); return; }
+  if(id){
+    const a = areas.find(x => x.id === id);
+    a.nome = nome;
+  }else{
+    areas.push({id: uid(), nome});
+  }
+  await saveAreas();
+  closeModal('modalArea');
+  renderAll();
+}
+async function deleteArea(id){
+  if(!(await showConfirm('Remover esta área? Produtos alocados a ela ficam sem área.'))) return;
+  areas = areas.filter(x => x.id !== id);
+  await saveAreas();
+  renderAll();
+}
+
+// ---------- PRODUTOS ----------
+function melhorPreco(produto){
+  const precos = (produto.precos || []).filter(p => p.preco > 0);
+  if(precos.length === 0) return null;
+  return precos.reduce((min, p) => p.preco < min.preco ? p : min, precos[0]);
+}
+function nomeFornecedor(id){
+  const f = fornecedores.find(x => x.id === id);
+  return f ? f.nome : '—';
+}
+function nomeArea(id){
+  const a = areas.find(x => x.id === id);
+  return a ? a.nome : '—';
+}
+
+function areaBadges(areaIds){
+  if(!areaIds || areaIds.length === 0) return '—';
+  return areaIds.map(id => '<span class="badge area">'+nomeArea(id)+'</span>').join(' ');
+}
+
+let prodSortField = 'nome';
+let prodSortDir = 1;
+
+function setProdSort(campo){
+  if(prodSortField === campo){
+    prodSortDir = -prodSortDir;
+  }else{
+    prodSortField = campo;
+    prodSortDir = 1;
+  }
+  renderProdutos();
+}
+
+function ordenarProdutos(list){
+  const campo = prodSortField;
+  const dir = prodSortDir;
+  const valorDe = (p) => {
+    switch(campo){
+      case 'codigo': {
+        const n = parseFloat(p.codigo);
+        return isNaN(n) ? (p.codigo||'') : n;
+      }
+      case 'nome': return (p.nome||'').toLowerCase();
+      case 'categoria': return (p.categoria||'').toLowerCase();
+      case 'tipo': return (p.tipo||'');
+      case 'area': return (p.areaIds||[])[0] ? nomeArea(p.areaIds[0]).toLowerCase() : '';
+      case 'minima': return p.qtdMinima||0;
+      case 'preco': { const mp = melhorPreco(p); return mp ? mp.preco : -1; }
+      case 'fornecedor': { const mp = melhorPreco(p); return mp ? nomeFornecedor(mp.fornecedorId).toLowerCase() : ''; }
+      default: return '';
+    }
+  };
+  return [...list].sort((a,b) => {
+    const va = valorDe(a), vb = valorDe(b);
+    if(va < vb) return -1*dir;
+    if(va > vb) return 1*dir;
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+}
+
+function renderProdutos(){
+  const body = document.getElementById('produtosBody');
+  const search = (document.getElementById('prodSearch').value || '').toLowerCase();
+
+  const filtroCategoriaSel = document.getElementById('prodFiltroCategoria');
+  const categorias = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean))).sort();
+  const catAtual = filtroCategoriaSel.value;
+  filtroCategoriaSel.innerHTML = '<option value="">Todas as categorias</option>' + categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+  filtroCategoriaSel.value = catAtual;
+
+  const filtroFornecedorSel = document.getElementById('prodFiltroFornecedor');
+  const fornAtual = filtroFornecedorSel.value;
+  filtroFornecedorSel.innerHTML = '<option value="">Todos os fornecedores</option>' + fornecedores.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+  filtroFornecedorSel.value = fornAtual;
+
+  const categoriaFiltro = filtroCategoriaSel.value;
+  const fornecedorFiltro = filtroFornecedorSel.value;
+
+  let list = produtos.filter(p => !search || p.nome.toLowerCase().includes(search) || (p.codigo||'').toLowerCase().includes(search));
+  if(categoriaFiltro) list = list.filter(p => p.categoria === categoriaFiltro);
+  if(fornecedorFiltro) list = list.filter(p => (p.precos||[]).some(pr => pr.fornecedorId === fornecedorFiltro));
+  const mostrarForaDeUso = document.getElementById('prodMostrarForaDeUso').checked;
+  if(!mostrarForaDeUso) list = list.filter(produtoAtivo);
+
+  list = ordenarProdutos(list);
+
+  ['codigo','nome','categoria','tipo','area','minima','preco','fornecedor'].forEach(campo => {
+    const el = document.getElementById('sortIcon-' + campo);
+    if(el) el.textContent = (prodSortField === campo) ? (prodSortDir === 1 ? '▲' : '▼') : '';
+  });
+
+  if(list.length === 0){
+    body.innerHTML = '<tr><td colspan="9"><div class="empty">Nenhum produto encontrado.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(p => {
+    const mp = melhorPreco(p);
+    return `
+    <tr>
+      <td>${p.codigo || '—'}</td>
+      <td>${p.nome}</td>
+      <td>${p.categoria || '—'}</td>
+      <td>${p.tipo === 'semi_preparado' ? 'Semi-preparado' : 'Matéria-prima'}</td>
+      <td>${areaBadges(p.areaIds)}</td>
+      <td><input type="number" step="any" value="${p.qtdMinima||0}" style="width:70px;" onchange="updateQtdMinima('${p.id}', this.value)"></td>
+      <td>${mp ? eur(mp.preco) : '—'}</td>
+      <td>${mp ? nomeFornecedor(mp.fornecedorId) : 's/fornecedor'}</td>
+      <td>
+        <button class="icon-btn" onclick="openProdutoModal('${p.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteProduto('${p.id}')">remover</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function excluirTodosForaDeUso(){
+  const paraExcluir = produtos.filter(p => !produtoAtivo(p));
+  if(paraExcluir.length === 0){ await showAlert('Não há produtos marcados como "Fora de uso" no momento.'); return; }
+
+  const nomes = paraExcluir.slice(0, 8).map(p => p.nome).join('\n') + (paraExcluir.length > 8 ? `\n... e mais ${paraExcluir.length - 8}` : '');
+  const ok = await showConfirm(`Isto vai excluir permanentemente ${paraExcluir.length} produto(s) marcados como "Fora de uso":\n\n${nomes}\n\nEsta ação não tem "desfazer". Continuar?`);
+  if(!ok) return;
+
+  produtos = produtos.filter(produtoAtivo);
+  await saveProdutos();
+  renderAll();
+  await showAlert(`${paraExcluir.length} produto(s) excluído(s).`);
+}
+
+async function updateQtdMinima(produtoId, valor){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return;
+  const n = parseFloat(valor);
+  p.qtdMinima = isNaN(n) ? 0 : n;
+  await saveProdutos();
+  renderEstoque();
+}
+document.getElementById('prodSearch').addEventListener('input', renderProdutos);
+
+function fillAreaSelect(sel, selectedIds){
+  const sel2 = selectedIds || [];
+  sel.innerHTML = areas.map(a => `<option value="${a.id}" ${sel2.includes(a.id)?'selected':''}>${a.nome}</option>`).join('');
+}
+function areasForaDeUsoIds(){
+  return areas.filter(a => (a.nome||'').trim().toLowerCase() === 'fora de uso').map(a => a.id);
+}
+function produtoAtivo(p){
+  const foraDeUso = areasForaDeUsoIds();
+  if(foraDeUso.length === 0) return true;
+  return !(p.areaIds||[]).some(id => foraDeUso.includes(id));
+}
+
+function fornecedorEfetivo(p){
+  if(p.fornecedorEscolhidoId) return p.fornecedorEscolhidoId;
+  const mp = melhorPreco(p);
+  return mp ? mp.fornecedorId : '';
+}
+
+async function exportarContagemPorFornecedor(){
+  const idsSelecionados = Array.from(document.querySelectorAll('.forn-check:checked')).map(c => c.value);
+  if(idsSelecionados.length === 0){ await showAlert('Marca "Selecionar" em pelo menos um fornecedor.'); return; }
+
+  const itens = produtos.filter(p => idsSelecionados.includes(fornecedorEfetivo(p)));
+  if(itens.length === 0){ await showAlert('Nenhum produto tem esses fornecedores como fornecedor de compra.'); return; }
+
+  itens.sort((x,y) => {
+    const ax = (x.areaIds||[])[0] ? nomeArea(x.areaIds[0]) : '';
+    const ay = (y.areaIds||[])[0] ? nomeArea(y.areaIds[0]) : '';
+    if(ax !== ay) return ax.localeCompare(ay);
+    return x.nome.localeCompare(y.nome);
+  });
+
+  const nomesFornecedores = idsSelecionados.map(id => nomeFornecedor(id)).join(', ');
+  const HEADER_STYLE = {fill:{fgColor:{rgb:'2C4A87'}}, font:{color:{rgb:'FFFFFF'}, bold:true}, alignment:{horizontal:'center'}, protection:{locked:true}};
+  const SECTION_STYLE = {fill:{fgColor:{rgb:'E1E5EC'}}, font:{color:{rgb:'2C4A87'}, bold:true}, protection:{locked:true}};
+  const LOCKED_STYLE = {protection:{locked:true}};
+  const EDIT_STYLE = {fill:{fgColor:{rgb:'FDF0DC'}}, protection:{locked:false}};
+
+  const rows = [
+    [{v:`Fornecedores: ${nomesFornecedores}`, s:{font:{bold:true, sz:14, color:{rgb:'2C4A87'}}, protection:{locked:false}}}],
+    [],
+    [
+      {v:'Código', s:HEADER_STYLE}, {v:'Área', s:HEADER_STYLE}, {v:'Produto', s:HEADER_STYLE},
+      {v:'Fornecedor', s:HEADER_STYLE}, {v:'Em estoque (preencher)', s:HEADER_STYLE}, {v:'Observações', s:HEADER_STYLE}
+    ]
+  ];
+  const merges = [];
+  let areaAtual = null;
+  itens.forEach(p => {
+    const areaLabel = (p.areaIds||[]).map(id => nomeArea(id)).join(', ');
+    const areaPrincipal = (p.areaIds||[])[0] ? nomeArea(p.areaIds[0]) : 'Sem área';
+    if(areaPrincipal !== areaAtual){
+      const r = rows.length;
+      rows.push([{v:'', s:SECTION_STYLE}, {v:`▸ ${areaPrincipal}`, s:SECTION_STYLE}, {v:'', s:SECTION_STYLE}, {v:'', s:SECTION_STYLE}, {v:'', s:SECTION_STYLE}, {v:'', s:SECTION_STYLE}]);
+      merges.push({s:{r, c:1}, e:{r, c:5}});
+      areaAtual = areaPrincipal;
+    }
+    rows.push([
+      {v:p.codigo||'', s:LOCKED_STYLE},
+      {v:areaLabel, s:LOCKED_STYLE},
+      {v:p.nome, s:LOCKED_STYLE},
+      {v:nomeFornecedor(fornecedorEfetivo(p)), s:LOCKED_STYLE},
+      {v:'', s:EDIT_STYLE},
+      {v:'', s:EDIT_STYLE}
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:8, hidden:true},{wch:20},{wch:42},{wch:16},{wch:22},{wch:26}];
+  ws['!merges'] = merges;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Contagem fornecedor');
+  XLSX.writeFile(wb, `contagem-fornecedor-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function fillFornecedorEscolhidoSelect(sel, selected){
+  sel.innerHTML = '<option value="">Automático (melhor preço)</option>' + fornecedores.map(f => `<option value="${f.id}" ${f.id===selected?'selected':''}>${f.nome}</option>`).join('');
+}
+
+const RANK_LABELS = ['① Melhor preço', '② 2º mais barato', '③ 3º mais barato'];
+
+function addPrecoRow(fornecedorId, preco, indice){
+  const wrap = document.createElement('div');
+  wrap.className = 'price-row';
+  const options = fornecedores.map(f => `<option value="${f.id}" ${f.id===fornecedorId?'selected':''}>${f.nome}</option>`).join('');
+  const rankLabel = (indice !== undefined && RANK_LABELS[indice]) ? RANK_LABELS[indice] : '';
+  wrap.innerHTML = `
+    ${rankLabel ? `<span class="badge ok" style="align-self:center;white-space:nowrap;">${rankLabel}</span>` : ''}
+    <select class="preco-fornecedor">${fornecedores.length ? options : '<option value="">Cria um fornecedor primeiro</option>'}</select>
+    <input type="number" class="preco-valor" step="any" placeholder="preço (€)" value="${preco != null ? preco : ''}">
+    <button class="icon-btn danger" type="button" onclick="this.parentElement.remove()">remover</button>
+  `;
+  document.getElementById('precosList').appendChild(wrap);
+}
+
+function openProdutoModal(id){
+  document.getElementById('produtoModalTitle').textContent = id ? 'Editar produto' : 'Novo produto';
+  document.getElementById('produtoId').value = id || '';
+  const p = produtos.find(x => x.id === id);
+
+  document.getElementById('produtoCodigo').value = p ? (p.codigo || '') : '';
+  document.getElementById('produtoNome').value = p ? p.nome : '';
+  document.getElementById('produtoCategoria').value = p ? (p.categoria || '') : '';
+  document.getElementById('produtoTipo').value = p ? p.tipo : 'materia_prima';
+
+  fillAreaSelect(document.getElementById('produtoArea'), p ? p.areaIds : []);
+  fillFornecedorEscolhidoSelect(document.getElementById('produtoFornecedorEscolhido'), p ? p.fornecedorEscolhidoId : '');
+
+  document.getElementById('produtoQtdMinima').value = p ? (p.qtdMinima ?? '') : '';
+  document.getElementById('produtoQtdAtual').value = p ? (p.qtdAtual ?? '') : '';
+
+  document.getElementById('precosList').innerHTML = '';
+  if(p && p.precos && p.precos.length){
+    const precosOrdenados = [...p.precos].filter(pr => pr.preco > 0).sort((a,b) => a.preco - b.preco);
+    const precosSemValor = p.precos.filter(pr => !(pr.preco > 0));
+    precosOrdenados.forEach((pr, i) => addPrecoRow(pr.fornecedorId, pr.preco, i));
+    precosSemValor.forEach(pr => addPrecoRow(pr.fornecedorId, pr.preco));
+  }else{
+    addPrecoRow();
+  }
+
+  document.getElementById('modalProduto').classList.add('open');
+}
+
+async function saveProduto(){
+  const id = document.getElementById('produtoId').value;
+  const nome = document.getElementById('produtoNome').value.trim();
+  if(!nome){ await showAlert('Indica o nome do produto'); return; }
+
+  const precos = Array.from(document.querySelectorAll('#precosList .price-row')).map(row => {
+    const fornecedorId = row.querySelector('.preco-fornecedor').value;
+    const preco = parseFloat(row.querySelector('.preco-valor').value);
+    return { fornecedorId, preco: isNaN(preco) ? 0 : preco };
+  }).filter(pr => pr.fornecedorId);
+
+  const areaIds = Array.from(document.getElementById('produtoArea').selectedOptions).map(o => o.value);
+
+  const data = {
+    codigo: document.getElementById('produtoCodigo').value.trim(),
+    nome,
+    categoria: document.getElementById('produtoCategoria').value.trim(),
+    tipo: document.getElementById('produtoTipo').value,
+    areaIds,
+    precos,
+    qtdMinima: parseFloat(document.getElementById('produtoQtdMinima').value) || 0,
+    qtdAtual: parseFloat(document.getElementById('produtoQtdAtual').value) || 0,
+    fornecedorEscolhidoId: document.getElementById('produtoFornecedorEscolhido').value
+  };
+
+  if(id){
+    const p = produtos.find(x => x.id === id);
+    Object.assign(p, data);
+  }else{
+    produtos.push({id: uid(), ...data});
+  }
+  await saveProdutos();
+  closeModal('modalProduto');
+  renderAll();
+}
+async function deleteProduto(id){
+  if(!(await showConfirm('Remover este produto?'))) return;
+  produtos = produtos.filter(x => x.id !== id);
+  await saveProdutos();
+  renderAll();
+}
+
+// ---------- ESTOQUE ----------
+function setEstoqueMode(mode){
+  estoqueMode = mode;
+  document.getElementById('tgArea').classList.toggle('active', mode === 'area');
+  document.getElementById('tgCompras').classList.toggle('active', mode === 'compras');
+  document.getElementById('tgGrupo').classList.toggle('active', mode === 'grupo');
+  document.getElementById('estoqueFiltroWrap').style.display = mode === 'area' ? 'flex' : 'none';
+  document.getElementById('estoqueFiltroGrupoWrap').style.display = mode === 'grupo' ? 'flex' : 'none';
+  renderEstoque();
+}
+
+function renderEstoque(){
+  const filtroAreaSel = document.getElementById('filtroArea');
+  const currentFiltro = filtroAreaSel.value;
+  filtroAreaSel.innerHTML = '<option value="">Todas</option>' + areas.map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
+  filtroAreaSel.value = currentFiltro;
+
+  const filtroGrupoSel = document.getElementById('filtroGrupo');
+  const currentGrupo = filtroGrupoSel.value;
+  filtroGrupoSel.innerHTML = '<option value="">Escolhe um grupo</option>' + grupos.map(g => `<option value="${g.id}">${g.nome}</option>`).join('');
+  filtroGrupoSel.value = currentGrupo;
+
+  let totalAComprar = 0, valorTotal = 0, abaixoMinimo = 0;
+  const linhas = produtos.filter(produtoAtivo).map(p => {
+    const mp = melhorPreco(p);
+    const precoMelhor = mp ? mp.preco : 0;
+    const aComprar = Math.max(0, (p.qtdMinima||0) - (p.qtdAtual||0));
+    const valor = (p.qtdAtual||0) * precoMelhor;
+    const fornecedorCompraId = p.fornecedorEscolhidoId || (mp ? mp.fornecedorId : '');
+    if(aComprar > 0) totalAComprar++;
+    if((p.qtdAtual||0) < (p.qtdMinima||0)) abaixoMinimo++;
+    valorTotal += valor;
+    return {p, precoMelhor, aComprar, valor, fornecedorCompraId};
+  });
+
+  document.getElementById('statAComprar').textContent = totalAComprar;
+  document.getElementById('statValor').textContent = eur(valorTotal);
+  document.getElementById('statAbaixo').textContent = abaixoMinimo;
+
+  const content = document.getElementById('estoqueContent');
+
+  if(estoqueMode === 'area'){
+    const filtro = filtroAreaSel.value;
+    const filtradas = filtro ? linhas.filter(l => (l.p.areaIds||[]).includes(filtro)) : linhas;
+    if(filtradas.length === 0){
+      content.innerHTML = '<div class="empty">Sem produtos nesta área.</div>';
+      return;
+    }
+    content.innerHTML = `<table><thead><tr>
+      <th>Produto</th><th>Área(s)</th><th>Mínima</th><th>Em estoque</th><th>A comprar</th><th>Valor em estoque</th><th>Estado</th>
+    </tr></thead><tbody>${filtradas.map(l => `
+      <tr>
+        <td>${l.p.nome}</td>
+        <td>${areaBadges(l.p.areaIds)}</td>
+        <td>${l.p.qtdMinima||0}</td>
+        <td><input type="number" step="any" value="${l.p.qtdAtual||0}" style="width:80px;" onchange="updateQtdAtual('${l.p.id}', this.value)"></td>
+        <td>${l.aComprar > 0 ? l.aComprar : '—'}</td>
+        <td>${eur(l.valor)}</td>
+        <td>${estadoBadge(l)}</td>
+      </tr>`).join('')}</tbody></table>`;
+  } else if(estoqueMode === 'grupo'){
+    const grupoId = filtroGrupoSel.value;
+    if(!grupoId){
+      content.innerHTML = '<div class="empty">Escolhe um grupo de compra acima para ver só o que falta comprar dele.</div>';
+      return;
+    }
+    const g = grupos.find(x => x.id === grupoId);
+    const paraComprar = linhas.filter(l => l.aComprar > 0 && g.fornecedorIds.includes(l.fornecedorCompraId));
+    if(paraComprar.length === 0){
+      content.innerHTML = '<div class="empty">Nada a comprar deste grupo de momento.</div>';
+      return;
+    }
+    const porFornecedor = {};
+    paraComprar.forEach(l => {
+      const key = l.fornecedorCompraId;
+      if(!porFornecedor[key]) porFornecedor[key] = [];
+      porFornecedor[key].push(l);
+    });
+    content.innerHTML = `
+      <div class="row between" style="margin-bottom:14px;">
+        <h3>${g.nome} — o que falta comprar</h3>
+        <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="finalizarGrupoCompra('${g.id}')">Finalizar pedido (zerar contagem do grupo)</button>
+      </div>
+      ` + Object.keys(porFornecedor).map(fid => {
+      const f = fornecedores.find(x => x.id === fid);
+      const nome = f ? f.nome : 'Sem fornecedor definido';
+      const dia = f && (f.diasEntrega||[]).length ? f.diasEntrega.join(", ") : null;
+
+      const itens = [...porFornecedor[fid]].sort((a,b) => {
+        const ca = a.p.categoria || 'Sem categoria';
+        const cb = b.p.categoria || 'Sem categoria';
+        if(ca !== cb) return ca.localeCompare(cb);
+        return a.p.nome.localeCompare(b.p.nome);
+      });
+
+      let linhasHtml = '';
+      let categoriaAtual = null;
+      itens.forEach(l => {
+        const cat = l.p.categoria || 'Sem categoria';
+        if(cat !== categoriaAtual){
+          linhasHtml += `<tr class="cat-sep"><td colspan="4" style="background:var(--cream);font-weight:600;color:var(--terracotta-dark);font-size:12px;text-transform:uppercase;letter-spacing:.04em;">${cat}</td></tr>`;
+          categoriaAtual = cat;
+        }
+        linhasHtml += `
+          <tr class="compra-row" id="compra-row-${l.p.id}">
+            <td style="width:36px;"><input type="checkbox" onchange="marcarComprado('${l.p.id}')" style="width:18px;height:18px;"></td>
+            <td>${l.p.nome}</td>
+            <td>${l.p.qtdAtual||0}</td>
+            <td><strong>${l.aComprar}</strong></td>
+          </tr>`;
+      });
+
+      return `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="row" style="gap:12px;margin-bottom:10px;">
+          <h3 style="font-size:16px;">${nome}</h3>
+          ${dia ? '<span class="badge area">Entrega '+dia+'</span>' : ''}
+        </div>
+        <table><thead><tr><th></th><th>Produto</th><th>Contado</th><th>A comprar</th></tr></thead>
+        <tbody>${linhasHtml}</tbody></table>
+      </div>`;
+    }).join('');
+  } else {
+    const paraComprar = linhas.filter(l => l.aComprar > 0);
+    if(paraComprar.length === 0){
+      content.innerHTML = '<div class="empty">Nada a comprar de momento.</div>';
+      return;
+    }
+    const grupos = {};
+    paraComprar.forEach(l => {
+      const key = l.fornecedorCompraId || 'sem-fornecedor';
+      if(!grupos[key]) grupos[key] = [];
+      grupos[key].push(l);
+    });
+    const cardsHtml = Object.keys(grupos).map(fid => {
+      const f = fornecedores.find(x => x.id === fid);
+      const nome = f ? f.nome : 'Sem fornecedor definido';
+      const dia = f && (f.diasEntrega||[]).length ? f.diasEntrega.join(", ") : null;
+      const checkbox = fid !== 'sem-fornecedor'
+        ? `<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer;">
+             <input type="checkbox" class="forn-check" value="${fid}"> Selecionar
+           </label>`
+        : '';
+      return `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="row between" style="margin-bottom:10px;">
+          <div class="row" style="gap:12px;">
+            <h3 style="font-size:16px;">${nome}</h3>
+            ${dia ? '<span class="badge area">Entrega '+dia+'</span>' : ''}
+          </div>
+          ${checkbox}
+        </div>
+        <table><thead><tr><th>Produto</th><th>Área(s)</th><th>Mínima</th><th>Em estoque</th><th>A comprar</th></tr></thead>
+        <tbody>${grupos[fid].map(l => `
+          <tr>
+            <td>${l.p.nome}</td>
+            <td>${areaBadges(l.p.areaIds)}</td>
+            <td>${l.p.qtdMinima||0}</td>
+            <td><input type="number" step="any" value="${l.p.qtdAtual||0}" style="width:80px;" onchange="updateQtdAtual('${l.p.id}', this.value)"></td>
+            <td>${l.aComprar}</td>
+          </tr>
+        `).join('')}</tbody></table>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="row between" style="margin-bottom:14px;">
+        <div class="save-note">Marca "Selecionar" nos fornecedores desejados (ex: os que entregam amanhã) e gera a planilha só com eles.</div>
+        <button class="btn secondary" onclick="exportarContagemPorFornecedor()">Gerar planilha para selecionados</button>
+      </div>
+      ${cardsHtml}`;
+  }
+}
+function imprimirContagem(){
+  const filtro = document.getElementById('filtroArea').value;
+  const areasParaImprimir = filtro ? areas.filter(a => a.id === filtro) : areas;
+
+  if(areasParaImprimir.length === 0){
+    showAlert('Sem áreas para imprimir.');
+    return;
+  }
+
+  const hoje = new Date().toLocaleDateString('pt-PT');
+
+  const html = areasParaImprimir.map(a => {
+    const itens = produtos
+      .filter(p => (p.areaIds||[]).includes(a.id))
+      .sort((x,y) => x.nome.localeCompare(y.nome));
+    if(itens.length === 0) return '';
+    return `
+    <div class="print-sheet">
+      <h2>Il Fortunato — Contagem de estoque</h2>
+      <div class="print-meta">
+        <span><strong>Área:</strong> ${a.nome}</span>
+        <span><strong>Data:</strong> ${hoje}</span>
+        <span><strong>Responsável:</strong> _______________________</span>
+      </div>
+      <table>
+        <thead><tr><th>Produto</th><th>Mínima</th><th class="print-blank">Em estoque</th><th>Observações</th></tr></thead>
+        <tbody>
+          ${itens.map(p => `<tr><td>${p.nome}</td><td>${p.qtdMinima||0}</td><td class="print-blank"></td><td></td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  document.getElementById('printArea').innerHTML = html;
+  window.print();
+}
+
+function exportarContagemExcel(){
+  const filtro = document.getElementById('filtroArea').value;
+  const areasParaExportar = filtro ? areas.filter(a => a.id === filtro) : areas;
+
+  if(areasParaExportar.length === 0){ showAlert('Sem áreas para exportar.'); return; }
+
+  const HEADER_STYLE = {fill:{fgColor:{rgb:'2C4A87'}}, font:{color:{rgb:'FFFFFF'}, bold:true}, alignment:{horizontal:'center'}, protection:{locked:true}};
+  const LOCKED_STYLE = {protection:{locked:true}};
+  const EDIT_STYLE = {fill:{fgColor:{rgb:'FDF0DC'}}, protection:{locked:false}};
+
+  const wb = XLSX.utils.book_new();
+  areasParaExportar.forEach(a => {
+    const itens = produtos
+      .filter(p => (p.areaIds||[]).includes(a.id))
+      .sort((x,y) => x.nome.localeCompare(y.nome));
+    if(itens.length === 0) return;
+
+    const rows = [
+      [{v:'Código', s:HEADER_STYLE}, {v:'Área', s:HEADER_STYLE}, {v:'Produto', s:HEADER_STYLE}, {v:'Em estoque (preencher)', s:HEADER_STYLE}, {v:'Observações', s:HEADER_STYLE}]
+    ];
+    itens.forEach(p => {
+      const areaLabel = (p.areaIds||[]).map(id => nomeArea(id)).join(', ');
+      rows.push([
+        {v:p.codigo||'', s:LOCKED_STYLE},
+        {v:areaLabel, s:LOCKED_STYLE},
+        {v:p.nome, s:LOCKED_STYLE},
+        {v:'', s:EDIT_STYLE},
+        {v:'', s:EDIT_STYLE}
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:8, hidden:true},{wch:20},{wch:42},{wch:22},{wch:26}];
+    let nomeAba = a.nome.replace(/[\\\/\?\*\[\]:]/g, '').slice(0,31) || 'Área';
+    XLSX.utils.book_append_sheet(wb, ws, nomeAba);
+  });
+
+  XLSX.writeFile(wb, `contagem-il-fortunato-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+async function importarContagemExcel(file){
+  if(!file) return;
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+
+    let atualizados = 0, semCorrespondencia = 0;
+    wb.SheetNames.forEach(nomeAba => {
+      const ws = wb.Sheets[nomeAba];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+      // encontra a linha de cabeçalho procurando a célula "Código" em qualquer coluna dessa linha
+      const headerRow = rows.findIndex(r => (r||[]).some(cell => String(cell||'').trim().toLowerCase() === 'código'));
+      if(headerRow === -1) return; // esta aba não tem um cabeçalho reconhecível, ignora
+
+      const header = rows[headerRow].map(h => String(h||'').trim().toLowerCase());
+      const colCodigo = header.findIndex(h => h === 'código');
+      const colEstoque = header.findIndex(h => h.includes('em estoque'));
+      if(colCodigo === -1 || colEstoque === -1) return;
+
+      for(let i = headerRow + 1; i < rows.length; i++){
+        const linha = rows[i] || [];
+        const codigo = linha[colCodigo];
+        const emEstoque = linha[colEstoque];
+        if(codigo === undefined || codigo === '' || emEstoque === undefined || emEstoque === '') continue;
+        const p = produtos.find(x => String(x.codigo) === String(codigo));
+        if(!p){ semCorrespondencia++; continue; }
+        const n = parseFloat(emEstoque);
+        if(isNaN(n)) continue;
+        p.qtdAtual = n;
+        atualizados++;
+      }
+    });
+
+    await saveProdutos();
+    renderAll();
+    await showAlert(`Importação concluída:\n${atualizados} produto(s) com estoque atualizado\n${semCorrespondencia} código(s) não encontrado(s) no app`);
+  }catch(e){
+    await showAlert('Não consegui ler este ficheiro. Confirma que é o Excel exportado pelo próprio app.');
+  }
+  document.getElementById('inputImportarContagem').value = '';
+}
+
+async function registarHistoricoAntesDeZerar(produtosAfetados, origem){
+  const itens = produtosAfetados.map(p => {
+    const mp = melhorPreco(p);
+    const preco = mp ? mp.preco : 0;
+    return { produto_id: p.id, quantidade: p.qtdAtual||0, valor_unitario: preco };
+  });
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+      method: 'POST',
+      headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        id: uid(),
+        grupo_id: '',
+        grupo_nome: origem,
+        usuario_email: usuarioAtualEmail,
+        itens,
+        status: 'finalizada'
+      })
+    });
+  }catch(e){
+    // não bloqueia a operação principal se o registo de histórico falhar
+  }
+}
+
+function marcarComprado(produtoId){
+  const row = document.getElementById('compra-row-' + produtoId);
+  if(!row) return;
+  row.style.transition = 'opacity .25s';
+  row.style.opacity = '0';
+  setTimeout(() => { row.style.display = 'none'; }, 250);
+}
+
+async function finalizarGrupoCompra(grupoId){
+  const g = grupos.find(x => x.id === grupoId);
+  if(!g) return;
+  const afetados = produtos.filter(p => g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  if(afetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
+
+  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em todos os ${afetados.length} produtos do grupo "${g.nome}", para a próxima contagem começar do zero.\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
+  if(!ok) return;
+
+  await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`);
+  afetados.forEach(p => { p.qtdAtual = 0; });
+  await saveProdutos();
+  renderAll();
+  await showAlert(`Pedido do "${g.nome}" finalizado. A contagem desse grupo foi zerada e o valor anterior ficou guardado no histórico.`);
+}
+
+async function zerarContagemEstoque(){
+  if(produtos.length === 0){ await showAlert('Ainda não há produtos.'); return; }
+  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em todos os ${produtos.length} produtos, para começares a contagem da semana do zero.\n\nOs valores atuais ficam guardados no histórico (aba Contagens). As quantidades mínimas não são afetadas. Esta ação não tem "desfazer". Continuar?`);
+  if(!ok) return;
+
+  await registarHistoricoAntesDeZerar(produtos, 'Zerar geral (todos os produtos)');
+  produtos.forEach(p => { p.qtdAtual = 0; });
+  await saveProdutos();
+  renderAll();
+  await showAlert('Contagem zerada. O valor anterior ficou guardado no histórico. Todos os produtos voltaram a aparecer como "a comprar" até serem recontados.');
+}
+
+async function updateQtdAtual(produtoId, valor){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return;
+  const n = parseFloat(valor);
+  p.qtdAtual = isNaN(n) ? 0 : n;
+  await saveProdutos();
+  renderEstoque();
+}
+
+function estadoBadge(l){
+  if((l.p.qtdAtual||0) <= 0) return '<span class="badge danger">Sem estoque</span>';
+  if((l.p.qtdAtual||0) < (l.p.qtdMinima||0)) return '<span class="badge warn">Repor</span>';
+  return '<span class="badge ok">Ok</span>';
+}
+
+async function renumerarCodigos(){
+  if(produtos.length === 0){ await showAlert('Ainda não há produtos para renumerar.'); return; }
+  const ok = await showConfirm(`Isto vai trocar o código de todos os ${produtos.length} produtos para uma sequência de 1 até ${produtos.length}, ordenada pelo código atual.\n\nO código é só um rótulo — nada mais no app depende dele, por isso é seguro repetir sempre que quiseres. Continuar?`);
+  if(!ok) return;
+
+  const ordenados = [...produtos].sort((a,b) => {
+    const na = parseFloat(a.codigo), nb = parseFloat(b.codigo);
+    const va = isNaN(na) ? Infinity : na;
+    const vb = isNaN(nb) ? Infinity : nb;
+    if(va !== vb) return va - vb;
+    return a.nome.localeCompare(b.nome);
+  });
+  ordenados.forEach((p, i) => { p.codigo = String(i + 1); });
+
+  await saveProdutos();
+  renderAll();
+  await showAlert(`Códigos renumerados de 1 a ${produtos.length}.`);
+}
+
+// ---------- IMPORTAR DADOS DA PLANILHA ----------
+function findFornecedorByNome(nome){
+  const low = nome.trim().toLowerCase();
+  return fornecedores.find(f => f.nome.trim().toLowerCase() === low);
+}
+function findAreaByNome(nome){
+  const low = nome.trim().toLowerCase();
+  return areas.find(a => a.nome.trim().toLowerCase() === low);
+}
+function findProdutoByCodigo(codigo){
+  return produtos.find(p => p.codigo === codigo);
+}
+
+async function importSeedData(){
+  const el = document.getElementById('seedData');
+  if(!el){ await showAlert('Dados de importação não encontrados.'); return; }
+  const seed = JSON.parse(el.textContent);
+
+  const querContinuar = await showConfirm(`Isto vai importar ${seed.produtos.length} produtos, ${seed.fornecedores.length} fornecedores e ${seed.areas.length} áreas da tua planilha original.\n\nProdutos já existentes (mesmo código) não são duplicados. Continuar?`);
+  if(!querContinuar) return;
+
+  const btn = document.getElementById('btnImportar');
+  btn.disabled = true;
+  btn.textContent = 'A importar...';
+
+  let novasAreas = 0, novosFornecedores = 0, novosProdutos = 0, ignorados = 0;
+
+  // 1) fornecedores
+  seed.fornecedores.forEach(nome => {
+    if(!findFornecedorByNome(nome)){
+      fornecedores.push({id: uid(), nome, diaEntrega: ''});
+      novosFornecedores++;
+    }
+  });
+
+  // 2) areas
+  seed.areas.forEach(nome => {
+    if(!findAreaByNome(nome)){
+      areas.push({id: uid(), nome});
+      novasAreas++;
+    }
+  });
+
+  // 3) produtos
+  seed.produtos.forEach(sp => {
+    if(sp.codigo && findProdutoByCodigo(sp.codigo)){
+      ignorados++;
+      return;
+    }
+    const precos = (sp.precos || []).map(pr => {
+      const f = findFornecedorByNome(pr.fornecedor);
+      return f ? {fornecedorId: f.id, preco: pr.preco} : null;
+    }).filter(Boolean);
+
+    const areaMatches = (sp.posicoes || []).map(nome => findAreaByNome(nome)).filter(Boolean);
+
+    produtos.push({
+      id: uid(),
+      codigo: sp.codigo || '',
+      nome: sp.nome,
+      categoria: sp.categoria || '',
+      tipo: 'materia_prima',
+      areaIds: areaMatches.map(a => a.id),
+      precos,
+      qtdMinima: sp.qtd_minima || 0,
+      qtdAtual: sp.qtd_atual || 0,
+      fornecedorEscolhidoId: ''
+    });
+    novosProdutos++;
+  });
+
+  await saveFornecedores();
+  await saveAreas();
+  await saveProdutos();
+  renderAll();
+
+  btn.disabled = false;
+  btn.textContent = 'Importar produtos da planilha';
+
+  await showAlert(`Importação concluída:\n${novosFornecedores} fornecedores novos\n${novasAreas} áreas novas\n${novosProdutos} produtos novos\n${ignorados} produtos ignorados (código já existia)`);
+}
+
+// ---------- NAV / MODAL ----------
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'estoque') renderEstoque();
+  });
+});
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+let usuarioAtualEmail = null;
+let usuarioEhAdmin = false;
+
+async function fazerLoginGate(){
+  const email = document.getElementById('gateEmail').value.trim();
+  const senha = document.getElementById('gateSenha').value;
+  const erroEl = document.getElementById('gateErro');
+  erroEl.textContent = '';
+  if(!email || !senha){ erroEl.textContent = 'Preenche email e password.'; return; }
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      erroEl.textContent = 'Email ou password incorretos.';
+      return;
+    }
+    sbAccessToken = data.access_token;
+    usuarioAtualEmail = data.user?.email || email;
+
+    if(senha === '123456'){
+      document.getElementById('loginGate').style.display = 'none';
+      document.getElementById('modalTrocarSenha').classList.add('open');
+      return;
+    }
+    await continuarAposLogin();
+  }catch(e){
+    erroEl.textContent = 'Não consegui ligar. Verifica a tua internet e tenta de novo.';
+  }
+}
+
+async function trocarSenhaObrigatoria(){
+  const nova = document.getElementById('novaSenhaInput').value;
+  const erroEl = document.getElementById('trocarSenhaErro');
+  erroEl.textContent = '';
+  if(!nova || nova.length < 6){ erroEl.textContent = 'A password tem de ter pelo menos 6 caracteres.'; return; }
+  if(nova === '123456'){ erroEl.textContent = 'Escolhe uma password diferente da inicial.'; return; }
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${sbAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nova })
+    });
+    if(!res.ok){ erroEl.textContent = 'Não consegui guardar a nova password. Tenta de novo.'; return; }
+  }catch(e){
+    erroEl.textContent = 'Não consegui ligar. Verifica a tua internet.';
+    return;
+  }
+
+  document.getElementById('modalTrocarSenha').classList.remove('open');
+  document.getElementById('novaSenhaInput').value = '';
+  await continuarAposLogin();
+}
+
+async function continuarAposLogin(){
+  document.getElementById('loginGate').style.display = 'none';
+
+  // decide se é administrador (acesso total) ou colaborador (só contagem),
+  // consultando a tabela admins com o próprio login da pessoa
+  try{
+    const listaAdmins = await sbGet('admins');
+    usuarioEhAdmin = listaAdmins.some(a => (a.email||'').toLowerCase() === usuarioAtualEmail.toLowerCase());
+  }catch(e){
+    usuarioEhAdmin = false;
+  }
+
+  if(usuarioEhAdmin){
+    document.getElementById('appRoot').style.display = 'block';
+    await loadAll();
+  }else{
+    document.getElementById('operRoot').style.display = 'block';
+    document.getElementById('operUsuarioLabel').textContent = usuarioAtualEmail;
+    await carregarDadosOperacional();
+    document.getElementById('operSaudacao').textContent = `Ciao ${usuarioAtualEmail.split('@')[0]}, o que vamos fazer hoje?`;
+    mostrarOperScreen('oper-screen-home');
+  }
+}
+
+function sairOperacional(){
+  usuarioAtualEmail = null;
+  sbAccessToken = null;
+  document.getElementById('operRoot').style.display = 'none';
+  document.getElementById('gateEmail').value = '';
+  document.getElementById('gateSenha').value = '';
+  document.getElementById('loginGate').style.display = 'flex';
+}
+
+function sairAdmin(){
+  usuarioAtualEmail = null;
+  sbAccessToken = null;
+  document.getElementById('appRoot').style.display = 'none';
+  document.getElementById('gateEmail').value = '';
+  document.getElementById('gateSenha').value = '';
+  document.getElementById('loginGate').style.display = 'flex';
+}
+
+// ---------- UTILIZADORES ----------
+async function criarUtilizador(){
+  const email = document.getElementById('novoUserEmail').value.trim();
+  const senha = document.getElementById('novoUserSenha').value;
+  const ehAdmin = document.getElementById('novoUserAdmin').checked;
+  const msgEl = document.getElementById('novoUserMsg');
+  msgEl.textContent = '';
+  msgEl.style.color = 'var(--danger-text)';
+
+  if(!email || !senha || senha.length < 6){
+    msgEl.textContent = 'Indica um email e uma password com pelo menos 6 caracteres.';
+    return;
+  }
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      msgEl.textContent = data?.msg || data?.error_description || 'Não consegui criar este utilizador (talvez o email já exista).';
+      return;
+    }
+
+    try{ await sbInsertRow('colaboradores', {email}); }catch(e){}
+
+    if(ehAdmin){
+      try{ await sbInsertRow('admins', {email}); }
+      catch(e){ msgEl.textContent = 'Utilizador criado, mas não consegui dar-lhe acesso de administrador. Tenta marcar de novo.'; }
+    }
+
+    msgEl.style.color = 'var(--ok-text)';
+    msgEl.textContent = `Utilizador ${email} criado com sucesso.`;
+    document.getElementById('novoUserEmail').value = '';
+    document.getElementById('novoUserSenha').value = '123456';
+    document.getElementById('novoUserAdmin').checked = false;
+    renderUtilizadores();
+  }catch(e){
+    msgEl.textContent = 'Não consegui ligar. Verifica a internet e tenta de novo.';
+  }
+}
+
+async function sbInsertRow(table, row){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+    body: JSON.stringify(row)
+  });
+  if(!res.ok) throw new Error('Falha ao guardar em ' + table);
+}
+
+async function renderUtilizadores(){
+  const body = document.getElementById('utilizadoresBody');
+  if(!body) return;
+  let colabs = [], admins = [];
+  try{ colabs = await sbGet('colaboradores'); }catch(e){}
+  try{ admins = await sbGet('admins'); }catch(e){}
+
+  const adminEmails = new Set(admins.map(a => a.email.toLowerCase()));
+  // junta quem está em "colaboradores" com quem está em "admins" mas por algum motivo não ficou lá registado
+  const todos = new Map();
+  colabs.forEach(c => todos.set(c.email.toLowerCase(), {email: c.email, criado_em: c.criado_em}));
+  admins.forEach(a => { if(!todos.has(a.email.toLowerCase())) todos.set(a.email.toLowerCase(), {email: a.email, criado_em: null}); });
+
+  const lista = Array.from(todos.values());
+  if(lista.length === 0){
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Ainda não criaste nenhum utilizador por aqui.</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML = lista.map(u => {
+    const ehAdmin = adminEmails.has(u.email.toLowerCase());
+    const data = u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-PT') : '—';
+    return `
+    <tr>
+      <td>${u.email}</td>
+      <td>${data}</td>
+      <td>${ehAdmin ? '<span class="badge warn">Administrador</span>' : '<span class="badge ok">Colaborador</span>'}</td>
+      <td>
+        ${ehAdmin ? `<button class="icon-btn" onclick="retirarAdmin('${u.email}')">retirar admin</button>` : `<button class="icon-btn" onclick="tornarAdmin('${u.email}')">tornar admin</button>`}
+        <button class="icon-btn danger" onclick="removerDaLista('${u.email}')">remover da lista</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function tornarAdmin(email){
+  const ok = await showConfirm(`Dar acesso de gestão completa a ${email}?`);
+  if(!ok) return;
+  try{ await sbInsertRow('admins', {email}); }
+  catch(e){ await showAlert('Não consegui dar acesso de administrador.'); }
+  renderUtilizadores();
+}
+
+async function retirarAdmin(email){
+  if(email.toLowerCase() === usuarioAtualEmail.toLowerCase()){
+    await showAlert('Não podes retirar o teu próprio acesso de administrador.');
+    return;
+  }
+  const ok = await showConfirm(`Retirar o acesso de gestão de ${email}? A conta de login continua a existir, mas passa a entrar como colaborador.`);
+  if(!ok) return;
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/admins?email=eq.${encodeURIComponent(email)}`, { method:'DELETE', headers: sbHeadersFn() });
+  }catch(e){}
+  renderUtilizadores();
+}
+
+async function removerDaLista(email){
+  if(email.toLowerCase() === usuarioAtualEmail.toLowerCase()){
+    await showAlert('Não podes remover-te a ti próprio da lista.');
+    return;
+  }
+  const ok = await showConfirm(`Remover ${email} desta lista? Isto não apaga o login dele — só deixas de o ver aqui e ele perde qualquer acesso de administrador que tivesse. Para apagar a conta de verdade, usa o painel do Supabase.`);
+  if(!ok) return;
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/admins?email=eq.${encodeURIComponent(email)}`, { method:'DELETE', headers: sbHeadersFn() });
+    await fetch(`${SUPABASE_URL}/rest/v1/colaboradores?email=eq.${encodeURIComponent(email)}`, { method:'DELETE', headers: sbHeadersFn() });
+  }catch(e){}
+  renderUtilizadores();
+}
+
+// ---------- CHECKLISTS (gestão) ----------
+function setChecklistAdminMode(mode){
+  document.getElementById('tgChecklistItens').classList.toggle('active', mode === 'itens');
+  document.getElementById('tgChecklistHistorico').classList.toggle('active', mode === 'historico');
+  document.getElementById('checklistItensView').style.display = mode === 'itens' ? 'block' : 'none';
+  document.getElementById('checklistHistoricoView').style.display = mode === 'historico' ? 'block' : 'none';
+  if(mode === 'historico') renderChecklistHistorico();
+}
+
+async function importarChecklistSeed(){
+  if(checklistItens.length > 0){
+    await showAlert('Já existem itens de checklist — a importação inicial só funciona numa lista vazia, para não duplicar. Podes adicionar manualmente ou em massa.');
+    return;
+  }
+  const el = document.getElementById('checklistSeedData');
+  if(!el){ await showAlert('Dados de importação não encontrados.'); return; }
+  const seed = JSON.parse(el.textContent);
+  const ok = await showConfirm(`Isto vai importar ${seed.length} tarefas já classificadas por área e tipo. Podes editar ou remover qualquer uma depois. Continuar?`);
+  if(!ok) return;
+
+  const novos = seed.map((it, i) => ({ id: uid(), area: it.area, tipo: it.tipo, texto: it.texto, ordem: i }));
+  try{
+    await sbInsertRow('checklist_itens', novos);
+    checklistItens = checklistItens.concat(novos);
+    renderChecklistItens();
+    await showAlert(`${novos.length} tarefas importadas.`);
+  }catch(e){
+    await showAlert('Não consegui importar. Confirma se a tabela checklist_itens já existe no Supabase.');
+  }
+}
+
+async function adicionarChecklistEmMassa(){
+  const area = document.getElementById('checklistBulkArea').value;
+  const tipo = document.getElementById('checklistBulkTipo').value;
+  const linhas = document.getElementById('checklistBulkTexto').value.split('\n').map(l => l.trim()).filter(Boolean);
+  if(linhas.length === 0){ await showAlert('Escreve pelo menos uma tarefa, uma por linha.'); return; }
+
+  const ordemBase = checklistItens.filter(i => i.area === area && i.tipo === tipo).length;
+  const novos = linhas.map((texto, i) => ({ id: uid(), area, tipo, texto, ordem: ordemBase + i }));
+  try{
+    await sbInsertRow('checklist_itens', novos);
+    checklistItens = checklistItens.concat(novos);
+    document.getElementById('checklistBulkTexto').value = '';
+    renderChecklistItens();
+    await showAlert(`${novos.length} tarefa(s) adicionada(s) a "${area} — ${tipo}".`);
+  }catch(e){
+    await showAlert('Não consegui guardar. Tenta de novo.');
+  }
+}
+
+function openChecklistItemModal(id){
+  document.getElementById('checklistItemId').value = id || '';
+  const item = checklistItens.find(x => x.id === id);
+  document.getElementById('checklistItemArea').value = item ? item.area : 'Salão';
+  document.getElementById('checklistItemTipo').value = item ? item.tipo : 'abertura';
+  document.getElementById('checklistItemTexto').value = item ? item.texto : '';
+  document.getElementById('modalChecklistItem').classList.add('open');
+}
+
+async function saveChecklistItem(){
+  const id = document.getElementById('checklistItemId').value;
+  const area = document.getElementById('checklistItemArea').value;
+  const tipo = document.getElementById('checklistItemTipo').value;
+  const texto = document.getElementById('checklistItemTexto').value.trim();
+  if(!texto){ await showAlert('Escreve o texto da tarefa.'); return; }
+
+  try{
+    if(id){
+      await sbUpdateRow('checklist_itens', id, { area, tipo, texto });
+      const item = checklistItens.find(x => x.id === id);
+      item.area = area; item.tipo = tipo; item.texto = texto;
+    }else{
+      const ordem = checklistItens.filter(i => i.area === area && i.tipo === tipo).length;
+      const novo = { id: uid(), area, tipo, texto, ordem };
+      await sbInsertRow('checklist_itens', novo);
+      checklistItens.push(novo);
+    }
+    closeModal('modalChecklistItem');
+    renderChecklistItens();
+  }catch(e){
+    await showAlert('Não consegui guardar a tarefa.');
+  }
+}
+
+async function deleteChecklistItem(id){
+  const ok = await showConfirm('Remover esta tarefa do checklist?');
+  if(!ok) return;
+  try{ await sbDeleteRow('checklist_itens', id); }catch(e){}
+  checklistItens = checklistItens.filter(x => x.id !== id);
+  renderChecklistItens();
+}
+
+function toggleSelecionarTodosChecklist(checkboxTodos){
+  document.querySelectorAll('.checklist-item-check').forEach(c => { c.checked = checkboxTodos.checked; });
+}
+
+async function apagarChecklistSelecionados(){
+  const selecionados = Array.from(document.querySelectorAll('.checklist-item-check:checked')).map(c => c.value);
+  if(selecionados.length === 0){ await showAlert('Marca pelo menos uma tarefa para apagar.'); return; }
+
+  const ok = await showConfirm(`Isto vai apagar ${selecionados.length} tarefa(s) selecionada(s).\n\nEsta ação não tem "desfazer". Continuar?`);
+  if(!ok) return;
+
+  try{
+    const listaIds = selecionados.map(id => `"${id}"`).join(',');
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/checklist_itens?id=in.(${listaIds})`, {
+      method: 'DELETE', headers: sbHeadersFn()
+    });
+    if(!res.ok) throw new Error();
+  }catch(e){
+    await showAlert('Ocorreu um erro a apagar — atualiza a página para ver o que ficou.');
+    return;
+  }
+  checklistItens = checklistItens.filter(i => !selecionados.includes(i.id));
+  renderChecklistItens();
+  await showAlert(`${selecionados.length} tarefa(s) apagada(s).`);
+}
+
+function renderChecklistItens(){
+  const body = document.getElementById('checklistItensBody');
+  if(!body) return;
+
+  const filtroAreaSel = document.getElementById('checklistFiltroArea');
+  const areasUnicas = Array.from(new Set(checklistItens.map(i => i.area)));
+  const areaAtual = filtroAreaSel.value;
+  filtroAreaSel.innerHTML = '<option value="">Todas as áreas</option>' + areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('');
+  filtroAreaSel.value = areaAtual;
+
+  const filtroTipoSel = document.getElementById('checklistFiltroTipo');
+  const filtroArea = filtroAreaSel.value;
+  const filtroTipo = filtroTipoSel.value;
+
+  let lista = [...checklistItens];
+  if(filtroArea) lista = lista.filter(i => i.area === filtroArea);
+  if(filtroTipo) lista = lista.filter(i => i.tipo === filtroTipo);
+  lista.sort((a,b) => {
+    if(a.area !== b.area) return a.area.localeCompare(b.area);
+    if(a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+    return (a.ordem||0) - (b.ordem||0);
+  });
+
+  if(lista.length === 0){
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Nenhuma tarefa encontrada.</div></td></tr>';
+    return;
+  }
+
+  const tipoLabel = {abertura:'Abertura', fecho:'Fecho', manutencao:'Manutenção', entrada_turno:'Entrada de turno', saida_turno:'Saída de turno'};
+  document.getElementById('checklistSelecionarTodos').checked = false;
+  body.innerHTML = lista.map(i => `
+    <tr>
+      <td><input type="checkbox" class="checklist-item-check" value="${i.id}"></td>
+      <td><span class="badge area">${i.area}</span></td>
+      <td>${tipoLabel[i.tipo] || i.tipo}</td>
+      <td>${i.texto}</td>
+      <td>
+        <button class="icon-btn" onclick="openChecklistItemModal('${i.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteChecklistItem('${i.id}')">remover</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderChecklistHistorico(){
+  const content = document.getElementById('checklistHistoricoContent');
+  if(!content) return;
+
+  const AREAS_FIXAS = ['Salão', 'Área de Pizza', 'Bar', 'Cozinha'];
+  const TIPOS = [['abertura','Abertura'], ['fecho','Fecho'], ['manutencao','Manutenção']];
+
+  const datas = Array.from(new Set(checklistExecucoes.map(e => e.data))).sort((a,b) => b.localeCompare(a)).slice(0, 14);
+
+  if(datas.length === 0){
+    content.innerHTML = '<div class="empty">Ainda sem checklists concluídos.</div>';
+    return;
+  }
+
+  content.innerHTML = datas.map(data => {
+    const dataFormatada = new Date(data + 'T12:00:00').toLocaleDateString('pt-PT', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'});
+    const linhas = AREAS_FIXAS.map(area => {
+      const celulas = TIPOS.map(([tipoVal, tipoLabel]) => {
+        const exec = checklistExecucoes.find(e => e.data === data && e.area === area && e.tipo === tipoVal);
+        if(!exec) return '<td style="color:var(--ink-soft);">—</td>';
+        const hora = exec.criado_em ? new Date(exec.criado_em).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'}) : '';
+        return `<td><span class="badge ok">${exec.usuario_email||'?'}</span><div class="save-note">${hora}</div></td>`;
+      }).join('');
+      return `<tr><td><strong>${area}</strong></td>${celulas}</tr>`;
+    }).join('');
+
+    const trocasTurno = checklistExecucoes
+      .filter(e => e.data === data && (e.tipo === 'entrada_turno' || e.tipo === 'saida_turno'))
+      .sort((a,b) => new Date(a.criado_em) - new Date(b.criado_em));
+    const trocasHtml = trocasTurno.length === 0 ? '' : `
+      <h3 style="font-size:14px;margin:14px 0 8px;color:var(--terracotta-dark);">Trocas de turno</h3>
+      <table><thead><tr><th>Hora</th><th>Área</th><th>Tipo</th><th>Quem</th></tr></thead>
+      <tbody>${trocasTurno.map(e => {
+        const hora = e.criado_em ? new Date(e.criado_em).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'}) : '';
+        return `<tr><td>${hora}</td><td>${e.area}</td><td>${e.tipo === 'entrada_turno' ? 'Entrada' : 'Saída'}</td><td>${e.usuario_email||'?'}</td></tr>`;
+      }).join('')}</tbody></table>`;
+
+    return `
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:10px;text-transform:capitalize;">${dataFormatada}</h3>
+      <table><thead><tr><th>Área</th><th>Abertura</th><th>Fecho</th><th>Manutenção</th></tr></thead>
+      <tbody>${linhas}</tbody></table>
+      ${trocasHtml}
+    </div>`;
+  }).join('');
+}
+
+// ---------- PRODUÇÃO (gestão) ----------
+const DIAS_SEMANA = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const DIAS_SEMANA_ABREV = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+let producaoCategoriaAtual = 'insumos';
+
+function setProducaoCategoria(cat){
+  producaoCategoriaAtual = cat;
+  document.getElementById('tgProducaoInsumos').classList.toggle('active', cat === 'insumos');
+  document.getElementById('tgProducaoImpasto').classList.toggle('active', cat === 'impasto');
+  renderProducaoItens();
+}
+
+function renderProducaoItens(){
+  const body = document.getElementById('producaoItensBody');
+  if(!body) return;
+
+  const filtroSel = document.getElementById('producaoFiltroArea');
+  const areasUnicas = Array.from(new Set(producaoItens.filter(i => i.categoria === producaoCategoriaAtual).map(i => i.area)));
+  const areaAtual = filtroSel.value;
+  filtroSel.innerHTML = '<option value="">Todas as áreas</option>' + areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('');
+  filtroSel.value = areaAtual;
+
+  let lista = producaoItens.filter(i => i.categoria === producaoCategoriaAtual);
+  if(filtroSel.value) lista = lista.filter(i => i.area === filtroSel.value);
+  lista.sort((a,b) => {
+    if(a.area !== b.area) return a.area.localeCompare(b.area);
+    return (a.ordem||0) - (b.ordem||0);
+  });
+
+  if(lista.length === 0){
+    body.innerHTML = `<tr><td colspan="10"><div class="empty">${producaoCategoriaAtual === 'impasto' ? 'Ainda sem itens de impasto — aguarda as diretrizes para adicionares.' : 'Nenhum item de produção. Cria o primeiro.'}</div></td></tr>`;
+    return;
+  }
+
+  body.innerHTML = lista.map(i => {
+    const qtds = i.quantidades || {};
+    const celulasDias = DIAS_SEMANA.map(dia => `
+      <td><input type="number" step="any" value="${qtds[dia] ?? ''}" style="width:56px;" onchange="updateProducaoQtd('${i.id}', '${dia}', this.value)"></td>
+    `).join('');
+    return `
+    <tr>
+      <td><span class="badge area">${i.area}</span></td>
+      <td>${i.nome}</td>
+      ${celulasDias}
+      <td>
+        <button class="icon-btn" onclick="openProducaoItemModal('${i.id}')">editar</button>
+        <button class="icon-btn danger" onclick="deleteProducaoItem('${i.id}')">remover</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateProducaoQtd(itemId, dia, valor){
+  const item = producaoItens.find(x => x.id === itemId);
+  if(!item) return;
+  const n = parseFloat(valor);
+  if(!item.quantidades) item.quantidades = {};
+  if(isNaN(n) || valor === ''){ delete item.quantidades[dia]; }
+  else{ item.quantidades[dia] = n; }
+  try{ await sbUpdateRow('producao_itens', itemId, { quantidades: item.quantidades }); }
+  catch(e){ await showAlert('Não consegui guardar a quantidade.'); }
+}
+
+function openProducaoItemModal(id){
+  document.getElementById('producaoItemId').value = id || '';
+  const item = producaoItens.find(x => x.id === id);
+  document.getElementById('producaoItemArea').value = item ? item.area : 'Cozinha';
+  document.getElementById('producaoItemNome').value = item ? item.nome : '';
+  document.getElementById('modalProducaoItem').classList.add('open');
+}
+
+async function saveProducaoItem(){
+  const id = document.getElementById('producaoItemId').value;
+  const area = document.getElementById('producaoItemArea').value;
+  const nome = document.getElementById('producaoItemNome').value.trim();
+  if(!nome){ await showAlert('Escreve o nome do item.'); return; }
+
+  try{
+    if(id){
+      await sbUpdateRow('producao_itens', id, { area, nome });
+      const item = producaoItens.find(x => x.id === id);
+      item.area = area; item.nome = nome;
+    }else{
+      const ordem = producaoItens.filter(i => i.categoria === producaoCategoriaAtual && i.area === area).length;
+      const novo = { id: uid(), categoria: producaoCategoriaAtual, area, nome, ordem, quantidades: {} };
+      await sbInsertRow('producao_itens', novo);
+      producaoItens.push(novo);
+    }
+    closeModal('modalProducaoItem');
+    renderProducaoItens();
+  }catch(e){
+    await showAlert('Não consegui guardar o item.');
+  }
+}
+
+async function deleteProducaoItem(id){
+  const ok = await showConfirm('Remover este item de produção?');
+  if(!ok) return;
+  try{ await sbDeleteRow('producao_itens', id); }catch(e){}
+  producaoItens = producaoItens.filter(x => x.id !== id);
+  renderProducaoItens();
+}
+
+// ---------- MODO OPERACIONAL (colaboradores) ----------
+let grupoAtualOperacional = null;
+
+async function carregarDadosOperacional(){
+  fornecedores = (await sbGet('fornecedores')).map(fornecedorFromDb);
+  areas = (await sbGet('areas')).map(areaFromDb);
+  produtos = (await sbGet('produtos')).map(produtoFromDb);
+  grupos = (await sbGet('grupos')).map(grupoFromDb);
+  contagens = await sbGet('contagens');
+  checklistItens = await sbGet('checklist_itens');
+  checklistExecucoes = await sbGet('checklist_execucoes');
+  producaoItens = await sbGet('producao_itens');
+  producaoExecucoes = await sbGet('producao_execucoes');
+}
+
+// ---------- CHECKLIST (modo operacional) ----------
+const AREAS_CHECKLIST = ['Salão', 'Área de Pizza', 'Bar', 'Cozinha'];
+const TIPO_LABEL_CHECKLIST = {abertura: 'Início do dia', fecho: 'Fim do dia', manutencao: 'Manutenção', entrada_turno: 'Entrada de turno', saida_turno: 'Saída de turno'};
+const DESPEDIDAS_ITALIANO = ['Buona giornata! 🇮🇹', 'Grazie mille!', 'A presto!', 'Ottimo lavoro!', 'Buona serata!'];
+
+let checklistTipoAtual = null;
+let checklistAreasSelecionadas = [];
+
+function hojeISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function checklistJaFeitoHoje(area, tipo){
+  const hoje = hojeISO();
+  return checklistExecucoes.find(e => e.data === hoje && e.area === area && e.tipo === tipo);
+}
+
+function selecionarChecklistTipo(tipo){
+  checklistTipoAtual = tipo;
+  document.getElementById('checklistAreasTitulo').textContent = `${TIPO_LABEL_CHECKLIST[tipo]} — em que área(s) vais trabalhar?`;
+
+  const wrap = document.getElementById('checklistAreasLista');
+  wrap.innerHTML = AREAS_CHECKLIST.map(area => {
+    const feito = checklistJaFeitoHoje(area, tipo);
+    if(feito){
+      const hora = feito.criado_em ? new Date(feito.criado_em).toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'}) : '';
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--ok-bg);opacity:.7;">
+          <input type="checkbox" disabled style="width:18px;height:18px;">
+          <div>
+            <div style="font-weight:600;">${area}</div>
+            <div class="save-note">Já feito hoje por ${feito.usuario_email||'alguém'} às ${hora}</div>
+          </div>
+        </label>`;
+    }
+    return `
+      <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
+        <input type="checkbox" class="checklist-area-check" value="${area}" style="width:18px;height:18px;">
+        <div style="font-weight:600;">${area}</div>
+      </label>`;
+  }).join('');
+
+  mostrarOperScreen('oper-screen-checklist-areas');
+}
+
+function iniciarChecklistTarefas(){
+  const marcadas = Array.from(document.querySelectorAll('.checklist-area-check:checked')).map(c => c.value);
+  if(marcadas.length === 0){
+    showAlert('Escolhe pelo menos uma área que ainda não tenha sido feita hoje.');
+    return;
+  }
+  checklistAreasSelecionadas = marcadas;
+
+  const tarefas = checklistItens.filter(i => i.tipo === checklistTipoAtual && marcadas.includes(i.area));
+  tarefas.sort((a,b) => {
+    if(a.area !== b.area) return AREAS_CHECKLIST.indexOf(a.area) - AREAS_CHECKLIST.indexOf(b.area);
+    return (a.ordem||0) - (b.ordem||0);
+  });
+
+  document.getElementById('checklistTarefasTitulo').textContent = `${TIPO_LABEL_CHECKLIST[checklistTipoAtual]} — ${marcadas.join(', ')}`;
+
+  const wrap = document.getElementById('checklistTarefasLista');
+  if(tarefas.length === 0){
+    wrap.innerHTML = '<div class="empty">Sem tarefas configuradas para esta combinação. Fala com o teu patrão.</div>';
+  }else{
+    let html = '';
+    let areaAtual = null;
+    tarefas.forEach(t => {
+      if(t.area !== areaAtual){
+        html += `<div class="area-header">${t.area}</div>`;
+        areaAtual = t.area;
+      }
+      html += `
+        <label class="produto-row" id="checklist-task-${t.id}" style="cursor:pointer;justify-content:flex-start;gap:12px;">
+          <input type="checkbox" class="checklist-task-check" data-item-id="${t.id}" onchange="atualizarProgressoChecklist()" style="width:20px;height:20px;flex-shrink:0;">
+          <span class="info"><span class="nome">${t.texto}</span></span>
+        </label>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  atualizarProgressoChecklist();
+  mostrarOperScreen('oper-screen-checklist-tarefas');
+}
+
+function atualizarProgressoChecklist(){
+  const checks = Array.from(document.querySelectorAll('.checklist-task-check'));
+  const btn = document.getElementById('btnFinalizarChecklist');
+  const todasMarcadas = checks.length > 0 && checks.every(c => c.checked);
+  btn.disabled = !todasMarcadas;
+  btn.textContent = todasMarcadas ? 'Finalizar' : `Finalizar (${checks.filter(c=>c.checked).length}/${checks.length} marcadas)`;
+  checks.forEach(c => {
+    const row = document.getElementById('checklist-task-' + c.dataset.itemId);
+    if(row) row.style.opacity = c.checked ? '.45' : '1';
+  });
+}
+
+async function finalizarChecklist(){
+  const hoje = hojeISO();
+  const tarefas = checklistItens.filter(i => i.tipo === checklistTipoAtual && checklistAreasSelecionadas.includes(i.area));
+
+  const registosPorArea = checklistAreasSelecionadas.map(area => ({
+    id: uid(),
+    area,
+    tipo: checklistTipoAtual,
+    data: hoje,
+    usuario_email: usuarioAtualEmail,
+    itens: tarefas.filter(t => t.area === area).map(t => ({ texto: t.texto, feito: true }))
+  }));
+
+  try{
+    await sbInsertRow('checklist_execucoes', registosPorArea);
+    checklistExecucoes = checklistExecucoes.concat(registosPorArea);
+  }catch(e){
+    await showAlert('Não consegui gravar o checklist. Verifica a internet e tenta de novo.');
+    return;
+  }
+
+  const despedida = DESPEDIDAS_ITALIANO[Math.floor(Math.random() * DESPEDIDAS_ITALIANO.length)];
+  document.getElementById('checklistSucessoMsg').textContent = despedida;
+  mostrarOperScreen('oper-screen-checklist-sucesso');
+}
+
+// ---------- PRODUÇÃO (modo operacional) ----------
+let producaoCategoriaOperacional = null;
+
+function diaSemanaHoje(){
+  // getDay(): 0=domingo ... 6=sábado
+  const idx = new Date().getDay();
+  const mapa = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  return mapa[idx];
+}
+
+function selecionarProducaoCategoria(categoria){
+  producaoCategoriaOperacional = categoria;
+  document.getElementById('producaoAreasTitulo').textContent = `${categoria === 'insumos' ? 'Insumos' : 'Impasto'} — em que área(s) vais produzir?`;
+
+  const areasComItens = Array.from(new Set(producaoItens.filter(i => i.categoria === categoria).map(i => i.area)));
+  const wrap = document.getElementById('producaoAreasLista');
+  if(areasComItens.length === 0){
+    wrap.innerHTML = '<div class="empty">Ainda sem itens configurados aqui. Fala com o teu patrão.</div>';
+  }else{
+    wrap.innerHTML = areasComItens.map(area => `
+      <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
+        <input type="checkbox" class="producao-area-check" value="${area}" style="width:18px;height:18px;">
+        <div style="font-weight:600;">${area}</div>
+      </label>`).join('');
+  }
+  mostrarOperScreen('oper-screen-producao-areas');
+}
+
+async function iniciarProducaoItens(){
+  const marcadas = Array.from(document.querySelectorAll('.producao-area-check:checked')).map(c => c.value);
+  if(marcadas.length === 0){ await showAlert('Escolhe pelo menos uma área.'); return; }
+
+  try{ producaoExecucoes = await sbGet('producao_execucoes'); }catch(e){}
+
+  const hoje = hojeISO();
+  const diaSemana = diaSemanaHoje();
+  const feitosHojeIds = new Set(producaoExecucoes.filter(e => e.data === hoje).map(e => e.item_id));
+
+  const itens = producaoItens.filter(i =>
+    i.categoria === producaoCategoriaOperacional &&
+    marcadas.includes(i.area) &&
+    (i.quantidades && i.quantidades[diaSemana] !== undefined) &&
+    !feitosHojeIds.has(i.id)
+  );
+  itens.sort((a,b) => a.area.localeCompare(b.area) || (a.ordem||0)-(b.ordem||0));
+
+  document.getElementById('producaoItensTitulo').textContent = `${producaoCategoriaOperacional === 'insumos' ? 'Insumos' : 'Impasto'} — ${marcadas.join(', ')}`;
+
+  renderListaProducaoItens(itens);
+  mostrarOperScreen('oper-screen-producao-itens');
+}
+
+function renderListaProducaoItens(itens){
+  const wrap = document.getElementById('producaoItensLista');
+  const diaSemana = diaSemanaHoje();
+  if(itens.length === 0){
+    wrap.innerHTML = '<div class="empty">Nada a produzir hoje nestas áreas. 🎉</div>';
+    return;
+  }
+  let html = '';
+  let areaAtual = null;
+  itens.forEach(item => {
+    if(item.area !== areaAtual){
+      html += `<div class="area-header">${item.area}</div>`;
+      areaAtual = item.area;
+    }
+    const qtd = item.quantidades[diaSemana];
+    html += `
+      <div class="produto-row" id="producao-item-${item.id}">
+        <div class="info">
+          <div class="nome">${item.nome}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="badge ok">${qtd}</span>
+          <input type="checkbox" onchange="marcarProducaoFeita('${item.id}')" style="width:20px;height:20px;">
+        </div>
+      </div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+async function marcarProducaoFeita(itemId){
+  const item = producaoItens.find(x => x.id === itemId);
+  if(!item) return;
+  const diaSemana = diaSemanaHoje();
+
+  const registo = {
+    id: uid(),
+    item_id: item.id,
+    categoria: item.categoria,
+    area: item.area,
+    nome: item.nome,
+    quantidade: item.quantidades[diaSemana],
+    data: hojeISO(),
+    usuario_email: usuarioAtualEmail
+  };
+
+  try{
+    await sbInsertRow('producao_execucoes', registo);
+    producaoExecucoes.push(registo);
+  }catch(e){
+    await showAlert('Não consegui gravar. Verifica a internet e tenta de novo.');
+    return;
+  }
+
+  const row = document.getElementById('producao-item-' + itemId);
+  if(row){
+    row.style.transition = 'opacity .25s';
+    row.style.opacity = '0';
+    setTimeout(() => { row.style.display = 'none'; }, 250);
+  }
+}
+
+function diasContagemDoGrupo(g){
+  return g.diasContagem || [];
+}
+
+function renderGruposOperacional(){
+  const wrap = document.getElementById('operListaGrupos');
+  if(grupos.length === 0){
+    wrap.innerHTML = '<div class="save-note">Ainda não há grupos de compra configurados. Fala com o teu patrão.</div>';
+    return;
+  }
+  wrap.innerHTML = grupos.map(g => {
+    const dias = diasContagemDoGrupo(g);
+    const subtitulo = dias.length ? `<div style="font-size:12px;font-weight:400;color:var(--ink-soft);margin-top:2px;">Contar: ${dias.join(', ')}</div>` : '';
+    return `<button class="grupo-btn" onclick="selecionarGrupoOperacional('${g.id}')">${g.nome}${subtitulo}</button>`;
+  }).join('');
+}
+
+let contagemEditandoId = null;
+
+let grupoAreaAtualOperacional = null;
+
+async function selecionarGrupoOperacional(grupoId){
+  try{ contagens = await sbGet('contagens'); }catch(e){}
+  const g = grupos.find(x => x.id === grupoId);
+  grupoAtualOperacional = g;
+
+  const produtosDoGrupo = produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  const areasNoGrupo = Array.from(new Set(
+    produtosDoGrupo.flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
+  ));
+
+  if(areasNoGrupo.length <= 1){
+    await entrarNaContagemDeArea(g, areasNoGrupo[0] || null, produtosDoGrupo);
+    return;
+  }
+
+  document.getElementById('grupoAreasTitulo').textContent = `${g.nome} — qual área vais contar?`;
+  const wrap = document.getElementById('grupoAreasLista');
+  wrap.innerHTML = areasNoGrupo.map(area => {
+    const pendente = contagens.find(c => c.grupo_id === grupoId && c.area === area && c.status === 'pendente');
+    if(pendente && pendente.usuario_email !== usuarioAtualEmail){
+      const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--warn-bg);opacity:.85;">
+          <input type="radio" disabled style="width:18px;height:18px;">
+          <div>
+            <div style="font-weight:600;">${area}</div>
+            <div class="save-note">Já a ser contada por ${pendente.usuario_email} · ${hora}</div>
+          </div>
+        </label>`;
+    }
+    const jaTeu = pendente && pendente.usuario_email === usuarioAtualEmail;
+    return `
+      <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
+        <input type="radio" name="grupoAreaRadio" class="grupo-area-check" value="${area}" style="width:18px;height:18px;">
+        <div>
+          <div style="font-weight:600;">${area}</div>
+          ${jaTeu ? '<div class="save-note">Já começaste esta contagem — vais continuar de onde ficaste.</div>' : ''}
+        </div>
+      </label>`;
+  }).join('');
+
+  mostrarOperScreen('oper-screen-grupo-areas');
+}
+
+async function iniciarContagemPorAreas(){
+  const marcada = document.querySelector('.grupo-area-check:checked');
+  if(!marcada){ await showAlert('Escolhe uma área para continuar.'); return; }
+  const g = grupoAtualOperacional;
+  const produtosDoGrupo = produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  await entrarNaContagemDeArea(g, marcada.value, produtosDoGrupo);
+}
+
+async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
+  const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
+
+  if(pendente && pendente.usuario_email !== usuarioAtualEmail){
+    const data = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
+    document.getElementById('operBloqueadoMsg').textContent =
+      `${area ? 'A área "'+area+'" d' : 'E'}este grupo já está a ser contada por ${pendente.usuario_email || 'alguém'} desde ${data}.\n\nAinda não foi revista pelo teu patrão — não é possível contar de novo até lá.`;
+    mostrarOperScreen('oper-screen-bloqueado');
+    return;
+  }
+
+  grupoAreaAtualOperacional = area;
+  contagemEditandoId = pendente ? pendente.id : null;
+
+  const itensDaArea = area
+    ? produtosDoGrupo.filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area))
+    : produtosDoGrupo;
+
+  document.getElementById('operContagemTitulo').textContent = g.nome + (area ? ' — ' + area : '') + (pendente ? ' (a corrigir o teu envio anterior)' : '');
+
+  const valoresAnteriores = {};
+  if(pendente){
+    (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
+  }
+
+  renderProdutosListaOperacional(itensDaArea, valoresAnteriores);
+  mostrarOperScreen('oper-screen-contagem');
+}
+
+function renderProdutosListaOperacional(itens, valoresAnteriores){
+  valoresAnteriores = valoresAnteriores || {};
+  itens = [...itens].sort((a,b) => a.nome.localeCompare(b.nome));
+
+  const wrap = document.getElementById('operListaProdutos');
+  if(itens.length === 0){
+    wrap.innerHTML = '<div class="save-note">Nenhum produto nesta área.</div>';
+    return;
+  }
+
+  wrap.innerHTML = itens.map(p => {
+    const anterior = valoresAnteriores[p.id] || {};
+    const valorPrevio = anterior.quantidade;
+    const obsPrevia = anterior.observacao || '';
+    const temObs = !!obsPrevia;
+    return `
+      <div data-produto-id="${p.id}" style="border-bottom:1px solid var(--line);padding:8px 0;">
+        <div class="produto-row" style="border-bottom:none;padding:2px 0;">
+          <div class="info">
+            <div class="nome">${p.nome}</div>
+            <div class="categoria">${p.categoria || ''}</div>
+          </div>
+          <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
+        </div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button type="button" class="link-btn" onclick="toggleObsInput('${p.id}')" style="padding:2px 0;">${temObs ? 'editar observação' : '+ observação'}</button>
+        </div>
+        <div id="obs-wrap-${p.id}" style="display:${temObs ? 'block' : 'none'};padding-top:4px;">
+          <input type="text" class="obs-input" placeholder="observação (opcional) — ex: veio estragado, faltou entrega..." value="${obsPrevia}" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleObsInput(produtoId){
+  const el = document.getElementById('obs-wrap-' + produtoId);
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function mostrarOperScreen(id){
+  document.querySelectorAll('.oper-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function voltarParaGruposOperacional(){
+  grupoAtualOperacional = null;
+  grupoAreaAtualOperacional = null;
+  contagemEditandoId = null;
+  renderGruposOperacional();
+  mostrarOperScreen('oper-screen-grupos');
+}
+
+async function confirmarEnvioOperacional(){
+  const mensagem = contagemEditandoId
+    ? 'Isto vai atualizar a tua contagem enviada anteriormente com estes novos números.\n\nContinuar?'
+    : 'Isto vai enviar a tua contagem e reiniciar o formulário. Depois de enviares, só o teu patrão consegue corrigir.\n\nTens a certeza que já contaste tudo?';
+  const ok = await showConfirm(mensagem);
+  if(!ok) return;
+
+  const linhas = document.querySelectorAll('#operListaProdutos > div[data-produto-id]');
+  const itens = Array.from(linhas).map(row => {
+    const obsInput = row.querySelector('.obs-input');
+    const observacao = obsInput ? obsInput.value.trim() : '';
+    return {
+      produto_id: row.dataset.produtoId,
+      quantidade: parseFloat(row.querySelector('.qtd-input').value) || 0,
+      observacao: observacao || undefined
+    };
+  });
+
+  try{
+    if(contagemEditandoId){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(contagemEditandoId)}`, {
+        method: 'PATCH',
+        headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+        body: JSON.stringify({ itens })
+      });
+      if(!res.ok) throw new Error();
+    }else{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+        method: 'POST',
+        headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          id: uid(),
+          grupo_id: grupoAtualOperacional.id,
+          grupo_nome: grupoAtualOperacional.nome,
+          area: grupoAreaAtualOperacional || null,
+          usuario_email: usuarioAtualEmail,
+          itens,
+          status: 'pendente'
+        })
+      });
+      if(!res.ok) throw new Error();
+    }
+  }catch(e){
+    await showAlert('Não consegui enviar a contagem. Verifica a internet e tenta de novo.');
+    return;
+  }
+
+  grupoAtualOperacional = null;
+  grupoAreaAtualOperacional = null;
+  contagemEditandoId = null;
+  document.querySelectorAll('.oper-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('oper-screen-sucesso').classList.add('active');
+}
+document.getElementById('gateSenha')?.addEventListener('keydown', e => { if(e.key === 'Enter') fazerLoginGate(); });
+</script>
+</body>
+</html>
