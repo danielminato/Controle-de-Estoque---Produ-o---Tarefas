@@ -2904,7 +2904,7 @@ async function selecionarGrupoOperacional(grupoId){
     return;
   }
 
-  document.getElementById('grupoAreasTitulo').textContent = `${g.nome} — qual área vais contar?`;
+  document.getElementById('grupoAreasTitulo').textContent = `${g.nome} — que área(s) vais contar?`;
   const wrap = document.getElementById('grupoAreasLista');
   wrap.innerHTML = areasNoGrupo.map(area => {
     const pendente = contagens.find(c => c.grupo_id === grupoId && c.area === area && c.status === 'pendente');
@@ -2912,7 +2912,7 @@ async function selecionarGrupoOperacional(grupoId){
       const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
       return `
         <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--warn-bg);opacity:.85;">
-          <input type="radio" disabled style="width:18px;height:18px;">
+          <input type="checkbox" disabled style="width:18px;height:18px;">
           <div>
             <div style="font-weight:600;">${area}</div>
             <div class="save-note">Já a ser contada por ${pendente.usuario_email} · ${hora}</div>
@@ -2922,7 +2922,7 @@ async function selecionarGrupoOperacional(grupoId){
     const jaTeu = pendente && pendente.usuario_email === usuarioAtualEmail;
     return `
       <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
-        <input type="radio" name="grupoAreaRadio" class="grupo-area-check" value="${area}" style="width:18px;height:18px;">
+        <input type="checkbox" class="grupo-area-check" value="${area}" style="width:18px;height:18px;" ${jaTeu ? 'checked' : ''}>
         <div>
           <div style="font-weight:600;">${area}</div>
           ${jaTeu ? '<div class="save-note">Já começaste esta contagem — vais continuar de onde ficaste.</div>' : ''}
@@ -2934,11 +2934,34 @@ async function selecionarGrupoOperacional(grupoId){
 }
 
 async function iniciarContagemPorAreas(){
-  const marcada = document.querySelector('.grupo-area-check:checked');
-  if(!marcada){ await showAlert('Escolhe uma área para continuar.'); return; }
+  let marcadas = Array.from(document.querySelectorAll('.grupo-area-check:checked')).map(c => c.value);
+  if(marcadas.length === 0){ await showAlert('Escolhe pelo menos uma área para continuar.'); return; }
+
   const g = grupoAtualOperacional;
+
+  // reconfirma no servidor — outra pessoa pode ter começado uma destas áreas entretanto
+  try{ contagens = await sbGet('contagens'); }catch(e){}
+  const roubadas = [];
+  marcadas = marcadas.filter(area => {
+    const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
+    if(pendente && pendente.usuario_email !== usuarioAtualEmail){
+      roubadas.push({area, quem: pendente.usuario_email});
+      return false;
+    }
+    return true;
+  });
+
+  if(roubadas.length > 0){
+    const lista = roubadas.map(r => `"${r.area}" (já está a ser contada por ${r.quem})`).join('\n');
+    await showAlert(`Estas áreas foram desmarcadas porque entretanto ficaram ocupadas:\n\n${lista}`);
+  }
+  if(marcadas.length === 0){
+    await selecionarGrupoOperacional(g.id);
+    return;
+  }
+
   const produtosDoGrupo = produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
-  await entrarNaContagemDeArea(g, marcada.value, produtosDoGrupo);
+  await entrarNaContagemMultiplasAreas(g, marcadas, produtosDoGrupo);
 }
 
 async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
@@ -2968,6 +2991,74 @@ async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
 
   renderProdutosListaOperacional(itensDaArea, valoresAnteriores);
   mostrarOperScreen('oper-screen-contagem');
+}
+
+let grupoAreasAtuaisOperacional = null;
+let contagemEditandoIdsPorArea = {};
+
+async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrupo){
+  grupoAreaAtualOperacional = null;
+  grupoAreasAtuaisOperacional = areasEscolhidas;
+  contagemEditandoId = null;
+  contagemEditandoIdsPorArea = {};
+
+  const valoresAnteriores = {};
+  areasEscolhidas.forEach(area => {
+    const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente' && c.usuario_email === usuarioAtualEmail);
+    contagemEditandoIdsPorArea[area] = pendente ? pendente.id : null;
+    if(pendente){
+      (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
+    }
+  });
+
+  const itensDasAreas = produtosDoGrupo.filter(p =>
+    (p.areaIds||[]).some(id => areasEscolhidas.includes(nomeArea(id)))
+  );
+
+  document.getElementById('operContagemTitulo').textContent = g.nome + ' — ' + areasEscolhidas.join(', ');
+  renderProdutosListaOperacionalPorArea(itensDasAreas, areasEscolhidas, valoresAnteriores);
+  mostrarOperScreen('oper-screen-contagem');
+}
+
+function renderProdutosListaOperacionalPorArea(itens, areasEscolhidas, valoresAnteriores){
+  valoresAnteriores = valoresAnteriores || {};
+  const wrap = document.getElementById('operListaProdutos');
+  if(itens.length === 0){
+    wrap.innerHTML = '<div class="save-note">Nenhum produto nestas áreas.</div>';
+    return;
+  }
+
+  let html = '';
+  areasEscolhidas.forEach(area => {
+    const itensDaArea = itens
+      .filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area))
+      .sort((a,b) => a.nome.localeCompare(b.nome));
+    if(itensDaArea.length === 0) return;
+    html += `<div class="area-header">${area}</div>`;
+    itensDaArea.forEach(p => {
+      const anterior = valoresAnteriores[p.id] || {};
+      const valorPrevio = anterior.quantidade;
+      const obsPrevia = anterior.observacao || '';
+      const temObs = !!obsPrevia;
+      html += `
+        <div data-produto-id="${p.id}" style="border-bottom:1px solid var(--line);padding:8px 0;">
+          <div class="produto-row" style="border-bottom:none;padding:2px 0;">
+            <div class="info">
+              <div class="nome">${p.nome}</div>
+              <div class="categoria">${p.categoria || ''}</div>
+            </div>
+            <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button type="button" class="link-btn" onclick="toggleObsInput('${p.id}')" style="padding:2px 0;">${temObs ? 'editar observação' : '+ observação'}</button>
+          </div>
+          <div id="obs-wrap-${p.id}" style="display:${temObs ? 'block' : 'none'};padding-top:4px;">
+            <input type="text" class="obs-input" placeholder="observação (opcional)" value="${obsPrevia}" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
+          </div>
+        </div>`;
+    });
+  });
+  wrap.innerHTML = html;
 }
 
 function renderProdutosListaOperacional(itens, valoresAnteriores){
@@ -3018,20 +3109,22 @@ function mostrarOperScreen(id){
 function voltarParaGruposOperacional(){
   grupoAtualOperacional = null;
   grupoAreaAtualOperacional = null;
+  grupoAreasAtuaisOperacional = null;
   contagemEditandoId = null;
+  contagemEditandoIdsPorArea = {};
   renderGruposOperacional();
   mostrarOperScreen('oper-screen-grupos');
 }
 
 async function confirmarEnvioOperacional(){
-  const mensagem = contagemEditandoId
-    ? 'Isto vai atualizar a tua contagem enviada anteriormente com estes novos números.\n\nContinuar?'
+  const mensagem = (contagemEditandoId || grupoAreasAtuaisOperacional)
+    ? 'Isto vai enviar a tua contagem. Se já tinhas começado alguma destas áreas antes, atualiza o que já enviaste.\n\nContinuar?'
     : 'Isto vai enviar a tua contagem e reiniciar o formulário. Depois de enviares, só o teu patrão consegue corrigir.\n\nTens a certeza que já contaste tudo?';
   const ok = await showConfirm(mensagem);
   if(!ok) return;
 
   const linhas = document.querySelectorAll('#operListaProdutos > div[data-produto-id]');
-  const itens = Array.from(linhas).map(row => {
+  const itensTodos = Array.from(linhas).map(row => {
     const obsInput = row.querySelector('.obs-input');
     const observacao = obsInput ? obsInput.value.trim() : '';
     return {
@@ -3042,11 +3135,44 @@ async function confirmarEnvioOperacional(){
   });
 
   try{
-    if(contagemEditandoId){
+    if(grupoAreasAtuaisOperacional){
+      // uma área múltiplas: uma submissão por área, cada uma só com os produtos dela
+      for(const area of grupoAreasAtuaisOperacional){
+        const produtosDaArea = new Set(
+          produtos.filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area)).map(p => p.id)
+        );
+        const itensDaArea = itensTodos.filter(it => produtosDaArea.has(it.produto_id));
+        const idExistente = contagemEditandoIdsPorArea[area];
+
+        if(idExistente){
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(idExistente)}`, {
+            method: 'PATCH',
+            headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+            body: JSON.stringify({ itens: itensDaArea })
+          });
+          if(!res.ok) throw new Error();
+        }else{
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+            method: 'POST',
+            headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              id: uid(),
+              grupo_id: grupoAtualOperacional.id,
+              grupo_nome: grupoAtualOperacional.nome,
+              area,
+              usuario_email: usuarioAtualEmail,
+              itens: itensDaArea,
+              status: 'pendente'
+            })
+          });
+          if(!res.ok) throw new Error();
+        }
+      }
+    }else if(contagemEditandoId){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(contagemEditandoId)}`, {
         method: 'PATCH',
         headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
-        body: JSON.stringify({ itens })
+        body: JSON.stringify({ itens: itensTodos })
       });
       if(!res.ok) throw new Error();
     }else{
@@ -3059,7 +3185,7 @@ async function confirmarEnvioOperacional(){
           grupo_nome: grupoAtualOperacional.nome,
           area: grupoAreaAtualOperacional || null,
           usuario_email: usuarioAtualEmail,
-          itens,
+          itens: itensTodos,
           status: 'pendente'
         })
       });
@@ -3072,7 +3198,9 @@ async function confirmarEnvioOperacional(){
 
   grupoAtualOperacional = null;
   grupoAreaAtualOperacional = null;
+  grupoAreasAtuaisOperacional = null;
   contagemEditandoId = null;
+  contagemEditandoIdsPorArea = {};
   document.querySelectorAll('.oper-screen').forEach(s => s.classList.remove('active'));
   document.getElementById('oper-screen-sucesso').classList.add('active');
 }
