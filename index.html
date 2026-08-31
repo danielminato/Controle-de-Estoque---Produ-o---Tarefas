@@ -535,6 +535,10 @@
       </label>
     </div>
 
+    <label class="field" style="margin-top:8px;">Nota para quem conta (aparece na contagem, ex: "marcar como 0 só quando acabar totalmente")
+      <input type="text" id="produtoNota" placeholder="opcional">
+    </label>
+
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalProduto')">Cancelar</button>
       <button class="btn" onclick="saveProduto()">Guardar</button>
@@ -922,12 +926,12 @@ function areaFromDb(r){ return { id:r.id, nome:r.nome }; }
 function produtoToDb(p){ return {
   id:p.id, codigo:p.codigo||'', nome:p.nome, categoria:p.categoria||'', tipo:p.tipo||'materia_prima',
   area_ids: p.areaIds||[], precos: p.precos||[], qtd_minima: p.qtdMinima||0, qtd_atual: p.qtdAtual||0,
-  fornecedor_escolhido_id: p.fornecedorEscolhidoId || null
+  fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null
 };}
 function produtoFromDb(r){ return {
   id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
   areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
-  fornecedorEscolhidoId: r.fornecedor_escolhido_id || ''
+  fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || ''
 };}
 function grupoToDb(g){ return {
   id:g.id, nome:g.nome, fornecedor_ids: g.fornecedorIds||[],
@@ -1393,7 +1397,7 @@ function renderProdutos(){
     return `
     <tr>
       <td>${p.codigo || '—'}</td>
-      <td>${p.nome}</td>
+      <td>${p.nome}${p.nota ? ' <span title="'+p.nota+'">ℹ️</span>' : ''}</td>
       <td>${p.categoria || '—'}</td>
       <td>${p.tipo === 'semi_preparado' ? 'Semi-preparado' : 'Matéria-prima'}</td>
       <td>${areaBadges(p.areaIds)}</td>
@@ -1543,6 +1547,7 @@ function openProdutoModal(id){
   fillFornecedorEscolhidoSelect(document.getElementById('produtoFornecedorEscolhido'), p ? p.fornecedorEscolhidoId : '');
 
   document.getElementById('produtoQtdMinima').value = p ? (p.qtdMinima ?? '') : '';
+  document.getElementById('produtoNota').value = p ? (p.nota || '') : '';
   document.getElementById('produtoQtdAtual').value = p ? (p.qtdAtual ?? '') : '';
 
   document.getElementById('precosList').innerHTML = '';
@@ -1580,7 +1585,8 @@ async function saveProduto(){
     precos,
     qtdMinima: parseFloat(document.getElementById('produtoQtdMinima').value) || 0,
     qtdAtual: parseFloat(document.getElementById('produtoQtdAtual').value) || 0,
-    fornecedorEscolhidoId: document.getElementById('produtoFornecedorEscolhido').value
+    fornecedorEscolhidoId: document.getElementById('produtoFornecedorEscolhido').value,
+    nota: document.getElementById('produtoNota').value.trim()
   };
 
   if(id){
@@ -3046,6 +3052,7 @@ function renderProdutosListaOperacionalPorArea(itens, areasEscolhidas, valoresAn
             <div class="info">
               <div class="nome">${p.nome}</div>
               <div class="categoria">${p.categoria || ''}</div>
+              ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
             </div>
             <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
           </div>
@@ -3082,6 +3089,7 @@ function renderProdutosListaOperacional(itens, valoresAnteriores){
           <div class="info">
             <div class="nome">${p.nome}</div>
             <div class="categoria">${p.categoria || ''}</div>
+            ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
           </div>
           <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
         </div>
