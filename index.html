@@ -376,9 +376,12 @@
 
   <!-- CONTAGENS -->
   <div class="view" id="view-contagens">
+    <div id="resumoGruposContent" style="margin-bottom:18px;"></div>
+
     <div class="toggle-group" style="margin-bottom:14px;">
       <button id="tgContagemPendentes" class="active" onclick="setContagensMode('pendentes')">Pendentes</button>
       <button id="tgContagemHistorico" onclick="setContagensMode('historico')">Histórico</button>
+      <button id="tgContagemValor" onclick="setContagensMode('valor')">Valor em estoque</button>
     </div>
     <div class="save-note" id="contagensAjuda" style="margin-bottom:14px;">Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.</div>
     <div class="row" id="historicoFiltroWrap" style="display:none;margin-bottom:14px;">
@@ -1141,10 +1144,14 @@ function setContagensMode(mode){
   contagensMode = mode;
   document.getElementById('tgContagemPendentes').classList.toggle('active', mode === 'pendentes');
   document.getElementById('tgContagemHistorico').classList.toggle('active', mode === 'historico');
+  document.getElementById('tgContagemValor').classList.toggle('active', mode === 'valor');
   document.getElementById('historicoFiltroWrap').style.display = mode === 'historico' ? 'flex' : 'none';
-  document.getElementById('contagensAjuda').textContent = mode === 'pendentes'
-    ? 'Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.'
-    : 'Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.';
+  const textos = {
+    pendentes: 'Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.',
+    historico: 'Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.',
+    valor: 'Valor em estoque por grupo, calculado a partir da contagem mais recente de cada área (até 3), aos preços de hoje. Útil para descontar do CMV.'
+  };
+  document.getElementById('contagensAjuda').textContent = textos[mode];
   renderContagens();
 }
 
@@ -1153,8 +1160,15 @@ function renderContagens(){
   const content = document.getElementById('contagensContent');
   if(!content) return;
 
+  renderResumoGrupos();
+
   const pendentes = contagens.filter(c => c.status === 'pendente');
   if(badge) badge.textContent = pendentes.length > 0 ? `(${pendentes.length})` : '';
+
+  if(contagensMode === 'valor'){
+    renderValorEstoque(content);
+    return;
+  }
 
   if(contagensMode === 'pendentes'){
     if(pendentes.length === 0){
@@ -1203,12 +1217,7 @@ function renderContagens(){
   content.innerHTML = filtrado.map(c => {
     const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
     const itens = c.itens || [];
-    const valorTotal = itens.reduce((soma, it) => {
-      if(it.valor_unitario !== undefined) return soma + (Number(it.quantidade)||0) * (Number(it.valor_unitario)||0);
-      const p = produtos.find(x => x.id === it.produto_id);
-      const mp = p ? melhorPreco(p) : null;
-      return soma + (Number(it.quantidade)||0) * (mp ? mp.preco : 0);
-    }, 0);
+    const valorTotal = valorDaContagem(c);
     return `
     <div class="card" style="margin-bottom:14px;">
       <div class="row between" style="margin-bottom:10px;">
@@ -1228,6 +1237,63 @@ function renderContagens(){
       }).join('')}</tbody></table>
     </div>`;
   }).join('');
+}
+
+function renderResumoGrupos(){
+  const el = document.getElementById('resumoGruposContent');
+  if(!el) return;
+
+  const blocos = grupos.map(g => {
+    const areas = areasDoGrupo(g);
+    if(areas.length <= 1) return '';
+    const faltando = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente'));
+    if(faltando.length === 0) return '';
+    return `<div class="warn-box" style="margin-bottom:8px;">⚠️ <strong>${g.nome}</strong>: falta contar ${faltando.length} de ${areas.length} área(s) — ${faltando.join(', ')}</div>`;
+  }).filter(Boolean).join('');
+
+  el.innerHTML = blocos || '';
+}
+
+function valorDaContagem(c){
+  return (c.itens||[]).reduce((soma, it) => {
+    if(it.valor_unitario !== undefined) return soma + (Number(it.quantidade)||0) * (Number(it.valor_unitario)||0);
+    const p = produtos.find(x => x.id === it.produto_id);
+    const mp = p ? melhorPreco(p) : null;
+    return soma + (Number(it.quantidade)||0) * (mp ? mp.preco : 0);
+  }, 0);
+}
+
+function renderValorEstoque(content){
+  const finalizadas = contagens
+    .filter(c => c.status === 'finalizada' && c.grupo_id)
+    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
+
+  const blocos = grupos.map(g => {
+    const doGrupo = finalizadas.filter(c => c.grupo_id === g.id);
+    const porArea = {};
+    doGrupo.forEach(c => {
+      const chave = c.area || '(sem área)';
+      if(!porArea[chave]) porArea[chave] = c; // a primeira encontrada é a mais recente, já vem ordenado
+    });
+    const entradas = Object.values(porArea).slice(0, 3);
+    if(entradas.length === 0) return '';
+
+    const total = entradas.reduce((soma, c) => soma + valorDaContagem(c), 0);
+    const detalhe = entradas.map(c => `${c.area || '—'} (${new Date(c.criado_em).toLocaleDateString('pt-PT')})`).join(', ');
+
+    return `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="row between">
+          <div>
+            <h3 style="font-size:16px;">${g.nome}</h3>
+            <div class="save-note">Baseado em: ${detalhe}</div>
+          </div>
+          <div class="stat" style="font-size:20px;">${eur(total)}</div>
+        </div>
+      </div>`;
+  }).filter(Boolean).join('');
+
+  content.innerHTML = blocos || '<div class="empty">Ainda sem contagens finalizadas para calcular valor.</div>';
 }
 
 async function finalizarContagem(contagemId){
@@ -1447,6 +1513,15 @@ function produtoAtivo(p){
   const foraDeUso = areasForaDeUsoIds();
   if(foraDeUso.length === 0) return true;
   return !(p.areaIds||[]).some(id => foraDeUso.includes(id));
+}
+
+function produtosDoGrupo(g){
+  return produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
+}
+function areasDoGrupo(g){
+  return Array.from(new Set(
+    produtosDoGrupo(g).flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
+  ));
 }
 
 function fornecedorEfetivo(p){
@@ -2900,13 +2975,11 @@ async function selecionarGrupoOperacional(grupoId){
   const g = grupos.find(x => x.id === grupoId);
   grupoAtualOperacional = g;
 
-  const produtosDoGrupo = produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
-  const areasNoGrupo = Array.from(new Set(
-    produtosDoGrupo.flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
-  ));
+  const produtosGrupo = produtosDoGrupo(g);
+  const areasNoGrupo = areasDoGrupo(g);
 
   if(areasNoGrupo.length <= 1){
-    await entrarNaContagemDeArea(g, areasNoGrupo[0] || null, produtosDoGrupo);
+    await entrarNaContagemDeArea(g, areasNoGrupo[0] || null, produtosGrupo);
     return;
   }
 
@@ -2966,8 +3039,7 @@ async function iniciarContagemPorAreas(){
     return;
   }
 
-  const produtosDoGrupo = produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
-  await entrarNaContagemMultiplasAreas(g, marcadas, produtosDoGrupo);
+  await entrarNaContagemMultiplasAreas(g, marcadas, produtosDoGrupo(g));
 }
 
 async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
