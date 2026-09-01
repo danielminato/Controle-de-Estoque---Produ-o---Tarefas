@@ -342,11 +342,7 @@
 
   <!-- ESTOQUE -->
   <div class="view" id="view-estoque">
-    <div class="stats-row">
-      <div class="card"><div class="stat-label">A comprar (itens)</div><div class="stat" id="statAComprar">0</div></div>
-      <div class="card"><div class="stat-label">Valor em estoque</div><div class="stat" id="statValor">€0.00</div></div>
-      <div class="card"><div class="stat-label">Abaixo do mínimo</div><div class="stat" id="statAbaixo">0</div></div>
-    </div>
+    <div id="estoqueValorPorGrupoResumo" class="stats-row"></div>
 
     <div class="row between">
       <div class="toggle-group">
@@ -1263,12 +1259,31 @@ function valorDaContagem(c){
   }, 0);
 }
 
-function renderValorEstoque(content){
+function renderValorPorGrupoResumo(){
+  const el = document.getElementById('estoqueValorPorGrupoResumo');
+  if(!el) return;
+
+  const porGrupo = calcularValorPorGrupo();
+  if(porGrupo.length === 0){
+    el.innerHTML = '<div class="card"><div class="stat-label">Valor em estoque</div><div class="stat">Sem contagens finalizadas ainda</div></div>';
+    return;
+  }
+
+  const totalGeral = porGrupo.reduce((soma, x) => soma + x.total, 0);
+  const cartoesGrupos = porGrupo.map(({grupo, total}) => `
+    <div class="card"><div class="stat-label">${grupo.nome}</div><div class="stat">${eur(total)}</div></div>
+  `).join('');
+  const cartaoTotal = `<div class="card" style="background:var(--terracotta-dark);"><div class="stat-label" style="color:#fff;opacity:.85;">Total em estoque</div><div class="stat" style="color:#fff;">${eur(totalGeral)}</div></div>`;
+
+  el.innerHTML = cartoesGrupos + cartaoTotal;
+}
+
+function calcularValorPorGrupo(){
   const finalizadas = contagens
     .filter(c => c.status === 'finalizada' && c.grupo_id)
     .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
 
-  const blocos = grupos.map(g => {
+  return grupos.map(g => {
     const doGrupo = finalizadas.filter(c => c.grupo_id === g.id);
     const porArea = {};
     doGrupo.forEach(c => {
@@ -1276,22 +1291,27 @@ function renderValorEstoque(content){
       if(!porArea[chave]) porArea[chave] = c; // a primeira encontrada é a mais recente, já vem ordenado
     });
     const entradas = Object.values(porArea).slice(0, 3);
-    if(entradas.length === 0) return '';
+    if(entradas.length === 0) return null;
 
     const total = entradas.reduce((soma, c) => soma + valorDaContagem(c), 0);
     const detalhe = entradas.map(c => `${c.area || '—'} (${new Date(c.criado_em).toLocaleDateString('pt-PT')})`).join(', ');
+    return { grupo: g, total, detalhe };
+  }).filter(Boolean);
+}
 
-    return `
+function renderValorEstoque(content){
+  const porGrupo = calcularValorPorGrupo();
+
+  const blocos = porGrupo.map(({grupo, total, detalhe}) => `
       <div class="card" style="margin-bottom:12px;">
         <div class="row between">
           <div>
-            <h3 style="font-size:16px;">${g.nome}</h3>
+            <h3 style="font-size:16px;">${grupo.nome}</h3>
             <div class="save-note">Baseado em: ${detalhe}</div>
           </div>
           <div class="stat" style="font-size:20px;">${eur(total)}</div>
         </div>
-      </div>`;
-  }).filter(Boolean).join('');
+      </div>`).join('');
 
   content.innerHTML = blocos || '<div class="empty">Ainda sem contagens finalizadas para calcular valor.</div>';
 }
@@ -1716,9 +1736,7 @@ function renderEstoque(){
     return {p, precoMelhor, aComprar, valor, fornecedorCompraId};
   });
 
-  document.getElementById('statAComprar').textContent = totalAComprar;
-  document.getElementById('statValor').textContent = eur(valorTotal);
-  document.getElementById('statAbaixo').textContent = abaixoMinimo;
+  renderValorPorGrupoResumo();
 
   const content = document.getElementById('estoqueContent');
 
