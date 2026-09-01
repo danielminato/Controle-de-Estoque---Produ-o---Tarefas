@@ -1270,10 +1270,21 @@ function renderValorPorGrupoResumo(){
   }
 
   const totalGeral = porGrupo.reduce((soma, x) => soma + x.total, 0);
-  const cartoesGrupos = porGrupo.map(({grupo, total}) => `
-    <div class="card"><div class="stat-label">${grupo.nome}</div><div class="stat">${eur(total)}</div></div>
+  const dataMaisRecenteGeral = porGrupo.reduce((maisRecente, x) =>
+    !maisRecente || new Date(x.dataMaisRecente) > new Date(maisRecente) ? x.dataMaisRecente : maisRecente, null);
+  const cartoesGrupos = porGrupo.map(({grupo, total, dataMaisRecente}) => `
+    <div class="card">
+      <div class="stat-label">${grupo.nome}</div>
+      <div class="stat">${eur(total)}</div>
+      <div class="save-note">Contagem de ${new Date(dataMaisRecente).toLocaleDateString('pt-PT')}</div>
+    </div>
   `).join('');
-  const cartaoTotal = `<div class="card" style="background:var(--terracotta-dark);"><div class="stat-label" style="color:#fff;opacity:.85;">Total em estoque</div><div class="stat" style="color:#fff;">${eur(totalGeral)}</div></div>`;
+  const cartaoTotal = `
+    <div class="card" style="background:var(--terracotta-dark);">
+      <div class="stat-label" style="color:#fff;opacity:.85;">Total em estoque</div>
+      <div class="stat" style="color:#fff;">${eur(totalGeral)}</div>
+      <div class="save-note" style="color:#fff;opacity:.7;">Mais recente: ${new Date(dataMaisRecenteGeral).toLocaleDateString('pt-PT')}</div>
+    </div>`;
 
   el.innerHTML = cartoesGrupos + cartaoTotal;
 }
@@ -1295,7 +1306,8 @@ function calcularValorPorGrupo(){
 
     const total = entradas.reduce((soma, c) => soma + valorDaContagem(c), 0);
     const detalhe = entradas.map(c => `${c.area || '—'} (${new Date(c.criado_em).toLocaleDateString('pt-PT')})`).join(', ');
-    return { grupo: g, total, detalhe };
+    const dataMaisRecente = entradas[0].criado_em; // já vem ordenado do mais recente para o mais antigo
+    return { grupo: g, total, detalhe, dataMaisRecente };
   }).filter(Boolean);
 }
 
