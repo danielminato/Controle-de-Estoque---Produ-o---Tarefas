@@ -1242,9 +1242,18 @@ function renderResumoGrupos(){
   const blocos = grupos.map(g => {
     const areas = areasDoGrupo(g);
     if(areas.length <= 1) return '';
-    const faltando = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente'));
-    if(faltando.length === 0) return '';
-    return `<div class="warn-box" style="margin-bottom:8px;">⚠️ <strong>${g.nome}</strong>: falta contar ${faltando.length} de ${areas.length} área(s) — ${faltando.join(', ')}</div>`;
+
+    const naoEnviadas = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente'));
+    if(naoEnviadas.length === 0) return '';
+
+    const partes = naoEnviadas.map(area => {
+      const bloqueio = bloqueioDaArea(g.id, area);
+      if(bloqueio && bloqueio.status === 'em_andamento'){
+        return `${area} (a ser contada agora por ${bloqueio.usuario_email})`;
+      }
+      return area;
+    });
+    return `<div class="warn-box" style="margin-bottom:8px;">⚠️ <strong>${g.nome}</strong>: falta enviar ${naoEnviadas.length} de ${areas.length} área(s) — ${partes.join(', ')}</div>`;
   }).filter(Boolean).join('');
 
   el.innerHTML = blocos || '';
@@ -2275,7 +2284,8 @@ async function continuarAposLogin(){
   }
 }
 
-function sairOperacional(){
+async function sairOperacional(){
+  await liberarLocksNovos();
   usuarioAtualEmail = null;
   sbAccessToken = null;
   document.getElementById('operRoot').style.display = 'none';
@@ -3000,6 +3010,49 @@ let contagemEditandoId = null;
 
 let grupoAreaAtualOperacional = null;
 
+const LOCK_EXPIRACAO_MIN = 45;
+let locksNovosIds = [];
+
+function bloqueioDaArea(grupoId, area){
+  const candidatos = contagens.filter(c => c.grupo_id === grupoId && c.area === area && (c.status === 'pendente' || c.status === 'em_andamento'));
+  if(candidatos.length === 0) return null;
+  const pendente = candidatos.find(c => c.status === 'pendente');
+  if(pendente) return pendente;
+  const emAndamento = candidatos.find(c => c.status === 'em_andamento');
+  if(emAndamento){
+    const minutos = (Date.now() - new Date(emAndamento.criado_em).getTime()) / 60000;
+    if(minutos > LOCK_EXPIRACAO_MIN) return null; // sessão abandonada, considera livre
+    return emAndamento;
+  }
+  return null;
+}
+
+async function criarLockEmAndamento(g, area){
+  const id = uid();
+  const registo = {
+    id, grupo_id: g.id, grupo_nome: g.nome, area,
+    usuario_email: usuarioAtualEmail, itens: [], status: 'em_andamento', criado_em: new Date().toISOString()
+  };
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+      method: 'POST', headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, body: JSON.stringify(registo)
+    });
+    contagens.push(registo);
+    locksNovosIds.push(id);
+  }catch(e){ /* não bloqueia o fluxo se falhar a criar o sinal */ }
+  return id;
+}
+
+async function liberarLocksNovos(){
+  if(locksNovosIds.length === 0) return;
+  const ids = locksNovosIds.map(id => `"${id}"`).join(',');
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=in.(${ids})`, { method: 'DELETE', headers: sbHeadersFn() });
+  }catch(e){}
+  contagens = contagens.filter(c => !locksNovosIds.includes(c.id));
+  locksNovosIds = [];
+}
+
 async function selecionarGrupoOperacional(grupoId){
   try{ contagens = await sbGet('contagens'); }catch(e){}
   const g = grupos.find(x => x.id === grupoId);
@@ -3016,19 +3069,22 @@ async function selecionarGrupoOperacional(grupoId){
   document.getElementById('grupoAreasTitulo').textContent = `${g.nome} — que área(s) vais contar?`;
   const wrap = document.getElementById('grupoAreasLista');
   wrap.innerHTML = areasNoGrupo.map(area => {
-    const pendente = contagens.find(c => c.grupo_id === grupoId && c.area === area && c.status === 'pendente');
-    if(pendente && pendente.usuario_email !== usuarioAtualEmail){
-      const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
+    const bloqueio = bloqueioDaArea(grupoId, area);
+    if(bloqueio && bloqueio.usuario_email !== usuarioAtualEmail){
+      const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
+      const texto = bloqueio.status === 'em_andamento'
+        ? `${bloqueio.usuario_email} está a contar agora · desde ${hora}`
+        : `Já foi enviada por ${bloqueio.usuario_email} · ${hora} · aguarda revisão`;
       return `
         <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--warn-bg);opacity:.85;">
           <input type="checkbox" disabled style="width:18px;height:18px;">
           <div>
             <div style="font-weight:600;">${area}</div>
-            <div class="save-note">Já a ser contada por ${pendente.usuario_email} · ${hora}</div>
+            <div class="save-note">${texto}</div>
           </div>
         </label>`;
     }
-    const jaTeu = pendente && pendente.usuario_email === usuarioAtualEmail;
+    const jaTeu = bloqueio && bloqueio.usuario_email === usuarioAtualEmail;
     return `
       <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
         <input type="checkbox" class="grupo-area-check" value="${area}" style="width:18px;height:18px;" ${jaTeu ? 'checked' : ''}>
@@ -3052,9 +3108,9 @@ async function iniciarContagemPorAreas(){
   try{ contagens = await sbGet('contagens'); }catch(e){}
   const roubadas = [];
   marcadas = marcadas.filter(area => {
-    const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
-    if(pendente && pendente.usuario_email !== usuarioAtualEmail){
-      roubadas.push({area, quem: pendente.usuario_email});
+    const bloqueio = bloqueioDaArea(g.id, area);
+    if(bloqueio && bloqueio.usuario_email !== usuarioAtualEmail){
+      roubadas.push({area, quem: bloqueio.usuario_email});
       return false;
     }
     return true;
@@ -3073,18 +3129,26 @@ async function iniciarContagemPorAreas(){
 }
 
 async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
-  const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
+  const bloqueio = bloqueioDaArea(g.id, area);
 
-  if(pendente && pendente.usuario_email !== usuarioAtualEmail){
-    const data = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
+  if(bloqueio && bloqueio.usuario_email !== usuarioAtualEmail){
+    const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
+    const texto = bloqueio.status === 'em_andamento'
+      ? `${bloqueio.usuario_email} está a contar agora, desde ${hora}.`
+      : `já foi enviada por ${bloqueio.usuario_email} desde ${hora} e ainda não foi revista pelo teu patrão.`;
     document.getElementById('operBloqueadoMsg').textContent =
-      `${area ? 'A área "'+area+'" d' : 'E'}este grupo já está a ser contada por ${pendente.usuario_email || 'alguém'} desde ${data}.\n\nAinda não foi revista pelo teu patrão — não é possível contar de novo até lá.`;
+      `${area ? 'A área "'+area+'" d' : 'E'}este grupo ${texto}\n\nNão é possível contar de novo até lá.`;
     mostrarOperScreen('oper-screen-bloqueado');
     return;
   }
 
+  const pendente = bloqueio && bloqueio.status === 'pendente' ? bloqueio : null;
   grupoAreaAtualOperacional = area;
   contagemEditandoId = pendente ? pendente.id : null;
+
+  if(!contagemEditandoId){
+    contagemEditandoId = await criarLockEmAndamento(g, area);
+  }
 
   const itensDaArea = area
     ? produtosDoGrupo.filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area))
@@ -3111,13 +3175,16 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
   contagemEditandoIdsPorArea = {};
 
   const valoresAnteriores = {};
-  areasEscolhidas.forEach(area => {
-    const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente' && c.usuario_email === usuarioAtualEmail);
-    contagemEditandoIdsPorArea[area] = pendente ? pendente.id : null;
+  for(const area of areasEscolhidas){
+    const bloqueio = bloqueioDaArea(g.id, area);
+    const pendente = bloqueio && bloqueio.status === 'pendente' && bloqueio.usuario_email === usuarioAtualEmail ? bloqueio : null;
     if(pendente){
+      contagemEditandoIdsPorArea[area] = pendente.id;
       (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
+    }else{
+      contagemEditandoIdsPorArea[area] = await criarLockEmAndamento(g, area);
     }
-  });
+  }
 
   const itensDasAreas = produtosDoGrupo.filter(p =>
     (p.areaIds||[]).some(id => areasEscolhidas.includes(nomeArea(id)))
@@ -3216,7 +3283,8 @@ function mostrarOperScreen(id){
   document.getElementById(id).classList.add('active');
 }
 
-function voltarParaGruposOperacional(){
+async function voltarParaGruposOperacional(){
+  await liberarLocksNovos();
   grupoAtualOperacional = null;
   grupoAreaAtualOperacional = null;
   grupoAreasAtuaisOperacional = null;
@@ -3258,7 +3326,7 @@ async function confirmarEnvioOperacional(){
           const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(idExistente)}`, {
             method: 'PATCH',
             headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
-            body: JSON.stringify({ itens: itensDaArea })
+            body: JSON.stringify({ itens: itensDaArea, status: 'pendente' })
           });
           if(!res.ok) throw new Error();
         }else{
@@ -3282,7 +3350,7 @@ async function confirmarEnvioOperacional(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(contagemEditandoId)}`, {
         method: 'PATCH',
         headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
-        body: JSON.stringify({ itens: itensTodos })
+        body: JSON.stringify({ itens: itensTodos, status: 'pendente' })
       });
       if(!res.ok) throw new Error();
     }else{
@@ -3311,6 +3379,7 @@ async function confirmarEnvioOperacional(){
   grupoAreasAtuaisOperacional = null;
   contagemEditandoId = null;
   contagemEditandoIdsPorArea = {};
+  locksNovosIds = []; // já viraram contagens reais, não apagar
   document.querySelectorAll('.oper-screen').forEach(s => s.classList.remove('active'));
   document.getElementById('oper-screen-sucesso').classList.add('active');
 }
