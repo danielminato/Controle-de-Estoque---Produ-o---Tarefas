@@ -280,10 +280,14 @@
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
           <input type="checkbox" id="prodMostrarForaDeUso" onchange="renderProdutos()"> Mostrar fora de uso
         </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="prodSoPorConfirmar" onchange="renderProdutos()"> Só embalagens por confirmar
+        </label>
         <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="excluirTodosForaDeUso()">Excluir todos os Fora de uso</button>
       </div>
       <div class="row" style="gap:8px;">
         <button class="btn secondary" id="btnImportar" onclick="importSeedData()">Importar produtos da planilha</button>
+        <button class="btn secondary" onclick="autoPreencherEmbalagens()">Auto-preencher embalagens</button>
         <button class="btn secondary" onclick="renumerarCodigos()">Renumerar códigos (1 a N)</button>
         <button class="btn" onclick="openProdutoModal()">+ Novo produto</button>
       </div>
@@ -297,6 +301,8 @@
         <th class="sortable" onclick="setProdSort('area')">Área <span id="sortIcon-area"></span></th>
         <th class="sortable" onclick="setProdSort('minima')">Mínima <span id="sortIcon-minima"></span></th>
         <th class="sortable" onclick="setProdSort('preco')">Melhor preço <span id="sortIcon-preco"></span></th>
+        <th>€/unidade</th>
+        <th>Confirmado</th>
         <th class="sortable" onclick="setProdSort('fornecedor')">Melhor fornecedor <span id="sortIcon-fornecedor"></span></th>
         <th></th>
       </tr></thead>
@@ -536,6 +542,27 @@
 
     <label class="field" style="margin-top:8px;">Nota para quem conta (aparece na contagem, ex: "marcar como 0 só quando acabar totalmente")
       <input type="text" id="produtoNota" placeholder="opcional">
+    </label>
+
+    <div class="field-row" style="margin-top:8px;">
+      <label class="field">Quantidade da embalagem (para custo de receitas)
+        <input type="number" id="produtoEmbalagemQtd" step="any" placeholder="ex: 25 (para um saco de 25kg)">
+      </label>
+      <label class="field">Unidade
+        <select id="produtoEmbalagemUnidade">
+          <option value="">—</option>
+          <option value="g">Gramas (g)</option>
+          <option value="kg">Quilos (kg)</option>
+          <option value="ml">Mililitros (ml)</option>
+          <option value="l">Litros (l)</option>
+          <option value="unidade">Unidade</option>
+        </select>
+      </label>
+      <div class="save-note" id="produtoPrecoPorUnidade" style="align-self:center;"></div>
+    </div>
+    <div class="save-note" style="margin-top:2px;">⚠️ A quantidade tem de bater certo com o que o <strong>preço acima</strong> representa — ex: se o preço for de 1 garrafa (mesmo vindo numa caixa de 24), a quantidade é 1, não 24.</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-top:8px;cursor:pointer;">
+      <input type="checkbox" id="produtoEmbalagemConfirmada"> Confirmo que a quantidade acima corresponde ao preço
     </label>
 
     <div class="modal-actions">
@@ -925,12 +952,16 @@ function areaFromDb(r){ return { id:r.id, nome:r.nome }; }
 function produtoToDb(p){ return {
   id:p.id, codigo:p.codigo||'', nome:p.nome, categoria:p.categoria||'', tipo:p.tipo||'materia_prima',
   area_ids: p.areaIds||[], precos: p.precos||[], qtd_minima: p.qtdMinima||0, qtd_atual: p.qtdAtual||0,
-  fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null
+  fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null,
+  embalagem_qtd: p.embalagemQtd || null, embalagem_unidade: p.embalagemUnidade || null,
+  embalagem_confirmada: !!p.embalagemConfirmada
 };}
 function produtoFromDb(r){ return {
   id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
   areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
-  fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || ''
+  fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || '',
+  embalagemQtd: r.embalagem_qtd != null ? Number(r.embalagem_qtd) : null, embalagemUnidade: r.embalagem_unidade || '',
+  embalagemConfirmada: !!r.embalagem_confirmada
 };}
 function grupoToDb(g){ return {
   id:g.id, nome:g.nome, fornecedor_ids: g.fornecedorIds||[],
@@ -1488,6 +1519,9 @@ function renderProdutos(){
   const mostrarForaDeUso = document.getElementById('prodMostrarForaDeUso').checked;
   if(!mostrarForaDeUso) list = list.filter(produtoAtivo);
 
+  const soPorConfirmar = document.getElementById('prodSoPorConfirmar').checked;
+  if(soPorConfirmar) list = list.filter(p => p.embalagemQtd && !p.embalagemConfirmada);
+
   list = ordenarProdutos(list);
 
   ['codigo','nome','categoria','tipo','area','minima','preco','fornecedor'].forEach(campo => {
@@ -1496,7 +1530,7 @@ function renderProdutos(){
   });
 
   if(list.length === 0){
-    body.innerHTML = '<tr><td colspan="9"><div class="empty">Nenhum produto encontrado.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="11"><div class="empty">Nenhum produto encontrado.</div></td></tr>';
     return;
   }
   body.innerHTML = list.map(p => {
@@ -1510,6 +1544,15 @@ function renderProdutos(){
       <td>${areaBadges(p.areaIds)}</td>
       <td><input type="number" step="any" value="${p.qtdMinima||0}" style="width:70px;" onchange="updateQtdMinima('${p.id}', this.value)"></td>
       <td>${mp ? eur(mp.preco) : '—'}</td>
+      <td>${(() => { const ppu = precoPorUnidadeBase(p); return ppu ? ppu.toFixed(4) + ' €/' + p.embalagemUnidade : '<span style="color:var(--ink-soft);">sem embalagem</span>'; })()}</td>
+      <td>${(() => {
+        if(!p.embalagemQtd) return '';
+        const risco = p.embalagemUnidade === 'unidade' && p.embalagemQtd > 1 && !p.embalagemConfirmada;
+        const checkbox = `<input type="checkbox" ${p.embalagemConfirmada ? 'checked' : ''} onchange="toggleEmbalagemConfirmada('${p.id}', this.checked)" style="width:18px;height:18px;">`;
+        return risco
+          ? `${checkbox} <span class="badge warn" title="Confirma se o preço é da caixa de ${p.embalagemQtd} ou de 1 unidade">⚠️ caixa de ${p.embalagemQtd}?</span>`
+          : checkbox;
+      })()}</td>
       <td>${mp ? nomeFornecedor(mp.fornecedorId) : 's/fornecedor'}</td>
       <td>
         <button class="icon-btn" onclick="openProdutoModal('${p.id}')">editar</button>
@@ -1541,7 +1584,16 @@ async function updateQtdMinima(produtoId, valor){
   await saveProdutos();
   renderEstoque();
 }
+async function toggleEmbalagemConfirmada(produtoId, valor){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return;
+  p.embalagemConfirmada = valor;
+  await saveProdutos();
+  renderProdutos();
+}
 document.getElementById('prodSearch').addEventListener('input', renderProdutos);
+document.getElementById('produtoEmbalagemQtd')?.addEventListener('input', atualizarPrecoPorUnidadePreview);
+document.getElementById('produtoEmbalagemUnidade')?.addEventListener('change', atualizarPrecoPorUnidadePreview);
 
 function fillAreaSelect(sel, selectedIds){
   const sel2 = selectedIds || [];
@@ -1633,6 +1685,67 @@ function fillFornecedorEscolhidoSelect(sel, selected){
   sel.innerHTML = '<option value="">Automático (melhor preço)</option>' + fornecedores.map(f => `<option value="${f.id}" ${f.id===selected?'selected':''}>${f.nome}</option>`).join('');
 }
 
+function extrairEmbalagemDoNome(nome){
+  if(!nome) return null;
+  const texto = nome.toLowerCase().replace(',', '.');
+
+  // ordem importa: kg antes de g, litros antes de ml, para não confundir "kg" com "g" etc.
+  let m;
+  if((m = texto.match(/(\d+(?:\.\d+)?)\s*kg\b/))) return { qtd: parseFloat(m[1]) * 1000, unidade: 'g' };
+  if((m = texto.match(/(\d+(?:\.\d+)?)\s*(?:lt|l|litro)s?\b/))) return { qtd: parseFloat(m[1]) * 1000, unidade: 'ml' };
+  if((m = texto.match(/(\d+(?:\.\d+)?)\s*ml\b/))) return { qtd: parseFloat(m[1]), unidade: 'ml' };
+  if((m = texto.match(/(\d+(?:\.\d+)?)\s*g\b/))) return { qtd: parseFloat(m[1]), unidade: 'g' };
+  if((m = texto.match(/(\d+(?:\.\d+)?)\s*(?:unid\.?|unidades?|un\.?)/))) return { qtd: parseFloat(m[1]), unidade: 'unidade' };
+  if(/\bunidade\b/.test(texto)) return { qtd: 1, unidade: 'unidade' };
+  return null;
+}
+
+async function autoPreencherEmbalagens(){
+  const semEmbalagem = produtos.filter(p => !p.embalagemQtd);
+  if(semEmbalagem.length === 0){ await showAlert('Todos os produtos já têm embalagem definida.'); return; }
+
+  let preenchidos = 0;
+  semEmbalagem.forEach(p => {
+    const extraido = extrairEmbalagemDoNome(p.nome);
+    if(extraido){
+      p.embalagemQtd = extraido.qtd;
+      p.embalagemUnidade = extraido.unidade;
+      p.embalagemConfirmada = false;
+      preenchidos++;
+    }
+  });
+
+  if(preenchidos === 0){ await showAlert('Não consegui extrair nenhuma embalagem automaticamente. Vais precisar de preencher manualmente.'); return; }
+
+  const ok = await showConfirm(`Consegui identificar a embalagem de ${preenchidos} de ${semEmbalagem.length} produtos sem embalagem definida, a partir do nome.\n\n${semEmbalagem.length - preenchidos} vão precisar de ser preenchidos à mão.\n\nGuardar estes ${preenchidos} agora?`);
+  if(!ok){
+    // desfaz as alterações em memória
+    semEmbalagem.forEach(p => { if(!p.embalagemQtd){ p.embalagemQtd = null; p.embalagemUnidade = ''; } });
+    return;
+  }
+
+  await saveProdutos();
+  renderProdutos();
+  await showAlert(`${preenchidos} produtos atualizados — ficam marcados como "por confirmar" (aparece um aviso na coluna Confirmado). Revê especialmente bebidas e produtos em caixa antes de marcares como confirmados. Os restantes ${semEmbalagem.length - preenchidos} continuam sem embalagem — filtra por "sem embalagem" para os encontrares.`);
+}
+
+function precoPorUnidadeBase(p){
+  const mp = melhorPreco(p);
+  if(!mp || !p.embalagemQtd) return null;
+  return mp.preco / p.embalagemQtd; // €/g, €/ml ou €/unidade, conforme p.embalagemUnidade
+}
+
+function atualizarPrecoPorUnidadePreview(){
+  const el = document.getElementById('produtoPrecoPorUnidade');
+  if(!el) return;
+  const qtd = parseFloat(document.getElementById('produtoEmbalagemQtd').value);
+  const unidade = document.getElementById('produtoEmbalagemUnidade').value;
+  const precos = Array.from(document.querySelectorAll('#precosList .price-row')).map(row => parseFloat(row.querySelector('.preco-valor').value)).filter(v => v > 0);
+  if(!qtd || precos.length === 0){ el.textContent = ''; return; }
+  const melhor = Math.min(...precos);
+  el.textContent = `≈ ${(melhor/qtd).toFixed(4)} €/${unidade || '?'}`;
+}
+
 const RANK_LABELS = ['① Melhor preço', '② 2º mais barato', '③ 3º mais barato'];
 
 function addPrecoRow(fornecedorId, preco, indice){
@@ -1643,7 +1756,7 @@ function addPrecoRow(fornecedorId, preco, indice){
   wrap.innerHTML = `
     ${rankLabel ? `<span class="badge ok" style="align-self:center;white-space:nowrap;">${rankLabel}</span>` : ''}
     <select class="preco-fornecedor">${fornecedores.length ? options : '<option value="">Cria um fornecedor primeiro</option>'}</select>
-    <input type="number" class="preco-valor" step="any" placeholder="preço (€)" value="${preco != null ? preco : ''}">
+    <input type="number" class="preco-valor" step="any" placeholder="preço (€)" value="${preco != null ? preco : ''}" oninput="atualizarPrecoPorUnidadePreview()">
     <button class="icon-btn danger" type="button" onclick="this.parentElement.remove()">remover</button>
   `;
   document.getElementById('precosList').appendChild(wrap);
@@ -1664,6 +1777,9 @@ function openProdutoModal(id){
 
   document.getElementById('produtoQtdMinima').value = p ? (p.qtdMinima ?? '') : '';
   document.getElementById('produtoNota').value = p ? (p.nota || '') : '';
+  document.getElementById('produtoEmbalagemQtd').value = p ? (p.embalagemQtd ?? '') : '';
+  document.getElementById('produtoEmbalagemUnidade').value = p ? (p.embalagemUnidade || '') : '';
+  document.getElementById('produtoEmbalagemConfirmada').checked = p ? !!p.embalagemConfirmada : false;
   document.getElementById('produtoQtdAtual').value = p ? (p.qtdAtual ?? '') : '';
 
   document.getElementById('precosList').innerHTML = '';
@@ -1675,6 +1791,7 @@ function openProdutoModal(id){
   }else{
     addPrecoRow();
   }
+  atualizarPrecoPorUnidadePreview();
 
   document.getElementById('modalProduto').classList.add('open');
 }
@@ -1692,6 +1809,11 @@ async function saveProduto(){
 
   const areaIds = Array.from(document.getElementById('produtoArea').selectedOptions).map(o => o.value);
 
+  let embalagemQtd = parseFloat(document.getElementById('produtoEmbalagemQtd').value) || null;
+  let embalagemUnidade = document.getElementById('produtoEmbalagemUnidade').value;
+  if(embalagemQtd && embalagemUnidade === 'kg'){ embalagemQtd = embalagemQtd * 1000; embalagemUnidade = 'g'; }
+  if(embalagemQtd && embalagemUnidade === 'l'){ embalagemQtd = embalagemQtd * 1000; embalagemUnidade = 'ml'; }
+
   const data = {
     codigo: document.getElementById('produtoCodigo').value.trim(),
     nome,
@@ -1702,7 +1824,10 @@ async function saveProduto(){
     qtdMinima: parseFloat(document.getElementById('produtoQtdMinima').value) || 0,
     qtdAtual: parseFloat(document.getElementById('produtoQtdAtual').value) || 0,
     fornecedorEscolhidoId: document.getElementById('produtoFornecedorEscolhido').value,
-    nota: document.getElementById('produtoNota').value.trim()
+    nota: document.getElementById('produtoNota').value.trim(),
+    embalagemQtd,
+    embalagemUnidade,
+    embalagemConfirmada: document.getElementById('produtoEmbalagemConfirmada').checked
   };
 
   if(id){
