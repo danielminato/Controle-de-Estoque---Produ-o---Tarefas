@@ -1613,9 +1613,9 @@ function renderProdutos(){
       <td><input type="number" step="any" value="${p.qtdMinima||0}" style="width:70px;" onchange="updateQtdMinima('${p.id}', this.value)"></td>
       <td>${mp ? eur(mp.preco) : '—'}</td>
       <td>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input type="number" step="any" class="embalagem-qtd-input" value="${p.embalagemQtd || ''}" placeholder="qtd" style="width:60px;" onchange="updateEmbalagemInline('${p.id}', this)">
-          <select class="embalagem-unidade-select" onchange="updateEmbalagemInline('${p.id}', this)" style="width:64px;padding:8px 4px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" step="any" class="embalagem-qtd-input" value="${p.embalagemQtd || ''}" placeholder="qtd" style="width:80px;" onchange="updateEmbalagemInline('${p.id}', this)">
+          <select class="embalagem-unidade-select" onchange="updateEmbalagemInline('${p.id}', this)" style="width:72px;padding:8px 4px;">
             <option value="">—</option>
             <option value="g" ${p.embalagemUnidade==='g'?'selected':''}>g</option>
             <option value="kg">kg</option>
