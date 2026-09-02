@@ -1624,7 +1624,7 @@ function renderProdutos(){
             <option value="unidade" ${p.embalagemUnidade==='unidade'?'selected':''}>unid.</option>
           </select>
         </div>
-        <div class="save-note">${(() => { const ppu = precoPorUnidadeBase(p); return ppu ? ppu.toFixed(4) + ' €/' + p.embalagemUnidade : 'sem embalagem'; })()}</div>
+        <div class="save-note">${(() => { const ppu = precoPorUnidadeBase(p); const emb = embalagemBase(p); return (ppu != null && emb) ? ppu.toFixed(4) + ' €/' + emb.unidade : 'sem embalagem'; })()}</div>
       </td>
       <td>${(() => {
         if(!p.embalagemQtd) return '';
@@ -1681,15 +1681,11 @@ async function updateEmbalagemInline(produtoId, elOrigem){
   const qtdInput = td.querySelector('.embalagem-qtd-input');
   const unidadeSelect = td.querySelector('.embalagem-unidade-select');
 
-  let qtd = parseFloat(qtdInput.value);
-  const unidadeSelecionada = unidadeSelect.value;
-  let unidadeFinal = unidadeSelecionada;
-
-  if(unidadeSelecionada === 'kg'){ unidadeFinal = 'g'; if(!isNaN(qtd)) qtd = qtd * 1000; }
-  if(unidadeSelecionada === 'l'){ unidadeFinal = 'ml'; if(!isNaN(qtd)) qtd = qtd * 1000; }
+  const qtd = parseFloat(qtdInput.value);
+  const unidade = unidadeSelect.value;
 
   p.embalagemQtd = isNaN(qtd) ? null : qtd;
-  p.embalagemUnidade = unidadeFinal;
+  p.embalagemUnidade = unidade;
 
   // editar aqui conta como reveres e confirmares o valor
   if(p.embalagemQtd && p.embalagemUnidade) p.embalagemConfirmada = true;
@@ -1838,23 +1834,33 @@ async function autoPreencherEmbalagens(){
   await showAlert(`${preenchidos} produtos atualizados — ficam marcados como "por confirmar" (aparece um aviso na coluna Confirmado). Revê especialmente bebidas e produtos em caixa antes de marcares como confirmados. Os restantes ${semEmbalagem.length - preenchidos} continuam sem embalagem — filtra por "sem embalagem" para os encontrares.`);
 }
 
+// Normaliza a embalagem para a unidade "base" (g ou ml), mesmo que tenha sido
+// gravada como kg ou l — assim não depende de nenhuma conversão feita antecipadamente.
+function embalagemBase(p){
+  if(!p.embalagemQtd || !p.embalagemUnidade) return null;
+  if(p.embalagemUnidade === 'kg') return { qtd: p.embalagemQtd * 1000, unidade: 'g' };
+  if(p.embalagemUnidade === 'l') return { qtd: p.embalagemQtd * 1000, unidade: 'ml' };
+  return { qtd: p.embalagemQtd, unidade: p.embalagemUnidade };
+}
+
 function precoPorUnidadeBase(p){
   const mp = melhorPreco(p);
-  if(!mp || !p.embalagemQtd) return null;
-  return mp.preco / p.embalagemQtd; // €/g, €/ml ou €/unidade, conforme p.embalagemUnidade
+  const emb = embalagemBase(p);
+  if(!mp || !emb) return null;
+  return mp.preco / emb.qtd; // €/g, €/ml ou €/unidade, já na unidade base
 }
 
 // Preço por grama, convertendo ml para g com a densidade quando necessário.
 // Usado como base universal para o custo de receitas (sempre pedidas em gramas).
 function precoPorGrama(p){
   const base = precoPorUnidadeBase(p);
-  if(base == null) return null;
-  if(p.embalagemUnidade === 'ml'){
+  const emb = embalagemBase(p);
+  if(base == null || !emb) return null;
+  if(emb.unidade === 'ml'){
     const densidade = p.densidade || 1;
     return base / densidade;
   }
-  if(p.embalagemUnidade === 'g') return base;
-  return base; // 'unidade': trata-se como "preço por unidade", a receita deve pedir em "unidades equivalentes"
+  return base; // 'g' ou 'unidade'
 }
 
 function atualizarPrecoPorUnidadePreview(){
@@ -1942,10 +1948,8 @@ async function saveProduto(){
 
   const areaIds = Array.from(document.getElementById('produtoArea').selectedOptions).map(o => o.value);
 
-  let embalagemQtd = parseFloat(document.getElementById('produtoEmbalagemQtd').value) || null;
-  let embalagemUnidade = document.getElementById('produtoEmbalagemUnidade').value;
-  if(embalagemQtd && embalagemUnidade === 'kg'){ embalagemQtd = embalagemQtd * 1000; embalagemUnidade = 'g'; }
-  if(embalagemQtd && embalagemUnidade === 'l'){ embalagemQtd = embalagemQtd * 1000; embalagemUnidade = 'ml'; }
+  const embalagemQtd = parseFloat(document.getElementById('produtoEmbalagemQtd').value) || null;
+  const embalagemUnidade = document.getElementById('produtoEmbalagemUnidade').value;
 
   const data = {
     codigo: document.getElementById('produtoCodigo').value.trim(),
