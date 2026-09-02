@@ -265,6 +265,7 @@
   <button data-view="contagens">Contagens <span id="navContagensBadge"></span></button>
   <button data-view="checklists">Checklists</button>
   <button data-view="producao">Produção</button>
+  <button data-view="receitas">Receitas</button>
   <button data-view="utilizadores">Utilizadores</button>
 </nav>
 
@@ -476,6 +477,15 @@
     </div>
   </div>
 
+  <!-- RECEITAS -->
+  <div class="view" id="view-receitas">
+    <div class="row between" style="margin-bottom:14px;">
+      <div class="save-note">Fichas técnicas dos semi-preparados e pratos finais. O custo é calculado automaticamente a partir dos ingredientes — incluindo semi-preparados que sejam eles próprios ingredientes de outra receita.</div>
+      <button class="btn" onclick="openReceitaModal()">+ Nova receita</button>
+    </div>
+    <div id="receitasContent"></div>
+  </div>
+
   <!-- UTILIZADORES -->
   <div class="view" id="view-utilizadores">
     <div class="card" style="max-width:520px;">
@@ -520,6 +530,7 @@
         <select id="produtoTipo">
           <option value="materia_prima">Matéria-prima</option>
           <option value="semi_preparado">Semi-preparado</option>
+          <option value="prato_final">Prato final (com preço de venda)</option>
         </select>
       </label>
       <label class="field">Áreas onde pode estar
@@ -565,6 +576,12 @@
       <input type="checkbox" id="produtoEmbalagemConfirmada"> Confirmo que a quantidade acima corresponde ao preço
     </label>
 
+    <div class="field-row" id="produtoDensidadeWrap" style="margin-top:8px;display:none;">
+      <label class="field">Densidade (g/ml) — para usar este ingrediente em gramas nas receitas
+        <input type="number" id="produtoDensidade" step="any" placeholder="1.0 (água) · azeite ≈ 0.92 · mel ≈ 1.42">
+      </label>
+    </div>
+
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalProduto')">Cancelar</button>
       <button class="btn" onclick="saveProduto()">Guardar</button>
@@ -596,6 +613,51 @@
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalFornecedor')">Cancelar</button>
       <button class="btn" onclick="saveFornecedor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECEITA -->
+<div class="modal-bg" id="modalReceita">
+  <div class="modal" style="max-width:640px;">
+    <h3>Ficha técnica</h3>
+    <input type="hidden" id="receitaId">
+    <label class="field">Produto resultante
+      <select id="receitaProdutoId" onchange="onReceitaProdutoChange()"></select>
+    </label>
+    <div class="field-row">
+      <label class="field">Rendimento total (gramas)
+        <input type="number" id="receitaRendimentoG" step="any" placeholder="ex: 3000 (rende 3kg de molho)">
+      </label>
+      <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda (€)
+        <input type="number" id="receitaPrecoVenda" step="any" placeholder="preço no menu">
+      </label>
+    </div>
+
+    <h3 style="font-size:15px;margin:16px 0 8px;">Ingredientes</h3>
+    <div id="receitaItensList"></div>
+    <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
+
+    <div class="card" style="margin-top:16px;background:var(--cream);">
+      <div class="row between">
+        <div>
+          <div class="stat-label">Custo total da receita</div>
+          <div class="stat" id="receitaCustoTotal" style="font-size:18px;">€0.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Custo por grama</div>
+          <div class="stat" id="receitaCustoPorGrama" style="font-size:18px;">€0.0000</div>
+        </div>
+        <div id="receitaCmvWrap" style="display:none;">
+          <div class="stat-label">CMV%</div>
+          <div class="stat" id="receitaCmv" style="font-size:18px;">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalReceita')">Cancelar</button>
+      <button class="btn" onclick="saveReceita()">Guardar</button>
     </div>
   </div>
 </div>
@@ -882,6 +944,8 @@ let produtos = [];
 let grupos = [];
 let contagens = [];
 let checklistItens = [];
+let receitas = [];
+let receitaItens = [];
 let checklistExecucoes = [];
 let producaoItens = [];
 let producaoExecucoes = [];
@@ -954,14 +1018,14 @@ function produtoToDb(p){ return {
   area_ids: p.areaIds||[], precos: p.precos||[], qtd_minima: p.qtdMinima||0, qtd_atual: p.qtdAtual||0,
   fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null,
   embalagem_qtd: p.embalagemQtd || null, embalagem_unidade: p.embalagemUnidade || null,
-  embalagem_confirmada: !!p.embalagemConfirmada
+  embalagem_confirmada: !!p.embalagemConfirmada, densidade: p.densidade || 1
 };}
 function produtoFromDb(r){ return {
   id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
   areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
   fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || '',
   embalagemQtd: r.embalagem_qtd != null ? Number(r.embalagem_qtd) : null, embalagemUnidade: r.embalagem_unidade || '',
-  embalagemConfirmada: !!r.embalagem_confirmada
+  embalagemConfirmada: !!r.embalagem_confirmada, densidade: r.densidade != null ? Number(r.densidade) : 1
 };}
 function grupoToDb(g){ return {
   id:g.id, nome:g.nome, fornecedor_ids: g.fornecedorIds||[],
@@ -987,11 +1051,14 @@ async function loadAll(){
     checklistExecucoes = await sbGet('checklist_execucoes');
     producaoItens = await sbGet('producao_itens');
     producaoExecucoes = await sbGet('producao_execucoes');
+    receitas = await sbGet('receitas');
+    receitaItens = await sbGet('receita_itens');
     setNote('Ligado ao Supabase');
   }catch(e){
     fornecedores = []; areas = []; produtos = []; grupos = []; contagens = [];
     checklistItens = []; checklistExecucoes = [];
     producaoItens = []; producaoExecucoes = [];
+    receitas = []; receitaItens = [];
     setNote('Sem ligação à base de dados — confirma SUPABASE_URL e SUPABASE_KEY no código');
   }
 
@@ -1034,6 +1101,7 @@ function renderAll(){
   renderChecklistItens();
   renderChecklistHistorico();
   renderProducaoItens();
+  renderReceitas();
 }
 
 // ---------- FORNECEDORES ----------
@@ -1540,7 +1608,7 @@ function renderProdutos(){
       <td>${p.codigo || '—'}</td>
       <td>${p.nome}${p.nota ? ' <span title="'+p.nota+'">ℹ️</span>' : ''}</td>
       <td>${p.categoria || '—'}</td>
-      <td>${p.tipo === 'semi_preparado' ? 'Semi-preparado' : 'Matéria-prima'}</td>
+      <td>${{materia_prima:'Matéria-prima', semi_preparado:'Semi-preparado', prato_final:'Prato final'}[p.tipo] || 'Matéria-prima'}</td>
       <td>${areaBadges(p.areaIds)}</td>
       <td><input type="number" step="any" value="${p.qtdMinima||0}" style="width:70px;" onchange="updateQtdMinima('${p.id}', this.value)"></td>
       <td>${mp ? eur(mp.preco) : '—'}</td>
@@ -1594,6 +1662,9 @@ async function toggleEmbalagemConfirmada(produtoId, valor){
 document.getElementById('prodSearch').addEventListener('input', renderProdutos);
 document.getElementById('produtoEmbalagemQtd')?.addEventListener('input', atualizarPrecoPorUnidadePreview);
 document.getElementById('produtoEmbalagemUnidade')?.addEventListener('change', atualizarPrecoPorUnidadePreview);
+document.getElementById('produtoDensidade')?.addEventListener('input', atualizarPrecoPorUnidadePreview);
+document.getElementById('receitaRendimentoG')?.addEventListener('input', atualizarPreviewCustoReceita);
+document.getElementById('receitaPrecoVenda')?.addEventListener('input', atualizarPreviewCustoReceita);
 
 function fillAreaSelect(sel, selectedIds){
   const sel2 = selectedIds || [];
@@ -1735,15 +1806,38 @@ function precoPorUnidadeBase(p){
   return mp.preco / p.embalagemQtd; // €/g, €/ml ou €/unidade, conforme p.embalagemUnidade
 }
 
+// Preço por grama, convertendo ml para g com a densidade quando necessário.
+// Usado como base universal para o custo de receitas (sempre pedidas em gramas).
+function precoPorGrama(p){
+  const base = precoPorUnidadeBase(p);
+  if(base == null) return null;
+  if(p.embalagemUnidade === 'ml'){
+    const densidade = p.densidade || 1;
+    return base / densidade;
+  }
+  if(p.embalagemUnidade === 'g') return base;
+  return base; // 'unidade': trata-se como "preço por unidade", a receita deve pedir em "unidades equivalentes"
+}
+
 function atualizarPrecoPorUnidadePreview(){
   const el = document.getElementById('produtoPrecoPorUnidade');
   if(!el) return;
   const qtd = parseFloat(document.getElementById('produtoEmbalagemQtd').value);
   const unidade = document.getElementById('produtoEmbalagemUnidade').value;
+
+  const densidadeWrap = document.getElementById('produtoDensidadeWrap');
+  if(densidadeWrap) densidadeWrap.style.display = (unidade === 'ml' || unidade === 'l') ? 'flex' : 'none';
+
   const precos = Array.from(document.querySelectorAll('#precosList .price-row')).map(row => parseFloat(row.querySelector('.preco-valor').value)).filter(v => v > 0);
   if(!qtd || precos.length === 0){ el.textContent = ''; return; }
   const melhor = Math.min(...precos);
-  el.textContent = `≈ ${(melhor/qtd).toFixed(4)} €/${unidade || '?'}`;
+  const precoPorUnid = melhor/qtd;
+  let texto = `≈ ${precoPorUnid.toFixed(4)} €/${unidade || '?'}`;
+  if(unidade === 'ml'){
+    const densidade = parseFloat(document.getElementById('produtoDensidade')?.value) || 1;
+    texto += ` (≈ ${(precoPorUnid/densidade).toFixed(4)} €/g, com densidade ${densidade})`;
+  }
+  el.textContent = texto;
 }
 
 const RANK_LABELS = ['① Melhor preço', '② 2º mais barato', '③ 3º mais barato'];
@@ -1780,6 +1874,7 @@ function openProdutoModal(id){
   document.getElementById('produtoEmbalagemQtd').value = p ? (p.embalagemQtd ?? '') : '';
   document.getElementById('produtoEmbalagemUnidade').value = p ? (p.embalagemUnidade || '') : '';
   document.getElementById('produtoEmbalagemConfirmada').checked = p ? !!p.embalagemConfirmada : false;
+  document.getElementById('produtoDensidade').value = p ? (p.densidade ?? 1) : 1;
   document.getElementById('produtoQtdAtual').value = p ? (p.qtdAtual ?? '') : '';
 
   document.getElementById('precosList').innerHTML = '';
@@ -1827,7 +1922,8 @@ async function saveProduto(){
     nota: document.getElementById('produtoNota').value.trim(),
     embalagemQtd,
     embalagemUnidade,
-    embalagemConfirmada: document.getElementById('produtoEmbalagemConfirmada').checked
+    embalagemConfirmada: document.getElementById('produtoEmbalagemConfirmada').checked,
+    densidade: parseFloat(document.getElementById('produtoDensidade').value) || 1
   };
 
   if(id){
@@ -2860,6 +2956,279 @@ async function deleteProducaoItem(id){
   try{ await sbDeleteRow('producao_itens', id); }catch(e){}
   producaoItens = producaoItens.filter(x => x.id !== id);
   renderProducaoItens();
+}
+
+// ---------- RECEITAS (custo recursivo) ----------
+
+// Custo por grama de um produto, resolvendo receitas recursivamente quando aplicável.
+// `visitados` evita loops infinitos (ex: A usa B que usa A por engano).
+function custoPorGramaProduto(produtoId, visitados){
+  visitados = visitados || new Set();
+  if(visitados.has(produtoId)) return 0;
+  visitados = new Set(visitados);
+  visitados.add(produtoId);
+
+  const receita = receitas.find(r => r.produtoId === produtoId);
+  if(receita && receita.rendimentoG > 0){
+    const custoTotal = custoTotalDaReceita(receita, visitados);
+    return custoTotal / receita.rendimentoG;
+  }
+
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return 0;
+  return precoPorGrama(p) || 0;
+}
+
+function custoTotalDaReceita(receita, visitados){
+  const itens = receitaItens.filter(ri => ri.receitaId === receita.id);
+  return itens.reduce((soma, ri) => {
+    const custoG = custoPorGramaProduto(ri.ingredienteProdutoId, visitados);
+    return soma + custoG * (ri.quantidadeG || 0);
+  }, 0);
+}
+
+function calcularCustoReceita(receitaId){
+  const receita = receitas.find(r => r.id === receitaId);
+  if(!receita) return { custoTotal: 0, custoPorGrama: 0 };
+  const custoTotal = custoTotalDaReceita(receita, new Set());
+  const custoPorGrama = receita.rendimentoG > 0 ? custoTotal / receita.rendimentoG : 0;
+  return { custoTotal, custoPorGrama };
+}
+
+function receitaToDb(r){ return {
+  id: r.id, produto_id: r.produtoId, rendimento_g: r.rendimentoG || 0,
+  preco_venda: r.precoVenda || null, observacoes: r.observacoes || null
+};}
+function receitaFromDb(r){ return {
+  id: r.id, produtoId: r.produto_id, rendimentoG: Number(r.rendimento_g)||0,
+  precoVenda: r.preco_venda != null ? Number(r.preco_venda) : null, observacoes: r.observacoes || ''
+};}
+function receitaItemToDb(ri){ return {
+  id: ri.id, receita_id: ri.receitaId, ingrediente_produto_id: ri.ingredienteProdutoId,
+  quantidade_g: ri.quantidadeG || 0, ordem: ri.ordem || 0
+};}
+function receitaItemFromDb(ri){ return {
+  id: ri.id, receitaId: ri.receita_id, ingredienteProdutoId: ri.ingrediente_produto_id,
+  quantidadeG: Number(ri.quantidade_g)||0, ordem: ri.ordem||0
+};}
+
+function renderReceitas(){
+  const content = document.getElementById('receitasContent');
+  if(!content) return;
+
+  if(receitas.length === 0){
+    content.innerHTML = '<div class="empty">Ainda sem receitas. Cria a primeira em "+ Nova receita".</div>';
+    return;
+  }
+
+  content.innerHTML = receitas.map(r => {
+    const p = produtos.find(x => x.id === r.produtoId);
+    const { custoTotal, custoPorGrama } = calcularCustoReceita(r.id);
+    const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+    const ehPratoFinal = p && p.tipo === 'prato_final';
+    const cmv = (ehPratoFinal && r.precoVenda) ? (custoTotal / r.precoVenda * 100) : null;
+
+    return `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="row between" style="margin-bottom:10px;">
+          <div>
+            <h3 style="font-size:17px;">${p ? p.nome : '(produto removido)'}</h3>
+            <div class="save-note">Rende ${r.rendimentoG}g${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}</div>
+          </div>
+          <div class="row" style="gap:20px;">
+            <div style="text-align:right;">
+              <div class="stat-label">Custo total</div>
+              <div class="stat" style="font-size:17px;">${eur(custoTotal)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="stat-label">Custo/g</div>
+              <div class="stat" style="font-size:17px;">${custoPorGrama.toFixed(4)}€</div>
+            </div>
+            ${cmv !== null ? `
+            <div style="text-align:right;">
+              <div class="stat-label">CMV%</div>
+              <div class="stat" style="font-size:17px;color:${cmv > 33 ? 'var(--danger-text)' : 'var(--ok-text)'};">${cmv.toFixed(1)}%</div>
+            </div>` : ''}
+          </div>
+          <div>
+            <button class="icon-btn" onclick="openReceitaModal('${r.id}')">editar</button>
+            <button class="icon-btn danger" onclick="deleteReceita('${r.id}')">remover</button>
+          </div>
+        </div>
+        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Custo/g</th><th>Custo</th></tr></thead>
+        <tbody>${itens.map(ri => {
+          const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
+          const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
+          return `<tr>
+            <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}</td>
+            <td>${ri.quantidadeG}g</td>
+            <td>${custoG.toFixed(4)}€</td>
+            <td>${eur(custoG * ri.quantidadeG)}</td>
+          </tr>`;
+        }).join('')}</tbody></table>
+      </div>`;
+  }).join('');
+}
+
+let receitaItensAtuais = [];
+
+function openReceitaModal(id){
+  document.getElementById('receitaId').value = id || '';
+  const r = receitas.find(x => x.id === id);
+
+  const sel = document.getElementById('receitaProdutoId');
+  const candidatos = produtos.filter(p => p.tipo === 'semi_preparado' || p.tipo === 'prato_final');
+  sel.innerHTML = candidatos.map(p => `<option value="${p.id}" ${r && r.produtoId===p.id ? 'selected':''}>${p.nome} (${p.tipo === 'prato_final' ? 'prato final' : 'semi-preparado'})</option>`).join('');
+
+  document.getElementById('receitaRendimentoG').value = r ? r.rendimentoG : '';
+  document.getElementById('receitaPrecoVenda').value = r ? (r.precoVenda ?? '') : '';
+
+  receitaItensAtuais = r ? receitaItens.filter(ri => ri.receitaId === id).map(ri => ({...ri})) : [];
+
+  onReceitaProdutoChange();
+  renderReceitaItensList();
+  document.getElementById('modalReceita').classList.add('open');
+}
+
+function onReceitaProdutoChange(){
+  const produtoId = document.getElementById('receitaProdutoId').value;
+  const p = produtos.find(x => x.id === produtoId);
+  const ehPratoFinal = p && p.tipo === 'prato_final';
+  document.getElementById('receitaPrecoVendaWrap').style.display = ehPratoFinal ? 'block' : 'none';
+  document.getElementById('receitaCmvWrap').style.display = ehPratoFinal ? 'block' : 'none';
+}
+
+function fecharCircularidade(produtoResultadoId, ingredienteId){
+  // impede escolher como ingrediente um produto que já depende (direta ou indiretamente) do resultado desta receita
+  if(ingredienteId === produtoResultadoId) return true;
+  const receita = receitas.find(r => r.produtoId === ingredienteId);
+  if(!receita) return false;
+  const itens = receitaItens.filter(ri => ri.receitaId === receita.id);
+  return itens.some(ri => fecharCircularidade(produtoResultadoId, ri.ingredienteProdutoId));
+}
+
+function renderReceitaItensList(){
+  const wrap = document.getElementById('receitaItensList');
+  const produtoResultadoId = document.getElementById('receitaProdutoId').value;
+
+  wrap.innerHTML = receitaItensAtuais.map((ri, idx) => {
+    const opcoes = produtos.filter(p => p.id !== produtoResultadoId).map(p => {
+      const custoG = precoPorGrama(p);
+      const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
+      return `<option value="${p.id}" ${ri.ingredienteProdutoId===p.id?'selected':''}>${label}</option>`;
+    }).join('');
+    return `
+      <div class="price-row">
+        <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
+        <input type="number" step="any" placeholder="gramas" value="${ri.quantidadeG||''}" style="max-width:110px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
+      </div>`;
+  }).join('');
+
+  atualizarPreviewCustoReceita();
+}
+
+function addReceitaItemRow(){
+  const produtoResultadoId = document.getElementById('receitaProdutoId').value;
+  const primeiro = produtos.find(p => p.id !== produtoResultadoId);
+  receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: primeiro ? primeiro.id : '', quantidadeG: 0 });
+  renderReceitaItensList();
+}
+
+function atualizarReceitaItem(idx, campo, valor){
+  if(!receitaItensAtuais[idx]) return;
+  receitaItensAtuais[idx][campo] = campo === 'quantidadeG' ? (parseFloat(valor)||0) : valor;
+  atualizarPreviewCustoReceita();
+}
+
+function removerReceitaItem(idx){
+  receitaItensAtuais.splice(idx, 1);
+  renderReceitaItensList();
+}
+
+function atualizarPreviewCustoReceita(){
+  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || 0;
+  const custoTotal = receitaItensAtuais.reduce((soma, ri) => {
+    const p = produtos.find(x => x.id === ri.ingredienteProdutoId);
+    if(!p) return soma;
+    const custoG = receitas.find(r2 => r2.produtoId === p.id) ? custoPorGramaProduto(p.id) : (precoPorGrama(p) || 0);
+    return soma + custoG * (ri.quantidadeG||0);
+  }, 0);
+  const custoPorGrama = rendimentoG > 0 ? custoTotal / rendimentoG : 0;
+
+  document.getElementById('receitaCustoTotal').textContent = eur(custoTotal);
+  document.getElementById('receitaCustoPorGrama').textContent = custoPorGrama.toFixed(4) + '€';
+
+  const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value);
+  const cmvEl = document.getElementById('receitaCmv');
+  if(precoVenda > 0){
+    const cmv = custoTotal / precoVenda * 100;
+    cmvEl.textContent = cmv.toFixed(1) + '%';
+    cmvEl.style.color = cmv > 33 ? 'var(--danger-text)' : 'var(--ok-text)';
+  }else{
+    cmvEl.textContent = '—';
+  }
+}
+
+async function saveReceita(){
+  const id = document.getElementById('receitaId').value;
+  const produtoId = document.getElementById('receitaProdutoId').value;
+  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || 0;
+  const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value) || null;
+
+  if(!produtoId){ await showAlert('Escolhe o produto resultante.'); return; }
+  if(rendimentoG <= 0){ await showAlert('Indica o rendimento total em gramas.'); return; }
+  if(receitaItensAtuais.length === 0){ await showAlert('Adiciona pelo menos um ingrediente.'); return; }
+
+  const circular = receitaItensAtuais.some(ri => fecharCircularidade(produtoId, ri.ingredienteProdutoId));
+  if(circular){ await showAlert('Um dos ingredientes depende, direta ou indiretamente, deste mesmo produto — isso criaria um ciclo infinito. Corrige antes de guardar.'); return; }
+
+  const receitaIdFinal = id || uid();
+  const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '' };
+
+  try{
+    if(id){
+      await sbUpdateRow('receitas', id, receitaToDb(receitaObj));
+      const idx = receitas.findIndex(r => r.id === id);
+      receitas[idx] = receitaObj;
+    }else{
+      await sbInsertRow('receitas', receitaToDb(receitaObj));
+      receitas.push(receitaObj);
+    }
+
+    // substitui os itens desta receita: apaga os antigos e insere os atuais
+    const antigos = receitaItens.filter(ri => ri.receitaId === receitaIdFinal);
+    if(antigos.length > 0){
+      const ids = antigos.map(a => `"${a.id}"`).join(',');
+      await fetch(`${SUPABASE_URL}/rest/v1/receita_itens?id=in.(${ids})`, { method:'DELETE', headers: sbHeadersFn() });
+    }
+    const novosItens = receitaItensAtuais.map((ri, i) => ({ id: uid(), receitaId: receitaIdFinal, ingredienteProdutoId: ri.ingredienteProdutoId, quantidadeG: ri.quantidadeG, ordem: i }));
+    if(novosItens.length > 0){
+      await sbInsertRow('receita_itens', novosItens.map(receitaItemToDb));
+    }
+    receitaItens = receitaItens.filter(ri => ri.receitaId !== receitaIdFinal).concat(novosItens);
+
+    closeModal('modalReceita');
+    renderReceitas();
+  }catch(e){
+    await showAlert('Não consegui guardar a receita. Tenta de novo.');
+  }
+}
+
+async function deleteReceita(id){
+  const ok = await showConfirm('Remover esta receita? Os ingredientes dela também são apagados.');
+  if(!ok) return;
+  try{
+    await sbDeleteRow('receitas', id);
+    const itens = receitaItens.filter(ri => ri.receitaId === id);
+    if(itens.length > 0){
+      const ids = itens.map(a => `"${a.id}"`).join(',');
+      await fetch(`${SUPABASE_URL}/rest/v1/receita_itens?id=in.(${ids})`, { method:'DELETE', headers: sbHeadersFn() });
+    }
+  }catch(e){}
+  receitas = receitas.filter(r => r.id !== id);
+  receitaItens = receitaItens.filter(ri => ri.receitaId !== id);
+  renderReceitas();
 }
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
