@@ -302,7 +302,7 @@
         <th class="sortable" onclick="setProdSort('area')">Área <span id="sortIcon-area"></span></th>
         <th class="sortable" onclick="setProdSort('minima')">Mínima <span id="sortIcon-minima"></span></th>
         <th class="sortable" onclick="setProdSort('preco')">Melhor preço <span id="sortIcon-preco"></span></th>
-        <th>€/unidade</th>
+        <th>Embalagem</th>
         <th>Confirmado</th>
         <th class="sortable" onclick="setProdSort('fornecedor')">Melhor fornecedor <span id="sortIcon-fornecedor"></span></th>
         <th></th>
@@ -1612,7 +1612,20 @@ function renderProdutos(){
       <td>${areaBadges(p.areaIds)}</td>
       <td><input type="number" step="any" value="${p.qtdMinima||0}" style="width:70px;" onchange="updateQtdMinima('${p.id}', this.value)"></td>
       <td>${mp ? eur(mp.preco) : '—'}</td>
-      <td>${(() => { const ppu = precoPorUnidadeBase(p); return ppu ? ppu.toFixed(4) + ' €/' + p.embalagemUnidade : '<span style="color:var(--ink-soft);">sem embalagem</span>'; })()}</td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="number" step="any" class="embalagem-qtd-input" value="${p.embalagemQtd || ''}" placeholder="qtd" style="width:60px;" onchange="updateEmbalagemInline('${p.id}', this)">
+          <select class="embalagem-unidade-select" onchange="updateEmbalagemInline('${p.id}', this)" style="width:64px;padding:8px 4px;">
+            <option value="">—</option>
+            <option value="g" ${p.embalagemUnidade==='g'?'selected':''}>g</option>
+            <option value="kg">kg</option>
+            <option value="ml" ${p.embalagemUnidade==='ml'?'selected':''}>ml</option>
+            <option value="l">l</option>
+            <option value="unidade" ${p.embalagemUnidade==='unidade'?'selected':''}>unid.</option>
+          </select>
+        </div>
+        <div class="save-note">${(() => { const ppu = precoPorUnidadeBase(p); return ppu ? ppu.toFixed(4) + ' €/' + p.embalagemUnidade : 'sem embalagem'; })()}</div>
+      </td>
       <td>${(() => {
         if(!p.embalagemQtd) return '';
         const risco = p.embalagemUnidade === 'unidade' && p.embalagemQtd > 1 && !p.embalagemConfirmada;
@@ -1656,6 +1669,31 @@ async function toggleEmbalagemConfirmada(produtoId, valor){
   const p = produtos.find(x => x.id === produtoId);
   if(!p) return;
   p.embalagemConfirmada = valor;
+  await saveProdutos();
+  renderProdutos();
+}
+
+async function updateEmbalagemInline(produtoId, elOrigem){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return;
+
+  const td = elOrigem.closest('td');
+  const qtdInput = td.querySelector('.embalagem-qtd-input');
+  const unidadeSelect = td.querySelector('.embalagem-unidade-select');
+
+  let qtd = parseFloat(qtdInput.value);
+  const unidadeSelecionada = unidadeSelect.value;
+  let unidadeFinal = unidadeSelecionada;
+
+  if(unidadeSelecionada === 'kg'){ unidadeFinal = 'g'; if(!isNaN(qtd)) qtd = qtd * 1000; }
+  if(unidadeSelecionada === 'l'){ unidadeFinal = 'ml'; if(!isNaN(qtd)) qtd = qtd * 1000; }
+
+  p.embalagemQtd = isNaN(qtd) ? null : qtd;
+  p.embalagemUnidade = unidadeFinal;
+
+  // editar aqui conta como reveres e confirmares o valor
+  if(p.embalagemQtd && p.embalagemUnidade) p.embalagemConfirmada = true;
+
   await saveProdutos();
   renderProdutos();
 }
