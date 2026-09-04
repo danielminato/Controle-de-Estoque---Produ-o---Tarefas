@@ -386,11 +386,10 @@
     <div id="resumoGruposContent" style="margin-bottom:18px;"></div>
 
     <div class="toggle-group" style="margin-bottom:14px;">
-      <button id="tgContagemPendentes" class="active" onclick="setContagensMode('pendentes')">Pendentes</button>
-      <button id="tgContagemHistorico" onclick="setContagensMode('historico')">Histórico</button>
+      <button id="tgContagemHistorico" class="active" onclick="setContagensMode('historico')">Histórico</button>
       <button id="tgContagemValor" onclick="setContagensMode('valor')">Valor em estoque</button>
     </div>
-    <div class="save-note" id="contagensAjuda" style="margin-bottom:14px;">Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.</div>
+    <div class="save-note" id="contagensAjuda" style="margin-bottom:14px;">Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.</div>
     <div class="row" id="historicoFiltroWrap" style="display:none;margin-bottom:14px;">
       <label class="field">Filtrar por grupo
         <select id="filtroHistoricoGrupo" onchange="renderContagens()">
@@ -617,6 +616,22 @@
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalFornecedor')">Cancelar</button>
       <button class="btn" onclick="saveFornecedor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REVISÃO DE CONTAGEM -->
+<div class="modal-bg" id="modalRevisaoContagem">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="revisaoContagemTitulo">Rever contagem</h3>
+    <div class="save-note" id="revisaoContagemInfo" style="margin-bottom:10px;"></div>
+    <div style="max-height:400px;overflow-y:auto;">
+      <table><thead><tr><th>Produto</th><th>Quantidade contada</th><th>Observação</th></tr></thead>
+      <tbody id="revisaoContagemItens"></tbody></table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal('modalRevisaoContagem')">Fechar</button>
+      <button class="btn" id="revisaoContagemBtnFinalizar" onclick="finalizarContagemDoModal()">Aplicar e finalizar</button>
     </div>
   </div>
 </div>
@@ -1237,16 +1252,14 @@ async function deleteGrupo(id){
 }
 
 // ---------- CONTAGENS DOS COLABORADORES ----------
-let contagensMode = 'pendentes';
+let contagensMode = 'historico';
 
 function setContagensMode(mode){
   contagensMode = mode;
-  document.getElementById('tgContagemPendentes').classList.toggle('active', mode === 'pendentes');
   document.getElementById('tgContagemHistorico').classList.toggle('active', mode === 'historico');
   document.getElementById('tgContagemValor').classList.toggle('active', mode === 'valor');
   document.getElementById('historicoFiltroWrap').style.display = mode === 'historico' ? 'flex' : 'none';
   const textos = {
-    pendentes: 'Contagens enviadas pelos colaboradores, à espera de seres revistas. Abre cada uma, confirma os números e clica em "Finalizar" para aplicar ao estoque e libertar o grupo para nova contagem.',
     historico: 'Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.',
     valor: 'Valor em estoque por grupo, calculado a partir da contagem mais recente de cada área (até 3), aos preços de hoje. Útil para descontar do CMV.'
   };
@@ -1269,32 +1282,6 @@ function renderContagens(){
     return;
   }
 
-  if(contagensMode === 'pendentes'){
-    if(pendentes.length === 0){
-      content.innerHTML = '<div class="empty">Sem contagens novas de momento.</div>';
-      return;
-    }
-    content.innerHTML = pendentes.map(c => {
-      const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
-      const itens = c.itens || [];
-      return `
-      <div class="card" style="margin-bottom:14px;">
-        <div class="row between" style="margin-bottom:10px;">
-          <div>
-            <h3 style="font-size:16px;">${c.grupo_nome || 'Grupo'}${c.area ? ' — ' + c.area : ''}</h3>
-            <div class="save-note">Por ${c.usuario_email || 'desconhecido'} · ${data}</div>
-          </div>
-          <button class="btn" onclick="finalizarContagem('${c.id}')">Aplicar e finalizar</button>
-        </div>
-        <table><thead><tr><th>Produto</th><th>Quantidade contada</th><th>Observação</th></tr></thead>
-        <tbody>${itens.map(it => {
-          const p = produtos.find(x => x.id === it.produto_id);
-          return `<tr><td>${p ? p.nome : it.produto_id}</td><td>${it.quantidade}</td><td>${it.observacao ? '<span class="save-note">'+it.observacao+'</span>' : '—'}</td></tr>`;
-        }).join('')}</tbody></table>
-      </div>`;
-    }).join('');
-    return;
-  }
 
   // ---- histórico ----
   const historico = contagens.filter(c => c.status === 'finalizada').sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
@@ -1360,14 +1347,14 @@ function renderResumoGrupos(){
       const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
       if(pendente){
         const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
-        return `<tr><td>${area}</td><td><span class="badge ok">Enviada</span></td><td>${pendente.usuario_email || '?'}</td><td>${hora}</td></tr>`;
+        return `<tr><td>${area}</td><td><span class="badge ok">Enviada</span></td><td>${pendente.usuario_email || '?'}</td><td>${hora}</td><td><button class="icon-btn" onclick="abrirRevisaoContagem('${pendente.id}')">rever e finalizar</button></td></tr>`;
       }
       const bloqueio = bloqueioDaArea(g.id, area);
       if(bloqueio && bloqueio.status === 'em_andamento'){
         const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
-        return `<tr><td>${area}</td><td><span class="badge warn">A contar agora</span></td><td>${bloqueio.usuario_email || '?'}</td><td>desde ${hora}</td></tr>`;
+        return `<tr><td>${area}</td><td><span class="badge warn">A contar agora</span></td><td>${bloqueio.usuario_email || '?'}</td><td>desde ${hora}</td><td></td></tr>`;
       }
-      return `<tr><td>${area}</td><td><span class="badge danger">Por enviar</span></td><td>—</td><td>—</td></tr>`;
+      return `<tr><td>${area}</td><td><span class="badge danger">Por enviar</span></td><td>—</td><td>—</td><td></td></tr>`;
     }).join('');
 
     const totalFalta = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente')).length;
@@ -1378,7 +1365,7 @@ function renderResumoGrupos(){
           <h3 style="font-size:15px;">${g.nome}</h3>
           ${totalFalta > 0 ? `<span class="save-note">⚠️ falta enviar ${totalFalta} de ${areas.length}</span>` : `<span class="badge ok">Tudo enviado</span>`}
         </div>
-        <table><thead><tr><th>Área</th><th>Estado</th><th>Quem</th><th>Quando</th></tr></thead>
+        <table><thead><tr><th>Área</th><th>Estado</th><th>Quem</th><th>Quando</th><th></th></tr></thead>
         <tbody>${linhas}</tbody></table>
       </div>`;
   }).filter(Boolean).join('');
@@ -1462,6 +1449,30 @@ function renderValorEstoque(content){
       </div>`).join('');
 
   content.innerHTML = blocos || '<div class="empty">Ainda sem contagens finalizadas para calcular valor.</div>';
+}
+
+function abrirRevisaoContagem(contagemId){
+  const c = contagens.find(x => x.id === contagemId);
+  if(!c) return;
+
+  document.getElementById('revisaoContagemTitulo').textContent = `${c.grupo_nome || 'Grupo'}${c.area ? ' — ' + c.area : ''}`;
+  const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
+  document.getElementById('revisaoContagemInfo').textContent = `Enviada por ${c.usuario_email || 'desconhecido'} · ${data}`;
+
+  const itens = c.itens || [];
+  document.getElementById('revisaoContagemItens').innerHTML = itens.map(it => {
+    const p = produtos.find(x => x.id === it.produto_id);
+    return `<tr><td>${p ? p.nome : it.produto_id}</td><td>${it.quantidade}</td><td>${it.observacao ? '<span class="save-note">'+it.observacao+'</span>' : '—'}</td></tr>`;
+  }).join('');
+
+  document.getElementById('revisaoContagemBtnFinalizar').dataset.contagemId = contagemId;
+  document.getElementById('modalRevisaoContagem').classList.add('open');
+}
+
+async function finalizarContagemDoModal(){
+  const contagemId = document.getElementById('revisaoContagemBtnFinalizar').dataset.contagemId;
+  closeModal('modalRevisaoContagem');
+  await finalizarContagem(contagemId);
 }
 
 async function finalizarContagem(contagemId){
