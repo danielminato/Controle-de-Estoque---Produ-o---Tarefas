@@ -379,6 +379,10 @@
 
   <!-- CONTAGENS -->
   <div class="view" id="view-contagens">
+    <div class="row between" style="margin-bottom:10px;">
+      <h3 style="font-size:16px;">Estado dos grupos</h3>
+      <button class="btn secondary" onclick="atualizarContagensDoServidor()">↻ Atualizar</button>
+    </div>
     <div id="resumoGruposContent" style="margin-bottom:18px;"></div>
 
     <div class="toggle-group" style="margin-bottom:14px;">
@@ -1334,25 +1338,49 @@ function renderContagens(){
   }).join('');
 }
 
+async function atualizarContagensDoServidor(){
+  try{
+    contagens = await sbGet('contagens');
+    renderContagens();
+    await showAlert('Atualizado com os dados mais recentes do servidor.');
+  }catch(e){
+    await showAlert('Não consegui atualizar. Verifica a internet e tenta de novo.');
+  }
+}
+
 function renderResumoGrupos(){
   const el = document.getElementById('resumoGruposContent');
   if(!el) return;
 
   const blocos = grupos.map(g => {
     const areas = areasDoGrupo(g);
-    if(areas.length <= 1) return '';
+    if(areas.length === 0) return '';
 
-    const naoEnviadas = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente'));
-    if(naoEnviadas.length === 0) return '';
-
-    const partes = naoEnviadas.map(area => {
+    const linhas = areas.map(area => {
+      const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
+      if(pendente){
+        const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
+        return `<tr><td>${area}</td><td><span class="badge ok">Enviada</span></td><td>${pendente.usuario_email || '?'}</td><td>${hora}</td></tr>`;
+      }
       const bloqueio = bloqueioDaArea(g.id, area);
       if(bloqueio && bloqueio.status === 'em_andamento'){
-        return `${area} (a ser contada agora por ${bloqueio.usuario_email})`;
+        const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
+        return `<tr><td>${area}</td><td><span class="badge warn">A contar agora</span></td><td>${bloqueio.usuario_email || '?'}</td><td>desde ${hora}</td></tr>`;
       }
-      return area;
-    });
-    return `<div class="warn-box" style="margin-bottom:8px;">⚠️ <strong>${g.nome}</strong>: falta enviar ${naoEnviadas.length} de ${areas.length} área(s) — ${partes.join(', ')}</div>`;
+      return `<tr><td>${area}</td><td><span class="badge danger">Por enviar</span></td><td>—</td><td>—</td></tr>`;
+    }).join('');
+
+    const totalFalta = areas.filter(area => !contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente')).length;
+
+    return `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="row between" style="margin-bottom:8px;">
+          <h3 style="font-size:15px;">${g.nome}</h3>
+          ${totalFalta > 0 ? `<span class="save-note">⚠️ falta enviar ${totalFalta} de ${areas.length}</span>` : `<span class="badge ok">Tudo enviado</span>`}
+        </div>
+        <table><thead><tr><th>Área</th><th>Estado</th><th>Quem</th><th>Quando</th></tr></thead>
+        <tbody>${linhas}</tbody></table>
+      </div>`;
   }).filter(Boolean).join('');
 
   el.innerHTML = blocos || '';
