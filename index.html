@@ -3597,13 +3597,15 @@ async function criarLockEmAndamento(g, area){
     id, grupo_id: g.id, grupo_nome: g.nome, area,
     usuario_email: usuarioAtualEmail, itens: [], status: 'em_andamento', criado_em: new Date().toISOString()
   };
-  try{
-    await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
-      method: 'POST', headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, body: JSON.stringify(registo)
-    });
-    contagens.push(registo);
-    locksNovosIds.push(id);
-  }catch(e){ /* não bloqueia o fluxo se falhar a criar o sinal */ }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+    method: 'POST', headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, body: JSON.stringify(registo)
+  });
+  if(!res.ok){
+    const corpo = await res.text().catch(() => '');
+    throw new Error('Falha ao iniciar a contagem: ' + corpo);
+  }
+  contagens.push(registo);
+  locksNovosIds.push(id);
   return id;
 }
 
@@ -3711,7 +3713,13 @@ async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
   contagemEditandoId = pendente ? pendente.id : null;
 
   if(!contagemEditandoId){
-    contagemEditandoId = await criarLockEmAndamento(g, area);
+    try{
+      contagemEditandoId = await criarLockEmAndamento(g, area);
+    }catch(e){
+      await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
+      voltarParaGruposOperacional();
+      return;
+    }
   }
 
   const itensDaArea = area
@@ -3746,7 +3754,13 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
       contagemEditandoIdsPorArea[area] = pendente.id;
       (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
     }else{
-      contagemEditandoIdsPorArea[area] = await criarLockEmAndamento(g, area);
+      try{
+        contagemEditandoIdsPorArea[area] = await criarLockEmAndamento(g, area);
+      }catch(e){
+        await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
+        voltarParaGruposOperacional();
+        return;
+      }
     }
   }
 
