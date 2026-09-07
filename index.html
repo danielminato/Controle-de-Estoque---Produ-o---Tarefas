@@ -3738,13 +3738,13 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
   contagemEditandoId = null;
   contagemEditandoIdsPorArea = {};
 
-  const valoresAnteriores = {};
+  const itensPorAreaPendente = {};
   for(const area of areasEscolhidas){
     const bloqueio = bloqueioDaArea(g.id, area);
     const pendente = bloqueio && bloqueio.status === 'pendente' && bloqueio.usuario_email === usuarioAtualEmail ? bloqueio : null;
     if(pendente){
       contagemEditandoIdsPorArea[area] = pendente.id;
-      (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
+      itensPorAreaPendente[area] = pendente.itens || [];
     }else{
       try{
         contagemEditandoIdsPorArea[area] = await criarLockEmAndamento(g, area);
@@ -3755,6 +3755,24 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
       }
     }
   }
+
+  // reconstrói valores anteriores — produtos em mais do que uma área escolhida guardam um valor por área
+  const valoresAnteriores = {};
+  produtosDoGrupo.forEach(p => {
+    const areasDoProdutoSelecionadas = areasEscolhidas.filter(a => (p.areaIds||[]).some(id => nomeArea(id) === a));
+    if(areasDoProdutoSelecionadas.length > 1){
+      const porArea = {};
+      let observacao;
+      areasDoProdutoSelecionadas.forEach(a => {
+        const item = (itensPorAreaPendente[a]||[]).find(it => it.produto_id === p.id);
+        if(item){ porArea[a] = item.quantidade; if(item.observacao) observacao = item.observacao; }
+      });
+      if(Object.keys(porArea).length > 0) valoresAnteriores[p.id] = { porArea, observacao };
+    }else if(areasDoProdutoSelecionadas.length === 1){
+      const item = (itensPorAreaPendente[areasDoProdutoSelecionadas[0]]||[]).find(it => it.produto_id === p.id);
+      if(item) valoresAnteriores[p.id] = { quantidade: item.quantidade, observacao: item.observacao };
+    }
+  });
 
   const itensDasAreas = produtosDoGrupo.filter(p =>
     (p.areaIds||[]).some(id => areasEscolhidas.includes(nomeArea(id)))
@@ -3773,38 +3791,79 @@ function renderProdutosListaOperacionalPorArea(itens, areasEscolhidas, valoresAn
     return;
   }
 
+  const jaRenderizados = new Set();
   let html = '';
+
   areasEscolhidas.forEach(area => {
     const itensDaArea = itens
-      .filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area))
+      .filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area) && !jaRenderizados.has(p.id))
       .sort((a,b) => a.nome.localeCompare(b.nome));
     if(itensDaArea.length === 0) return;
     html += `<div class="area-header">${area}</div>`;
+
     itensDaArea.forEach(p => {
+      jaRenderizados.add(p.id);
+      const areasDoProdutoSelecionadas = areasEscolhidas.filter(a => (p.areaIds||[]).some(id => nomeArea(id) === a));
       const anterior = valoresAnteriores[p.id] || {};
-      const valorPrevio = anterior.quantidade;
       const obsPrevia = anterior.observacao || '';
       const temObs = !!obsPrevia;
-      html += `
-        <div data-produto-id="${p.id}" style="border-bottom:1px solid var(--line);padding:8px 0;">
-          <div class="produto-row" style="border-bottom:none;padding:2px 0;">
-            <div class="info">
+
+      if(areasDoProdutoSelecionadas.length > 1){
+        // produto em mais do que uma área escolhida agora: uma linha por área + total, sem repetir o produto
+        const valoresPorArea = anterior.porArea || {};
+        html += `
+          <div data-produto-id="${p.id}" data-multi-area="true" style="border-bottom:1px solid var(--line);padding:8px 0;">
+            <div class="info" style="margin-bottom:6px;">
               <div class="nome">${p.nome}</div>
               <div class="categoria">${p.categoria || ''}</div>
               ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
             </div>
-            <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
-          </div>
-          <div style="display:flex;justify-content:flex-end;">
-            <button type="button" class="link-btn" onclick="toggleObsInput('${p.id}')" style="padding:2px 0;">${temObs ? 'editar observação' : '+ observação'}</button>
-          </div>
-          <div id="obs-wrap-${p.id}" style="display:${temObs ? 'block' : 'none'};padding-top:4px;">
-            <input type="text" class="obs-input" placeholder="observação (opcional)" value="${obsPrevia}" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
-          </div>
-        </div>`;
+            ${areasDoProdutoSelecionadas.map(a => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+                <span style="font-size:13px;color:var(--ink-soft);">${a}</span>
+                <input type="number" step="any" inputmode="decimal" class="qtd-input-multi" data-area="${a}" placeholder="0" value="${valoresPorArea[a] !== undefined ? valoresPorArea[a] : ''}" oninput="atualizarTotalMultiArea('${p.id}')" style="width:84px;text-align:center;">
+              </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 2px;border-top:1px dashed var(--line);margin-top:2px;">
+              <span style="font-size:13px;font-weight:600;">Total</span>
+              <span id="total-multi-${p.id}" style="font-weight:600;">${Object.values(valoresPorArea).reduce((s,v)=>s+(parseFloat(v)||0),0)}</span>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="button" class="link-btn" onclick="toggleObsInput('${p.id}')" style="padding:2px 0;">${temObs ? 'editar observação' : '+ observação'}</button>
+            </div>
+            <div id="obs-wrap-${p.id}" style="display:${temObs ? 'block' : 'none'};padding-top:4px;">
+              <input type="text" class="obs-input" placeholder="observação (opcional)" value="${obsPrevia}" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
+            </div>
+          </div>`;
+      }else{
+        const valorPrevio = anterior.quantidade;
+        html += `
+          <div data-produto-id="${p.id}" data-area="${area}" style="border-bottom:1px solid var(--line);padding:8px 0;">
+            <div class="produto-row" style="border-bottom:none;padding:2px 0;">
+              <div class="info">
+                <div class="nome">${p.nome}</div>
+                <div class="categoria">${p.categoria || ''}</div>
+                ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
+              </div>
+              <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="button" class="link-btn" onclick="toggleObsInput('${p.id}')" style="padding:2px 0;">${temObs ? 'editar observação' : '+ observação'}</button>
+            </div>
+            <div id="obs-wrap-${p.id}" style="display:${temObs ? 'block' : 'none'};padding-top:4px;">
+              <input type="text" class="obs-input" placeholder="observação (opcional)" value="${obsPrevia}" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
+            </div>
+          </div>`;
+      }
     });
   });
   wrap.innerHTML = html;
+}
+
+function atualizarTotalMultiArea(produtoId){
+  const linhas = document.querySelectorAll(`div[data-produto-id="${produtoId}"] .qtd-input-multi`);
+  const total = Array.from(linhas).reduce((soma, inp) => soma + (parseFloat(inp.value) || 0), 0);
+  const el = document.getElementById('total-multi-' + produtoId);
+  if(el) el.textContent = total;
 }
 
 function renderProdutosListaOperacional(itens, valoresAnteriores){
@@ -3872,24 +3931,36 @@ async function confirmarEnvioOperacional(){
   if(!ok) return;
 
   const linhas = document.querySelectorAll('#operListaProdutos > div[data-produto-id]');
-  const itensTodos = Array.from(linhas).map(row => {
+  const itensPorArea = {};
+  (grupoAreasAtuaisOperacional || []).forEach(a => itensPorArea[a] = []);
+  const itensTodos = [];
+
+  linhas.forEach(row => {
+    const produtoId = row.dataset.produtoId;
     const obsInput = row.querySelector('.obs-input');
     const observacao = obsInput ? obsInput.value.trim() : '';
-    return {
-      produto_id: row.dataset.produtoId,
-      quantidade: parseFloat(row.querySelector('.qtd-input').value) || 0,
-      observacao: observacao || undefined
-    };
+
+    if(row.dataset.multiArea === 'true'){
+      row.querySelectorAll('.qtd-input-multi').forEach(inp => {
+        const area = inp.dataset.area;
+        const quantidade = parseFloat(inp.value) || 0;
+        if(itensPorArea[area]) itensPorArea[area].push({ produto_id: produtoId, quantidade, observacao: observacao || undefined });
+      });
+      const total = Array.from(row.querySelectorAll('.qtd-input-multi')).reduce((s,i) => s + (parseFloat(i.value) || 0), 0);
+      itensTodos.push({ produto_id: produtoId, quantidade: total, observacao: observacao || undefined });
+    }else{
+      const quantidade = parseFloat(row.querySelector('.qtd-input').value) || 0;
+      const area = row.dataset.area;
+      if(area && itensPorArea[area]) itensPorArea[area].push({ produto_id: produtoId, quantidade, observacao: observacao || undefined });
+      itensTodos.push({ produto_id: produtoId, quantidade, observacao: observacao || undefined });
+    }
   });
 
   try{
     if(grupoAreasAtuaisOperacional){
-      // uma área múltiplas: uma submissão por área, cada uma só com os produtos dela
+      // uma ou várias áreas: uma submissão por área, cada uma só com os itens dela
       for(const area of grupoAreasAtuaisOperacional){
-        const produtosDaArea = new Set(
-          produtos.filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area)).map(p => p.id)
-        );
-        const itensDaArea = itensTodos.filter(it => produtosDaArea.has(it.produto_id));
+        const itensDaArea = itensPorArea[area] || [];
         const idExistente = contagemEditandoIdsPorArea[area];
 
         if(idExistente){
