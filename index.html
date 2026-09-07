@@ -1259,7 +1259,8 @@ function renderContagens(){
   renderResumoGrupos();
 
   const pendentes = contagens.filter(c => c.status === 'pendente');
-  if(badge) badge.textContent = pendentes.length > 0 ? `(${pendentes.length})` : '';
+  const gruposComPendentes = new Set(pendentes.map(c => c.grupo_id)).size;
+  if(badge) badge.textContent = gruposComPendentes > 0 ? `(${gruposComPendentes})` : '';
 
   if(contagensMode === 'valor'){
     renderValorEstoque(content);
@@ -1268,7 +1269,9 @@ function renderContagens(){
 
 
   // ---- histórico ----
-  const historico = contagens.filter(c => c.status === 'finalizada').sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
+  const historico = contagens
+    .filter(c => c.status === 'finalizada' && valorDaContagem(c) > 0)
+    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
 
   const filtroSel = document.getElementById('filtroHistoricoGrupo');
   const nomesGrupo = Array.from(new Set(historico.map(c => c.grupo_nome || 'Sem grupo')));
