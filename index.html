@@ -390,13 +390,6 @@
       <button id="tgContagemValor" onclick="setContagensMode('valor')">Valor em estoque</button>
     </div>
     <div class="save-note" id="contagensAjuda" style="margin-bottom:14px;">Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.</div>
-    <div class="row" id="historicoFiltroWrap" style="display:none;margin-bottom:14px;">
-      <label class="field">Filtrar por grupo
-        <select id="filtroHistoricoGrupo" onchange="renderContagens()">
-          <option value="">Todos</option>
-        </select>
-      </label>
-    </div>
     <div id="contagensContent"></div>
   </div>
 
@@ -1242,7 +1235,6 @@ function setContagensMode(mode){
   contagensMode = mode;
   document.getElementById('tgContagemHistorico').classList.toggle('active', mode === 'historico');
   document.getElementById('tgContagemValor').classList.toggle('active', mode === 'valor');
-  document.getElementById('historicoFiltroWrap').style.display = mode === 'historico' ? 'flex' : 'none';
   const textos = {
     historico: 'Tudo o que já foi aplicado ao estoque — incluindo contagens de colaboradores e as vezes em que zeraste manualmente. Nada aqui é apagado; fica sempre disponível para consultares quem contou o quê e quando.',
     valor: 'Valor em estoque por grupo, calculado a partir da contagem mais recente de cada área (até 3), aos preços de hoje. Útil para descontar do CMV.'
@@ -1269,47 +1261,38 @@ function renderContagens(){
 
 
   // ---- histórico ----
-  const historico = contagens
-    .filter(c => c.status === 'finalizada' && valorDaContagem(c) > 0)
-    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
+  const historico = contagens.filter(c => c.status === 'finalizada' && valorDaContagem(c) > 0);
 
-  const filtroSel = document.getElementById('filtroHistoricoGrupo');
-  const nomesGrupo = Array.from(new Set(historico.map(c => c.grupo_nome || 'Sem grupo')));
-  const filtroAtual = filtroSel.value;
-  filtroSel.innerHTML = '<option value="">Todos</option>' + nomesGrupo.map(n => `<option value="${n}">${n}</option>`).join('');
-  filtroSel.value = filtroAtual;
-
-  const filtro = filtroSel.value;
-  const filtrado = filtro ? historico.filter(c => (c.grupo_nome||'Sem grupo') === filtro) : historico;
-
-  if(filtrado.length === 0){
+  if(historico.length === 0){
     content.innerHTML = '<div class="empty">Ainda sem histórico registado.</div>';
     return;
   }
 
-  content.innerHTML = filtrado.map(c => {
-    const data = c.criado_em ? new Date(c.criado_em).toLocaleString('pt-PT') : '';
-    const itens = c.itens || [];
-    const valorTotal = valorDaContagem(c);
+  content.innerHTML = grupos.map(g => {
+    const doGrupo = historico.filter(c => c.grupo_id === g.id);
+    if(doGrupo.length === 0) return '';
+
+    const porArea = {};
+    doGrupo.forEach(c => {
+      const chave = c.area || '(sem área)';
+      const jaTem = porArea[chave];
+      if(!jaTem || new Date(c.criado_em) > new Date(jaTem.criado_em)) porArea[chave] = c;
+    });
+
+    const areas = Object.keys(porArea).sort();
+    const linhas = areas.map(area => {
+      const c = porArea[area];
+      const data = c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-PT') : '';
+      return `<tr><td>${area}</td><td>${c.usuario_email || 'desconhecido'}</td><td>${data}</td></tr>`;
+    }).join('');
+
     return `
     <div class="card" style="margin-bottom:14px;">
-      <div class="row between" style="margin-bottom:10px;">
-        <div>
-          <h3 style="font-size:16px;">${c.grupo_nome || 'Sem grupo'}${c.area ? ' — ' + c.area : ''}</h3>
-          <div class="save-note">Por ${c.usuario_email || 'desconhecido'} · ${data}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="stat-label">Valor total contado</div>
-          <div class="stat" style="font-size:18px;">${eur(valorTotal)}</div>
-        </div>
-      </div>
-      <table><thead><tr><th>Produto</th><th>Quantidade contada</th><th>Observação</th></tr></thead>
-      <tbody>${itens.map(it => {
-        const p = produtos.find(x => x.id === it.produto_id);
-        return `<tr><td>${p ? p.nome : it.produto_id}</td><td>${it.quantidade}</td><td>${it.observacao ? '<span class="save-note">'+it.observacao+'</span>' : '—'}</td></tr>`;
-      }).join('')}</tbody></table>
+      <h3 style="font-size:15px;margin-bottom:8px;">${g.nome}</h3>
+      <table><thead><tr><th>Área</th><th>Quem contou</th><th>Quando</th></tr></thead>
+      <tbody>${linhas}</tbody></table>
     </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
 }
 
 async function atualizarContagensDoServidor(){
