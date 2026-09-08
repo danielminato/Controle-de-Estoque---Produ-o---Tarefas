@@ -1638,9 +1638,9 @@ function renderProdutos(){
           <select class="embalagem-unidade-select" onchange="updateEmbalagemInline('${p.id}', this)" style="width:72px;padding:8px 4px;">
             <option value="">—</option>
             <option value="g" ${p.embalagemUnidade==='g'?'selected':''}>g</option>
-            <option value="kg">kg</option>
+            <option value="kg" ${p.embalagemUnidade==='kg'?'selected':''}>kg</option>
             <option value="ml" ${p.embalagemUnidade==='ml'?'selected':''}>ml</option>
-            <option value="l">l</option>
+            <option value="l" ${p.embalagemUnidade==='l'?'selected':''}>l</option>
             <option value="unidade" ${p.embalagemUnidade==='unidade'?'selected':''}>unid.</option>
           </select>
         </div>
