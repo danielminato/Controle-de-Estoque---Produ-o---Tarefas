@@ -1742,6 +1742,21 @@ function areasDoGrupo(g){
   ));
 }
 
+function ultimoZeroDoGrupo(g){
+  const zeros = contagens.filter(c => c.grupo_id === '' && c.grupo_nome === `${g.nome} (finalização de pedido)`);
+  if(zeros.length === 0) return null;
+  return zeros.reduce((max, c) => new Date(c.criado_em) > new Date(max) ? c.criado_em : max, zeros[0].criado_em);
+}
+
+function areasRecontadasDesdeUltimoZero(g){
+  const t0 = ultimoZeroDoGrupo(g);
+  return new Set(
+    contagens
+      .filter(c => c.grupo_id === g.id && c.status === 'finalizada' && c.area && (!t0 || new Date(c.criado_em) > new Date(t0)))
+      .map(c => c.area)
+  );
+}
+
 function fornecedorEfetivo(p){
   if(p.fornecedorEscolhidoId) return p.fornecedorEscolhidoId;
   const mp = melhorPreco(p);
@@ -2331,17 +2346,42 @@ function marcarComprado(produtoId){
 async function finalizarGrupoCompra(grupoId){
   const g = grupos.find(x => x.id === grupoId);
   if(!g) return;
-  const afetados = produtos.filter(p => g.fornecedorIds.includes(fornecedorEfetivo(p)));
-  if(afetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
+  const todosAfetados = produtos.filter(p => g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  if(todosAfetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
 
-  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em todos os ${afetados.length} produtos do grupo "${g.nome}", para a próxima contagem começar do zero.\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
+  // Só zera produtos cujas áreas foram realmente recontadas desde o último "Finalizar pedido"
+  // deste grupo — produtos de áreas ainda não recontadas mantêm o valor atual, para não
+  // aparecerem como "sem estoque"/precisando de compra total sem uma contagem real por trás.
+  const recontadas = areasRecontadasDesdeUltimoZero(g);
+  const afetados = todosAfetados.filter(p => {
+    const areasProduto = (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean);
+    if(areasProduto.length === 0) return true;
+    return areasProduto.every(a => recontadas.has(a));
+  });
+  const ignorados = todosAfetados.filter(p => !afetados.includes(p));
+
+  if(afetados.length === 0){
+    await showAlert(`Nenhuma área do grupo "${g.nome}" foi recontada desde a última finalização — nada para zerar. Pede para recontarem as áreas primeiro.`);
+    return;
+  }
+
+  let aviso = '';
+  if(ignorados.length > 0){
+    const areasIgnoradas = Array.from(new Set(
+      ignorados.flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
+        .filter(a => !recontadas.has(a))
+    ));
+    aviso = `\n\n⚠️ ${ignorados.length} produto(s) NÃO serão zerados por pertencerem a área(s) ainda não recontadas desde a última finalização: ${areasIgnoradas.join(', ')}. Esses mantêm o valor atual em estoque.`;
+  }
+
+  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em ${afetados.length} produto(s) do grupo "${g.nome}" (das áreas já recontadas), para a próxima contagem começar do zero.${aviso}\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
   if(!ok) return;
 
   await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`);
   afetados.forEach(p => { p.qtdAtual = 0; });
   await saveProdutos();
   renderAll();
-  await showAlert(`Pedido do "${g.nome}" finalizado. A contagem desse grupo foi zerada e o valor anterior ficou guardado no histórico.`);
+  await showAlert(`Pedido do "${g.nome}" finalizado. ${afetados.length} produto(s) das áreas recontadas foram zerados.${ignorados.length > 0 ? ' '+ignorados.length+' produto(s) de áreas ainda não recontadas foram mantidos como estavam.' : ''}`);
 }
 
 async function zerarContagemEstoque(){
