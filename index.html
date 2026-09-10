@@ -1753,8 +1753,17 @@ function areasRecontadasDesdeUltimoZero(g){
   return new Set(
     contagens
       .filter(c => c.grupo_id === g.id && c.status === 'finalizada' && c.area && (!t0 || new Date(c.criado_em) > new Date(t0)))
+      // ignora submissões com tudo a 0 — não representam uma contagem física real
+      // (ex.: registos automáticos deixados por um zeramento anterior)
+      .filter(c => (c.itens||[]).some(it => (Number(it.quantidade)||0) > 0))
       .map(c => c.area)
   );
+}
+
+function produtoAreasTodasRecontadas(p, recontadas){
+  const areasProduto = (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean);
+  if(areasProduto.length === 0) return true;
+  return areasProduto.every(a => recontadas.has(a));
 }
 
 function fornecedorEfetivo(p){
@@ -2085,9 +2094,21 @@ function renderEstoque(){
       return;
     }
     const g = grupos.find(x => x.id === grupoId);
-    const paraComprar = linhas.filter(l => l.aComprar > 0 && g.fornecedorIds.includes(l.fornecedorCompraId));
+    const recontadas = areasRecontadasDesdeUltimoZero(g);
+    const candidatos = linhas.filter(l => l.aComprar > 0 && g.fornecedorIds.includes(l.fornecedorCompraId));
+    const paraComprar = candidatos.filter(l => produtoAreasTodasRecontadas(l.p, recontadas));
+    const escondidosPorNaoContado = candidatos.filter(l => !produtoAreasTodasRecontadas(l.p, recontadas));
+
+    const areasNaoContadas = Array.from(new Set(
+      escondidosPorNaoContado.flatMap(l => (l.p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
+        .filter(a => !recontadas.has(a))
+    ));
+    const avisoAreas = areasNaoContadas.length > 0
+      ? `<div class="save-note" style="margin-bottom:14px;border-color:var(--danger-text);color:var(--danger-text);">⚠️ ${escondidosPorNaoContado.length} produto(s) escondido(s) desta lista por pertencerem a área(s) ainda não recontadas desde a última finalização deste grupo: <strong>${areasNaoContadas.join(', ')}</strong>. Pede para recontarem essas áreas antes de comprar.</div>`
+      : '';
+
     if(paraComprar.length === 0){
-      content.innerHTML = '<div class="empty">Nada a comprar deste grupo de momento.</div>';
+      content.innerHTML = avisoAreas || '<div class="empty">Nada a comprar deste grupo de momento.</div>';
       return;
     }
     const porFornecedor = {};
@@ -2096,7 +2117,7 @@ function renderEstoque(){
       if(!porFornecedor[key]) porFornecedor[key] = [];
       porFornecedor[key].push(l);
     });
-    content.innerHTML = `
+    content.innerHTML = avisoAreas + `
       <div class="row between" style="margin-bottom:14px;">
         <h3>${g.nome} — o que falta comprar</h3>
         <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="finalizarGrupoCompra('${g.id}')">Finalizar pedido (zerar contagem do grupo)</button>
@@ -2353,11 +2374,7 @@ async function finalizarGrupoCompra(grupoId){
   // deste grupo — produtos de áreas ainda não recontadas mantêm o valor atual, para não
   // aparecerem como "sem estoque"/precisando de compra total sem uma contagem real por trás.
   const recontadas = areasRecontadasDesdeUltimoZero(g);
-  const afetados = todosAfetados.filter(p => {
-    const areasProduto = (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean);
-    if(areasProduto.length === 0) return true;
-    return areasProduto.every(a => recontadas.has(a));
-  });
+  const afetados = todosAfetados.filter(p => produtoAreasTodasRecontadas(p, recontadas));
   const ignorados = todosAfetados.filter(p => !afetados.includes(p));
 
   if(afetados.length === 0){
