@@ -3873,7 +3873,7 @@ function renderProdutosListaOperacionalPorArea(itens, areasEscolhidas, valoresAn
             <div class="info" style="margin-bottom:6px;">
               <div class="nome">${p.nome}</div>
               <div class="categoria">${p.categoria || ''}</div>
-              ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
+              ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);font-weight:700;font-size:14px;">ℹ️ '+p.nota+'</div>' : ''}
             </div>
             ${areasDoProdutoSelecionadas.map(a => `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
@@ -3899,7 +3899,7 @@ function renderProdutosListaOperacionalPorArea(itens, areasEscolhidas, valoresAn
               <div class="info">
                 <div class="nome">${p.nome}</div>
                 <div class="categoria">${p.categoria || ''}</div>
-                ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
+                ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);font-weight:700;font-size:14px;">ℹ️ '+p.nota+'</div>' : ''}
               </div>
               <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
             </div>
@@ -3944,7 +3944,7 @@ function renderProdutosListaOperacional(itens, valoresAnteriores){
           <div class="info">
             <div class="nome">${p.nome}</div>
             <div class="categoria">${p.categoria || ''}</div>
-            ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);">ℹ️ '+p.nota+'</div>' : ''}
+            ${p.nota ? '<div class="save-note" style="color:var(--terracotta-dark);font-weight:700;font-size:14px;">ℹ️ '+p.nota+'</div>' : ''}
           </div>
           <input type="number" step="any" inputmode="decimal" class="qtd-input" placeholder="0" value="${valorPrevio !== undefined ? valorPrevio : ''}">
         </div>
