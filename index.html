@@ -244,6 +244,20 @@
   </div>
 </div>
 
+<div class="modal-bg" id="modalReauth" style="z-index:9999;">
+  <div class="modal" style="max-width:380px;">
+    <h3 style="margin-bottom:12px;">A tua sessão expirou</h3>
+    <p class="save-note" style="margin-bottom:14px;">Entra de novo para guardar as alterações. Não perdes nada do que escreveste.</p>
+    <div class="save-note" id="reauthEmail" style="margin-bottom:10px;font-weight:600;"></div>
+    <label class="field">Password
+      <input type="password" id="reauthSenha" style="width:100%;" onkeydown="if(event.key==='Enter')reautenticar()">
+    </label>
+    <button class="btn" style="width:100%;" onclick="reautenticar()">Entrar e guardar</button>
+    <button class="link-btn" style="margin-top:8px;" onclick="cancelarReauth()">cancelar</button>
+    <div class="save-note" id="reauthErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
+  </div>
+</div>
+
 <div id="appRoot" style="display:none;">
 
 <div class="topbar">
@@ -962,6 +976,82 @@ function sbHeadersFn(){
   };
 }
 
+let sbRefreshToken = null;
+let sbReauthPromise = null;
+const _fetchOriginal = window.fetch.bind(window);
+
+function sbRenovarSessao(){
+  if(sbReauthPromise) return sbReauthPromise;
+  sbReauthPromise = (async () => {
+    if(sbRefreshToken){
+      try{
+        const r = await _fetchOriginal(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: sbRefreshToken })
+        });
+        if(r.ok){
+          const d = await r.json();
+          sbAccessToken = d.access_token;
+          sbRefreshToken = d.refresh_token || sbRefreshToken;
+          return true;
+        }
+      }catch(e){}
+    }
+    return new Promise(resolve => {
+      window.__reauthResolve = resolve;
+      document.getElementById('reauthEmail').textContent = usuarioAtualEmail || '';
+      document.getElementById('reauthSenha').value = '';
+      document.getElementById('reauthErro').textContent = '';
+      document.getElementById('modalReauth').classList.add('open');
+    });
+  })().finally(() => { sbReauthPromise = null; });
+  return sbReauthPromise;
+}
+
+async function reautenticar(){
+  const senha = document.getElementById('reauthSenha').value;
+  const erroEl = document.getElementById('reauthErro');
+  erroEl.textContent = '';
+  if(!senha){ erroEl.textContent = 'Escreve a password.'; return; }
+  try{
+    const res = await _fetchOriginal(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: usuarioAtualEmail, password: senha })
+    });
+    const data = await res.json();
+    if(!res.ok){ erroEl.textContent = 'Password incorreta.'; return; }
+    sbAccessToken = data.access_token;
+    sbRefreshToken = data.refresh_token || null;
+    document.getElementById('modalReauth').classList.remove('open');
+    if(window.__reauthResolve){ window.__reauthResolve(true); window.__reauthResolve = null; }
+  }catch(e){
+    erroEl.textContent = 'Não consegui ligar. Verifica a internet e tenta de novo.';
+  }
+}
+
+function cancelarReauth(){
+  document.getElementById('modalReauth').classList.remove('open');
+  if(window.__reauthResolve){ window.__reauthResolve(false); window.__reauthResolve = null; }
+}
+
+window.fetch = async function(url, opts){
+  const res = await _fetchOriginal(url, opts);
+  if(res.status === 401 && sbAccessToken && typeof url === 'string' && url.startsWith(SUPABASE_URL + '/rest/')){
+    const ok = await sbRenovarSessao();
+    if(!ok) return res;
+    const headers = { ...((opts && opts.headers) || {}), Authorization: `Bearer ${sbAccessToken}` };
+    return _fetchOriginal(url, { ...opts, headers });
+  }
+  return res;
+};
+
+function avisarErroGravar(){
+  setNote('⚠️ NÃO GUARDADO');
+  return showAlert('⚠️ Não foi possível guardar as tuas alterações no servidor. O que escreveste continua nesta página, por isso NÃO recarregues nem feches. Tenta guardar de novo; se persistir, avisa quem gere o app.');
+}
+
 async function sbGet(table){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, { headers: sbHeadersFn() });
   if(!res.ok) throw new Error('Falha ao carregar ' + table);
@@ -970,13 +1060,16 @@ async function sbGet(table){
 
 async function sbReplaceAll(table, rows){
   // apaga tudo e insere de novo — simples e seguro para o volume de dados deste app
-  await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`, { method: 'DELETE', headers: sbHeadersFn() });
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`, { method: 'DELETE', headers: sbHeadersFn() });
+  if(!del.ok) throw new Error('Falha ao guardar ' + table);
   if(rows.length === 0) return;
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const inserir = () => fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
     headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
     body: JSON.stringify(rows)
   });
+  let res = await inserir();
+  if(!res.ok) res = await inserir();
   if(!res.ok) throw new Error('Falha ao guardar ' + table);
 }
 
@@ -1071,19 +1164,19 @@ async function loadAll(){
 
 async function saveFornecedores(){
   try{ await sbReplaceAll('fornecedores', fornecedores.map(fornecedorToDb)); setNote('Guardado'); }
-  catch(e){ setNote('Erro ao guardar'); }
+  catch(e){ await avisarErroGravar(); }
 }
 async function saveAreas(){
   try{ await sbReplaceAll('areas', areas.map(areaToDb)); setNote('Guardado'); }
-  catch(e){ setNote('Erro ao guardar'); }
+  catch(e){ await avisarErroGravar(); }
 }
 async function saveProdutos(){
   try{ await sbReplaceAll('produtos', produtos.map(produtoToDb)); setNote('Guardado'); }
-  catch(e){ setNote('Erro ao guardar'); }
+  catch(e){ await avisarErroGravar(); }
 }
 async function saveGrupos(){
   try{ await sbReplaceAll('grupos', grupos.map(grupoToDb)); setNote('Guardado'); }
-  catch(e){ setNote('Erro ao guardar'); }
+  catch(e){ await avisarErroGravar(); }
 }
 
 function renderAll(){
@@ -2616,6 +2709,7 @@ async function fazerLoginGate(){
       return;
     }
     sbAccessToken = data.access_token;
+    sbRefreshToken = data.refresh_token || null;
     usuarioAtualEmail = data.user?.email || email;
 
     if(senha === '123456'){
