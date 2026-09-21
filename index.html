@@ -3847,6 +3847,17 @@ async function selecionarGrupoOperacional(grupoId){
         </label>`;
     }
     const jaTeu = bloqueio && bloqueio.usuario_email === usuarioAtualEmail;
+    if(jaTeu && bloqueio.status === 'pendente'){
+      const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--ok-text, #2e7d32);border-radius:10px;background:var(--card);cursor:pointer;">
+          <input type="checkbox" class="grupo-area-check" value="${area}" style="width:18px;height:18px;">
+          <div>
+            <div style="font-weight:600;">✅ ${area} — já enviada</div>
+            <div class="save-note">Enviaste às ${hora} e está a aguardar revisão. Só marca esta área se precisares de corrigir o que enviaste.</div>
+          </div>
+        </label>`;
+    }
     return `
       <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;">
         <input type="checkbox" class="grupo-area-check" value="${area}" style="width:18px;height:18px;" ${jaTeu ? 'checked' : ''}>
@@ -3982,7 +3993,8 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
     (p.areaIds||[]).some(id => areasEscolhidas.includes(nomeArea(id)))
   );
 
-  document.getElementById('operContagemTitulo').textContent = g.nome + ' — ' + areasEscolhidas.join(', ');
+  const corrigindo = Object.keys(itensPorAreaPendente).length > 0;
+  document.getElementById('operContagemTitulo').textContent = g.nome + ' — ' + areasEscolhidas.join(', ') + (corrigindo ? ' (a corrigir o teu envio anterior)' : '');
   renderProdutosListaOperacionalPorArea(itensDasAreas, areasEscolhidas, valoresAnteriores);
   mostrarOperScreen('oper-screen-contagem');
 }
