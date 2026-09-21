@@ -637,9 +637,9 @@
     </label>
     <div class="field-row">
       <label class="field">Rendimento total (g/ml)
-        <input type="number" id="receitaRendimentoG" step="any" placeholder="ex: 3000 (rende 3kg de molho)" oninput="atualizarPreviewCustoReceita()">
+        <input type="number" id="receitaRendimentoG" step="any" placeholder="deixa vazio = soma dos ingredientes" oninput="atualizarPreviewCustoReceita()">
       </label>
-      <label class="field">Nº de porções
+      <label class="field">Nº de porções (ex.: 60 bolas de pizza)
         <input type="number" id="receitaPorcoes" step="any" value="1" oninput="atualizarPreviewCustoReceita()">
       </label>
       <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda atual (€)
@@ -647,7 +647,9 @@
       </label>
     </div>
 
+    <div class="save-note" id="receitaRendimentoAuto" style="margin-bottom:6px;"></div>
     <h3 style="font-size:15px;margin:16px 0 8px;">Ingredientes</h3>
+    <div class="save-note" style="margin-bottom:8px;">Marca "base" no ingrediente de referência (ex.: a farinha). Nos outros podes escrever a quantidade em g ou a % sobre a base (ex.: 72 para a água) — um preenche o outro.</div>
     <div id="receitaItensList"></div>
     <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
 
@@ -664,6 +666,10 @@
         <div>
           <div class="stat-label">Custo por porção</div>
           <div class="stat" id="receitaCustoPorcao" style="font-size:18px;">€0.00</div>
+        </div>
+        <div>
+          <div class="stat-label">Peso por porção</div>
+          <div class="stat" id="receitaPesoPorcao" style="font-size:18px;">0 g</div>
         </div>
         <div id="receitaCmvWrap" style="display:none;">
           <div class="stat-label">CMV% atual</div>
@@ -3413,14 +3419,47 @@ function renderReceitas(){
 }
 
 let receitaItensAtuais = [];
+let receitaBaseIdx = -1;
+
+function quantidadeBaseReceita(){
+  const b = receitaItensAtuais[receitaBaseIdx];
+  return b ? (b.quantidadeG || 0) : 0;
+}
+
+function somaQuantidadesReceita(){
+  return receitaItensAtuais.reduce((s, ri) => s + (ri.quantidadeG || 0), 0);
+}
+
+// atualiza os campos g e % de todas as linhas sem recriar a lista (para não perder o foco ao digitar)
+function sincronizarCamposReceita(ignorarId){
+  receitaItensAtuais.forEach((ri, i) => {
+    const q = document.getElementById('ri-q-' + i), p = document.getElementById('ri-p-' + i);
+    if(q && q.id !== ignorarId) q.value = ri.quantidadeG || '';
+    if(p && p.id !== ignorarId) p.value = ri.pct || '';
+  });
+}
+
+function definirBaseReceita(idx){
+  receitaBaseIdx = idx;
+  const base = quantidadeBaseReceita();
+  receitaItensAtuais.forEach((ri, i) => {
+    ri.pct = (i !== idx && base > 0) ? Math.round((ri.quantidadeG || 0) / base * 100 * 10000) / 10000 : 0;
+  });
+  renderReceitaItensList();
+}
 
 function openReceitaModal(id){
   document.getElementById('receitaId').value = id || '';
   const r = receitas.find(x => x.id === id);
 
   const sel = document.getElementById('receitaProdutoId');
-  const candidatos = produtos.filter(p => p.tipo === 'semi_preparado' || p.tipo === 'prato_final');
-  sel.innerHTML = candidatos.map(p => `<option value="${p.id}" ${r && r.produtoId===p.id ? 'selected':''}>${p.nome} (${p.tipo === 'prato_final' ? 'prato final' : 'semi-preparado'})</option>`).join('');
+  const ehResultado = p => p.tipo === 'semi_preparado' || p.tipo === 'prato_final';
+  const opt = p => `<option value="${p.id}" ${r && r.produtoId===p.id ? 'selected':''}>${p.nome}${p.tipo === 'prato_final' ? ' (prato final)' : p.tipo === 'semi_preparado' ? ' (semi-preparado)' : ''}</option>`;
+  const ordenar = (a,b) => a.nome.localeCompare(b.nome);
+  sel.innerHTML =
+    '<option value="">— escolhe o produto que esta receita produz —</option>' +
+    '<optgroup label="Semi-preparados e pratos finais">' + produtos.filter(ehResultado).sort(ordenar).map(opt).join('') + '</optgroup>' +
+    '<optgroup label="Outros produtos (ex.: Massa de Pizza, Molho de Tomate)">' + produtos.filter(p => !ehResultado(p)).sort(ordenar).map(opt).join('') + '</optgroup>';
 
   document.getElementById('receitaRendimentoG').value = r ? r.rendimentoG : '';
   document.getElementById('receitaPrecoVenda').value = r ? (r.precoVenda ?? '') : '';
@@ -3436,8 +3475,11 @@ function openReceitaModal(id){
   document.getElementById('receitaModoFazer').value = x.modoFazer || '';
 
   receitaItensAtuais = r
-    ? receitaItens.filter(ri => ri.receitaId === id).sort((a,b) => (a.ordem||0)-(b.ordem||0)).map(ri => ({...ri, rendPct: rendPctDoItem(r, ri)}))
+    ? receitaItens.filter(ri => ri.receitaId === id).sort((a,b) => (a.ordem||0)-(b.ordem||0)).map(ri => ({
+        ...ri, rendPct: rendPctDoItem(r, ri), pct: Number(x.pct && x.pct[ri.ordem]) || 0
+      }))
     : [];
+  receitaBaseIdx = (x.baseIdx !== undefined && x.baseIdx !== null && x.baseIdx >= 0 && x.baseIdx < receitaItensAtuais.length) ? x.baseIdx : -1;
 
   onReceitaProdutoChange();
   renderReceitaItensList();
@@ -3471,11 +3513,17 @@ function renderReceitaItensList(){
       const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
       return `<option value="${p.id}" ${ri.ingredienteProdutoId===p.id?'selected':''}>${label}</option>`;
     }).join('');
+    const ehBase = idx === receitaBaseIdx;
+    const campoPct = ehBase
+      ? '<span class="save-note" style="min-width:74px;text-align:center;">100% (base)</span>'
+      : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="% da base" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
     return `
-      <div class="price-row">
+      <div class="price-row" style="flex-wrap:wrap;">
         <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
-        <input type="number" step="any" placeholder="g/ml" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <input type="number" step="any" id="ri-q-${idx}" placeholder="g/ml" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        ${campoPct}
         <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="rend.%" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
+        <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> base</label>
         <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
       </div>`;
   }).join('');
@@ -3492,17 +3540,33 @@ function addReceitaItemRow(){
 
 function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
-  receitaItensAtuais[idx][campo] = (campo === 'quantidadeG' || campo === 'rendPct') ? (parseFloat(valor)||0) : valor;
+  const item = receitaItensAtuais[idx];
+  item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct') ? (parseFloat(valor)||0) : valor;
+
+  const arred = n => Math.round(n * 10000) / 10000;
+  if(campo === 'quantidadeG'){
+    if(idx === receitaBaseIdx){
+      receitaItensAtuais.forEach((ri, i) => { if(i !== idx && ri.pct > 0) ri.quantidadeG = arred(item.quantidadeG * ri.pct / 100); });
+    }else if(receitaBaseIdx >= 0 && quantidadeBaseReceita() > 0){
+      item.pct = arred(item.quantidadeG / quantidadeBaseReceita() * 100);
+    }
+    sincronizarCamposReceita('ri-q-' + idx);
+  }else if(campo === 'pct'){
+    if(receitaBaseIdx >= 0) item.quantidadeG = arred(quantidadeBaseReceita() * item.pct / 100);
+    sincronizarCamposReceita('ri-p-' + idx);
+  }
   atualizarPreviewCustoReceita();
 }
 
 function removerReceitaItem(idx){
   receitaItensAtuais.splice(idx, 1);
+  if(idx === receitaBaseIdx) receitaBaseIdx = -1;
+  else if(idx < receitaBaseIdx) receitaBaseIdx--;
   renderReceitaItensList();
 }
 
 function atualizarPreviewCustoReceita(){
-  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || 0;
+  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || somaQuantidadesReceita();
   const custoTotal = receitaItensAtuais.reduce((soma, ri) => {
     const p = produtos.find(x => x.id === ri.ingredienteProdutoId);
     if(!p) return soma;
@@ -3516,6 +3580,9 @@ function atualizarPreviewCustoReceita(){
   document.getElementById('receitaCustoTotal').textContent = eur(custoTotal);
   document.getElementById('receitaCustoPorGrama').textContent = custoPorGrama.toFixed(4) + '€';
   document.getElementById('receitaCustoPorcao').textContent = eur(custoPorcao);
+  document.getElementById('receitaPesoPorcao').textContent = (rendimentoG / porcoes).toFixed(0) + ' g';
+  document.getElementById('receitaRendimentoAuto').style.display = document.getElementById('receitaRendimentoG').value ? 'none' : 'block';
+  document.getElementById('receitaRendimentoAuto').textContent = 'Rendimento calculado: ' + rendimentoG.toFixed(0) + ' g (soma dos ingredientes)';
 
   const num = id => document.getElementById(id).value;
   const pr = calcularPrecificacao(custoPorcao, {
@@ -3540,12 +3607,12 @@ function atualizarPreviewCustoReceita(){
 async function saveReceita(){
   const id = document.getElementById('receitaId').value;
   const produtoId = document.getElementById('receitaProdutoId').value;
-  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || 0;
+  const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || somaQuantidadesReceita();
   const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value) || null;
 
   if(!produtoId){ await showAlert('Escolhe o produto resultante.'); return; }
-  if(rendimentoG <= 0){ await showAlert('Indica o rendimento total em gramas.'); return; }
   if(receitaItensAtuais.length === 0){ await showAlert('Adiciona pelo menos um ingrediente.'); return; }
+  if(rendimentoG <= 0){ await showAlert('Indica a quantidade (g/ml) dos ingredientes.'); return; }
 
   const circular = receitaItensAtuais.some(ri => fecharCircularidade(produtoId, ri.ingredienteProdutoId));
   if(circular){ await showAlert('Um dos ingredientes depende, direta ou indiretamente, deste mesmo produto — isso criaria um ciclo infinito. Corrige antes de guardar.'); return; }
@@ -3557,7 +3624,9 @@ async function saveReceita(){
     cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
     deliveryCmvPct: val('receitaDelCmvPct'), deliveryTaxaPct: val('receitaDelTaxaPct'),
     modoFazer: document.getElementById('receitaModoFazer').value.trim(),
-    rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100)
+    rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100),
+    pct: receitaItensAtuais.map(ri => ri.pct > 0 ? ri.pct : 0),
+    baseIdx: receitaBaseIdx
   };
   const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '', extra };
 
