@@ -636,11 +636,14 @@
       <select id="receitaProdutoId" onchange="onReceitaProdutoChange()"></select>
     </label>
     <div class="field-row">
-      <label class="field">Rendimento total (gramas)
-        <input type="number" id="receitaRendimentoG" step="any" placeholder="ex: 3000 (rende 3kg de molho)">
+      <label class="field">Rendimento total (g/ml)
+        <input type="number" id="receitaRendimentoG" step="any" placeholder="ex: 3000 (rende 3kg de molho)" oninput="atualizarPreviewCustoReceita()">
       </label>
-      <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda (€)
-        <input type="number" id="receitaPrecoVenda" step="any" placeholder="preço no menu">
+      <label class="field">Nº de porções
+        <input type="number" id="receitaPorcoes" step="any" value="1" oninput="atualizarPreviewCustoReceita()">
+      </label>
+      <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda atual (€)
+        <input type="number" id="receitaPrecoVenda" step="any" placeholder="preço no menu" oninput="atualizarPreviewCustoReceita()">
       </label>
     </div>
 
@@ -658,12 +661,46 @@
           <div class="stat-label">Custo por grama</div>
           <div class="stat" id="receitaCustoPorGrama" style="font-size:18px;">€0.0000</div>
         </div>
+        <div>
+          <div class="stat-label">Custo por porção</div>
+          <div class="stat" id="receitaCustoPorcao" style="font-size:18px;">€0.00</div>
+        </div>
         <div id="receitaCmvWrap" style="display:none;">
-          <div class="stat-label">CMV%</div>
+          <div class="stat-label">CMV% atual</div>
           <div class="stat" id="receitaCmv" style="font-size:18px;">—</div>
         </div>
       </div>
     </div>
+
+    <div id="receitaPrecifWrap">
+      <h3 style="font-size:15px;margin:16px 0 8px;">Precificação (por porção)</h3>
+      <div class="field-row">
+        <label class="field">% CMV alvo<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% Participação<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% IVA<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
+      </div>
+      <div class="field-row">
+        <label class="field">% CMV delivery<input type="number" id="receitaDelCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% Taxa delivery<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+      </div>
+      <div class="card" style="background:var(--cream);">
+        <div class="row between" style="flex-wrap:wrap;gap:12px;">
+          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="precSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">+ Participação</div><div class="stat" id="precPart" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">Preço final c/ IVA (loja)</div><div class="stat" id="precFinal" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">Margem</div><div class="stat" id="precMargem" style="font-size:16px;">—</div></div>
+        </div>
+        <div class="row between" style="flex-wrap:wrap;gap:12px;margin-top:10px;">
+          <div><div class="stat-label">Delivery s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">+ Taxa delivery</div><div class="stat" id="precDTaxa" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <label class="field" style="margin-top:14px;">Modo de fazer
+      <textarea id="receitaModoFazer" rows="4" style="width:100%;" placeholder="passo a passo (opcional)"></textarea>
+    </label>
 
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalReceita')">Cancelar</button>
@@ -1140,8 +1177,8 @@ async function loadAll(){
     checklistExecucoes = await sbGet('checklist_execucoes');
     producaoItens = await sbGet('producao_itens');
     producaoExecucoes = await sbGet('producao_execucoes');
-    receitas = await sbGet('receitas');
-    receitaItens = await sbGet('receita_itens');
+    receitas = (await sbGet('receitas')).map(receitaFromDb);
+    receitaItens = (await sbGet('receita_itens')).map(receitaItemFromDb);
     setNote('Ligado ao Supabase');
   }catch(e){
     fornecedores = []; areas = []; produtos = []; grupos = []; contagens = [];
@@ -3245,12 +3282,35 @@ function custoPorGramaProduto(produtoId, visitados){
   return precoPorGrama(p) || 0;
 }
 
+function rendPctDoItem(receita, ri){
+  const v = receita && receita.extra && receita.extra.rend ? Number(receita.extra.rend[ri.ordem]) : NaN;
+  return v > 0 ? v : 100;
+}
+
 function custoTotalDaReceita(receita, visitados){
   const itens = receitaItens.filter(ri => ri.receitaId === receita.id);
   return itens.reduce((soma, ri) => {
     const custoG = custoPorGramaProduto(ri.ingredienteProdutoId, visitados);
-    return soma + custoG * (ri.quantidadeG || 0);
+    return soma + custoG * (ri.quantidadeG || 0) / (rendPctDoItem(receita, ri) / 100);
   }, 0);
+}
+
+// Precificação no estilo da ficha FT NEW: tudo parte do custo por porção e do CMV alvo.
+function calcularPrecificacao(custoPorcao, x){
+  const pct = v => (Number(v) || 0) / 100;
+  const cmv = pct(x.cmvPct), part = pct(x.participacaoPct), iva = pct(x.ivaPct);
+  const sIva = cmv > 0 ? custoPorcao / cmv : 0;
+  const participacao = sIva * part;
+  const totalSIva = sIva + participacao;
+  const cmvD = pct(x.deliveryCmvPct), taxa = pct(x.deliveryTaxaPct);
+  const dSIva = cmvD > 0 ? custoPorcao / cmvD : 0;
+  const dPart = dSIva * part;
+  const dTotal = dSIva + dPart;
+  const dTaxa = dTotal * taxa;
+  return {
+    sIva, participacao, totalSIva, final: totalSIva * (1 + iva), margem: sIva - custoPorcao,
+    dSIva, dPart, dTotal, dTaxa, dFinal: (dTotal + dTaxa) * (1 + iva)
+  };
 }
 
 function calcularCustoReceita(receitaId){
@@ -3261,14 +3321,24 @@ function calcularCustoReceita(receitaId){
   return { custoTotal, custoPorGrama };
 }
 
+// Porções, percentagens de precificação, rend.% por ingrediente e modo de fazer
+// ficam num JSON dentro de `observacoes`, para não precisar de alterar a base de dados.
 function receitaToDb(r){ return {
   id: r.id, produto_id: r.produtoId, rendimento_g: r.rendimentoG || 0,
-  preco_venda: r.precoVenda || null, observacoes: r.observacoes || null
+  preco_venda: r.precoVenda || null, observacoes: JSON.stringify(r.extra || {})
 };}
-function receitaFromDb(r){ return {
-  id: r.id, produtoId: r.produto_id, rendimentoG: Number(r.rendimento_g)||0,
-  precoVenda: r.preco_venda != null ? Number(r.preco_venda) : null, observacoes: r.observacoes || ''
-};}
+function receitaFromDb(r){
+  let extra = {};
+  if(r.observacoes && String(r.observacoes).trim().startsWith('{')){
+    try{ extra = JSON.parse(r.observacoes) || {}; }catch(e){ extra = {}; }
+  }else if(r.observacoes){
+    extra = { modoFazer: r.observacoes };
+  }
+  return {
+    id: r.id, produtoId: r.produto_id, rendimentoG: Number(r.rendimento_g)||0,
+    precoVenda: r.preco_venda != null ? Number(r.preco_venda) : null, observacoes: r.observacoes || '', extra
+  };
+}
 function receitaItemToDb(ri){ return {
   id: ri.id, receita_id: ri.receitaId, ingrediente_produto_id: ri.ingredienteProdutoId,
   quantidade_g: ri.quantidadeG || 0, ordem: ri.ordem || 0
@@ -3292,14 +3362,17 @@ function renderReceitas(){
     const { custoTotal, custoPorGrama } = calcularCustoReceita(r.id);
     const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
     const ehPratoFinal = p && p.tipo === 'prato_final';
-    const cmv = (ehPratoFinal && r.precoVenda) ? (custoTotal / r.precoVenda * 100) : null;
+    const porcoes = (r.extra && r.extra.porcoes) || 1;
+    const custoPorcao = custoTotal / porcoes;
+    const cmv = (ehPratoFinal && r.precoVenda) ? (custoPorcao / r.precoVenda * 100) : null;
+    const pr = r.extra && r.extra.cmvPct ? calcularPrecificacao(custoPorcao, r.extra) : null;
 
     return `
       <div class="card" style="margin-bottom:14px;">
         <div class="row between" style="margin-bottom:10px;">
           <div>
             <h3 style="font-size:17px;">${p ? p.nome : '(produto removido)'}</h3>
-            <div class="save-note">Rende ${r.rendimentoG}g${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}</div>
+            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões) · ${eur(custoPorcao)}/porção${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}${pr ? ' · Sugerido c/ IVA: ' + eur(pr.final) + ' (delivery ' + eur(pr.dFinal) + ')' : ''}</div>
           </div>
           <div class="row" style="gap:20px;">
             <div style="text-align:right;">
@@ -3321,17 +3394,20 @@ function renderReceitas(){
             <button class="icon-btn danger" onclick="deleteReceita('${r.id}')">remover</button>
           </div>
         </div>
-        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Custo/g</th><th>Custo</th></tr></thead>
+        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Rend.</th><th>Custo/g</th><th>Custo</th></tr></thead>
         <tbody>${itens.map(ri => {
           const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
           const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
+          const rend = rendPctDoItem(r, ri);
           return `<tr>
             <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}</td>
             <td>${ri.quantidadeG}g</td>
+            <td>${rend}%</td>
             <td>${custoG.toFixed(4)}€</td>
-            <td>${eur(custoG * ri.quantidadeG)}</td>
+            <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
           </tr>`;
         }).join('')}</tbody></table>
+        ${r.extra && r.extra.modoFazer ? `<div class="save-note" style="margin-top:10px;white-space:pre-wrap;"><strong>Modo de fazer:</strong> ${r.extra.modoFazer.replace(/</g,'&lt;')}</div>` : ''}
       </div>`;
   }).join('');
 }
@@ -3349,7 +3425,19 @@ function openReceitaModal(id){
   document.getElementById('receitaRendimentoG').value = r ? r.rendimentoG : '';
   document.getElementById('receitaPrecoVenda').value = r ? (r.precoVenda ?? '') : '';
 
-  receitaItensAtuais = r ? receitaItens.filter(ri => ri.receitaId === id).map(ri => ({...ri})) : [];
+  const x = (r && r.extra) || {};
+  const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
+  document.getElementById('receitaPorcoes').value = def(x.porcoes, 1);
+  document.getElementById('receitaCmvPct').value = def(x.cmvPct, 30);
+  document.getElementById('receitaPartPct').value = def(x.participacaoPct, 10);
+  document.getElementById('receitaIvaPct').value = def(x.ivaPct, 13);
+  document.getElementById('receitaDelCmvPct').value = def(x.deliveryCmvPct, 30);
+  document.getElementById('receitaDelTaxaPct').value = def(x.deliveryTaxaPct, 30);
+  document.getElementById('receitaModoFazer').value = x.modoFazer || '';
+
+  receitaItensAtuais = r
+    ? receitaItens.filter(ri => ri.receitaId === id).sort((a,b) => (a.ordem||0)-(b.ordem||0)).map(ri => ({...ri, rendPct: rendPctDoItem(r, ri)}))
+    : [];
 
   onReceitaProdutoChange();
   renderReceitaItensList();
@@ -3386,7 +3474,8 @@ function renderReceitaItensList(){
     return `
       <div class="price-row">
         <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
-        <input type="number" step="any" placeholder="gramas" value="${ri.quantidadeG||''}" style="max-width:110px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <input type="number" step="any" placeholder="g/ml" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="rend.%" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
         <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
       </div>`;
   }).join('');
@@ -3403,7 +3492,7 @@ function addReceitaItemRow(){
 
 function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
-  receitaItensAtuais[idx][campo] = campo === 'quantidadeG' ? (parseFloat(valor)||0) : valor;
+  receitaItensAtuais[idx][campo] = (campo === 'quantidadeG' || campo === 'rendPct') ? (parseFloat(valor)||0) : valor;
   atualizarPreviewCustoReceita();
 }
 
@@ -3418,17 +3507,29 @@ function atualizarPreviewCustoReceita(){
     const p = produtos.find(x => x.id === ri.ingredienteProdutoId);
     if(!p) return soma;
     const custoG = receitas.find(r2 => r2.produtoId === p.id) ? custoPorGramaProduto(p.id) : (precoPorGrama(p) || 0);
-    return soma + custoG * (ri.quantidadeG||0);
+    return soma + custoG * (ri.quantidadeG||0) / ((ri.rendPct > 0 ? ri.rendPct : 100) / 100);
   }, 0);
   const custoPorGrama = rendimentoG > 0 ? custoTotal / rendimentoG : 0;
+  const porcoes = parseFloat(document.getElementById('receitaPorcoes').value) || 1;
+  const custoPorcao = custoTotal / porcoes;
 
   document.getElementById('receitaCustoTotal').textContent = eur(custoTotal);
   document.getElementById('receitaCustoPorGrama').textContent = custoPorGrama.toFixed(4) + '€';
+  document.getElementById('receitaCustoPorcao').textContent = eur(custoPorcao);
+
+  const num = id => document.getElementById(id).value;
+  const pr = calcularPrecificacao(custoPorcao, {
+    cmvPct: num('receitaCmvPct'), participacaoPct: num('receitaPartPct'), ivaPct: num('receitaIvaPct'),
+    deliveryCmvPct: num('receitaDelCmvPct'), deliveryTaxaPct: num('receitaDelTaxaPct')
+  });
+  const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
+  set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
+  set('precDSIva', pr.dSIva); set('precDTaxa', pr.dTaxa); set('precDFinal', pr.dFinal);
 
   const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value);
   const cmvEl = document.getElementById('receitaCmv');
   if(precoVenda > 0){
-    const cmv = custoTotal / precoVenda * 100;
+    const cmv = custoPorcao / precoVenda * 100;
     cmvEl.textContent = cmv.toFixed(1) + '%';
     cmvEl.style.color = cmv > 33 ? 'var(--danger-text)' : 'var(--ok-text)';
   }else{
@@ -3450,7 +3551,15 @@ async function saveReceita(){
   if(circular){ await showAlert('Um dos ingredientes depende, direta ou indiretamente, deste mesmo produto — isso criaria um ciclo infinito. Corrige antes de guardar.'); return; }
 
   const receitaIdFinal = id || uid();
-  const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '' };
+  const val = id => parseFloat(document.getElementById(id).value);
+  const extra = {
+    porcoes: val('receitaPorcoes') || 1,
+    cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
+    deliveryCmvPct: val('receitaDelCmvPct'), deliveryTaxaPct: val('receitaDelTaxaPct'),
+    modoFazer: document.getElementById('receitaModoFazer').value.trim(),
+    rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100)
+  };
+  const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '', extra };
 
   try{
     if(id){
