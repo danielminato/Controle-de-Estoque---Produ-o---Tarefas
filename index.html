@@ -3740,11 +3740,15 @@ function atualizarPreviewCustoReceita(){
     const retLoja = calcularRetornoReal(custoPorcao, precoLoja, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 });
     const retDel = calcularRetornoReal(custoPorcao, precoDel, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: x.deliveryTaxaPct, ivaComissaoPct: x.deliveryIvaTaxaPct });
 
-    // Sempre baseado no CMV alvo (não no preço que estás a praticar na loja) — entram só
-    // o custo do prato e as contas da plataforma (comissão + IVA da comissão).
-    const sugestaoDel = precoDeliveryParaMesmoCmv(pr.sIva, x);
+    // Sugestão de delivery: preço que dá o MESMO RETORNO LÍQUIDO que a loja está a dar.
+    // Se já publicaste um preço de loja, usa esse (o retorno real de agora); senão usa
+    // o mínimo teórico do CMV alvo.
+    const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) : pr.sIva;
+    const sugestaoDel = precoDeliveryParaMesmoCmv(sIvaReferencia, x);
     document.getElementById('receitaDelSugestao').textContent = sugestaoDel > 0
-      ? `💡 Para manter o CMV alvo (${x.cmvPct}%) no delivery, publica a ${eur(sugestaoDel)} (c/ IVA).`
+      ? (precoLoja > 0
+          ? `💡 Para manter o mesmo retorno líquido da loja (a ${eur(precoLoja)}), publica no delivery a ${eur(sugestaoDel)} (c/ IVA).`
+          : `💡 Para manter o CMV alvo (${x.cmvPct}%) no delivery, publica a ${eur(sugestaoDel)} (c/ IVA).`)
       : '';
 
     const cmvColor = v => v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)';
