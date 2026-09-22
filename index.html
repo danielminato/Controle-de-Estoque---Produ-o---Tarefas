@@ -660,7 +660,21 @@
 
     <div class="save-note" id="receitaRendimentoAuto" style="margin-bottom:6px;"></div>
     <h3 style="font-size:15px;margin:16px 0 8px;">Ingredientes</h3>
-    <div class="save-note" style="margin-bottom:8px;">Marca "base" no ingrediente de referência (ex.: a farinha). Nos outros podes escrever a quantidade em g ou a % sobre a base (ex.: 72 para a água) — um preenche o outro.</div>
+    <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
+      <div><strong>Como preencher cada ingrediente:</strong></div>
+      <div>🔢 <strong>Quantidade</strong> — quanto entra na receita, em gramas ou ml. Para a maioria dos pratos é só isto que precisas de preencher.</div>
+      <div>⚖️ <strong>Base</strong> — marca isto só num ingrediente, e só se os outros forem uma % dele (ex.: massa de pizza: a farinha é a base, a água é 72% dela). Se cada ingrediente tem um peso fixo próprio (a maioria dos pratos), não marques nenhum.</div>
+      <div>％ <strong>% da base</strong> — só funciona depois de marcares uma base acima. Escreves a % em vez do peso, e o app calcula o peso sozinho.</div>
+      <div>♻️ <strong>Rend.%</strong> — deixa em 100 na maioria dos casos. Só baixa se ESTE ingrediente em concreto perde peso ao preparar (ex.: descascar, coar) — quanto menor, mais caro fica, porque parte do que compraste vai para o lixo.</div>
+    </div>
+    <div class="price-row" style="font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.02em;">
+      <span style="flex:1.4;">Ingrediente</span>
+      <span style="max-width:90px;flex:1;">Quantidade</span>
+      <span style="max-width:84px;flex:1;">% da base</span>
+      <span style="max-width:70px;flex:1;">Rend.%</span>
+      <span style="min-width:60px;">Base?</span>
+      <span style="width:52px;"></span>
+    </div>
     <div id="receitaItensList"></div>
     <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
 
@@ -3446,13 +3460,14 @@ function renderReceitas(){
             <button class="icon-btn danger" onclick="deleteReceita('${r.id}')">remover</button>
           </div>
         </div>
-        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Rend.</th><th>Custo/g</th><th>Custo</th></tr></thead>
+        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Custo/g</th><th>Custo</th></tr></thead>
         <tbody>${itens.map(ri => {
           const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
           const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
           const rend = rendPctDoItem(r, ri);
-          return `<tr>
-            <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}</td>
+          const ehBaseAqui = r.extra && r.extra.baseIdx === (ri.ordem||0);
+          return `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
+            <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
             <td>${ri.quantidadeG}g</td>
             <td>${rend}%</td>
             <td>${custoG.toFixed(4)}€</td>
@@ -3579,15 +3594,15 @@ function renderReceitaItensList(){
     }).join('');
     const ehBase = idx === receitaBaseIdx;
     const campoPct = ehBase
-      ? '<span class="save-note" style="min-width:74px;text-align:center;">100% (base)</span>'
-      : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="% da base" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
+      ? '<span class="save-note" style="min-width:84px;text-align:center;">100% (é a base)</span>'
+      : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
     return `
-      <div class="price-row" style="flex-wrap:wrap;">
+      <div class="price-row" style="flex-wrap:wrap;${ehBase ? 'background:var(--cream);border-radius:8px;padding:6px 6px;margin-left:-6px;margin-right:-6px;' : ''}">
         <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
-        <input type="number" step="any" id="ri-q-${idx}" placeholder="g/ml" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <input type="number" step="any" id="ri-q-${idx}" placeholder="ex.: 290" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
         ${campoPct}
-        <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="rend.%" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
-        <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> base</label>
+        <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="100" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
+        <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;min-width:60px;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> ${ehBase ? '⚖️ base' : 'base'}</label>
         <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
       </div>`;
   }).join('');
