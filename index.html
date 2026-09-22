@@ -3488,7 +3488,7 @@ function renderReceitas(){
     const cmvBadge = (label, v) => `
             <div style="text-align:right;">
               <div class="stat-label">${label}</div>
-              <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${v.toFixed(1)}%${v > cmvAlerta ? ' ⚠️' : ''}</div>
+              <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${v.toFixed(1)}%</div>
             </div>`;
 
     return `
@@ -3754,7 +3754,7 @@ function atualizarPreviewCustoReceita(){
     retLojaEl.textContent = precoLoja > 0 ? eur(retLoja.retorno) : '—';
     retLojaEl.style.color = precoLoja > 0 ? (retLoja.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
     const retLojaCmvEl = document.getElementById('retLojaCmv');
-    retLojaCmvEl.textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' + (retLoja.cmvReal > cmvAlerta ? ' ⚠️' : '') : '—';
+    retLojaCmvEl.textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' : '—';
     retLojaCmvEl.style.color = precoLoja > 0 ? cmvColor(retLoja.cmvReal) : '';
 
     document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(retDel.sIva) : '—';
@@ -3766,7 +3766,7 @@ function atualizarPreviewCustoReceita(){
     retDelEl.textContent = precoDel > 0 ? eur(retDel.retorno) : '—';
     retDelEl.style.color = precoDel > 0 ? (retDel.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
     const retDelCmvEl = document.getElementById('retDelCmv');
-    retDelCmvEl.textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' + (retDel.cmvReal > cmvAlerta ? ' ⚠️' : '') : '—';
+    retDelCmvEl.textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' : '—';
     retDelCmvEl.style.color = precoDel > 0 ? cmvColor(retDel.cmvReal) : '';
   }
 }
