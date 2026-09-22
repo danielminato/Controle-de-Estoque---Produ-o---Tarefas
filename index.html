@@ -729,9 +729,11 @@
           <input type="number" id="receitaPrecoVendaDelivery" step="any" placeholder="ex.: 18.00" oninput="atualizarPreviewCustoReceita()">
         </label>
       </div>
+      <div class="save-note" id="receitaDelSugestao" style="margin-bottom:10px;"></div>
       <div class="field-row">
         <label class="field">% Comissão da plataforma (desconta do delivery)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
         <label class="field">% IVA sobre a comissão<input type="number" id="receitaDelIvaTaxaPct" step="any" value="23" title="A comissão é um serviço da plataforma, normalmente taxado à parte do IVA do prato (em regra 23%)." oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% CMV máximo (alerta)<input type="number" id="receitaCmvAlertaPct" step="any" value="35" title="Se o CMV real (loja ou delivery) passar disto, o app avisa a vermelho." oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="card" style="background:var(--cream);">
         <div class="save-note" style="font-weight:600;margin-bottom:6px;">LOJA</div>
@@ -3384,6 +3386,14 @@ function calcularPrecificacao(custoPorcao, x){
 
 // Dado um preço que decidiste mesmo praticar (já com IVA), quanto fica de retorno líquido
 // por porção — descontando custo, participação e (no delivery) a comissão e o IVA dela.
+// Preço a publicar no delivery (c/ IVA) para dar exatamente o mesmo CMV que a loja,
+// depois de descontada a comissão da plataforma e o IVA sobre ela.
+function precoDeliveryParaMesmoCmv(sIvaLoja, x){
+  const pct = v => (Number(v) || 0) / 100;
+  const divisor = 1 - pct(x.deliveryTaxaPct) * (1 + pct(x.deliveryIvaTaxaPct));
+  return divisor > 0 ? sIvaLoja * (1 + pct(x.ivaPct)) / divisor : 0;
+}
+
 // A comissão da plataforma incide sobre o preço TOTAL que o cliente paga (já com o teu IVA
 // dentro) — não sobre um preço líquido teu. Depois de tirar comissão + IVA da comissão, o
 // que sobra ainda tem o teu IVA embutido, por isso divide-se por (1+IVA) para chegar ao
@@ -3474,7 +3484,12 @@ function renderReceitas(){
     const retLoja = (ehPratoFinal && r.precoVenda) ? calcularRetornoReal(custoPorcao, r.precoVenda, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 }) : null;
     const precoDelivery = r.extra && r.extra.precoVendaDelivery;
     const retDel = (ehPratoFinal && precoDelivery) ? calcularRetornoReal(custoPorcao, precoDelivery, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: r.extra && r.extra.deliveryTaxaPct, ivaComissaoPct: r.extra && r.extra.deliveryIvaTaxaPct }) : null;
-    const cmv = retLoja ? retLoja.cmvReal : null;
+    const cmvAlerta = (r.extra && r.extra.cmvAlertaPct) || 35;
+    const cmvBadge = (label, v) => `
+            <div style="text-align:right;">
+              <div class="stat-label">${label}</div>
+              <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${v.toFixed(1)}%${v > cmvAlerta ? ' ⚠️' : ''}</div>
+            </div>`;
 
     return `
       <div class="card" style="margin-bottom:14px;">
@@ -3493,11 +3508,8 @@ function renderReceitas(){
               <div class="stat-label">Custo/g</div>
               <div class="stat" style="font-size:17px;">${custoPorGrama.toFixed(4)}€</div>
             </div>
-            ${cmv !== null ? `
-            <div style="text-align:right;">
-              <div class="stat-label">CMV%</div>
-              <div class="stat" style="font-size:17px;color:${cmv > 33 ? 'var(--danger-text)' : 'var(--ok-text)'};">${cmv.toFixed(1)}%</div>
-            </div>` : ''}
+            ${retLoja ? cmvBadge('CMV loja', retLoja.cmvReal) : ''}
+            ${retDel ? cmvBadge('CMV delivery', retDel.cmvReal) : ''}
           </div>
           <div>
             <button class="icon-btn" onclick="openReceitaModal('${r.id}')">editar</button>
@@ -3596,6 +3608,7 @@ function openReceitaModal(id){
   document.getElementById('receitaPartPct').value = def(x.participacaoPct, 10);
   document.getElementById('receitaIvaPct').value = def(x.ivaPct, 13);
   document.getElementById('receitaDelTaxaPct').value = def(x.deliveryTaxaPct, 30);
+  document.getElementById('receitaCmvAlertaPct').value = def(x.cmvAlertaPct, 35);
   document.getElementById('receitaModoFazer').value = x.modoFazer || '';
 
   receitaItensAtuais = r
@@ -3721,17 +3734,28 @@ function atualizarPreviewCustoReceita(){
   const ehPratoFinal = (() => { const p = produtos.find(pp => pp.id === document.getElementById('receitaProdutoId').value); return p && p.tipo === 'prato_final'; })();
   document.getElementById('receitaRetornoWrap').style.display = ehPratoFinal ? 'block' : 'none';
   if(ehPratoFinal){
+    const cmvAlerta = parseFloat(document.getElementById('receitaCmvAlertaPct').value) || 35;
     const precoLoja = parseFloat(document.getElementById('receitaPrecoVenda').value) || 0;
     const precoDel = parseFloat(document.getElementById('receitaPrecoVendaDelivery').value) || 0;
     const retLoja = calcularRetornoReal(custoPorcao, precoLoja, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 });
     const retDel = calcularRetornoReal(custoPorcao, precoDel, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: x.deliveryTaxaPct, ivaComissaoPct: x.deliveryIvaTaxaPct });
+
+    const sugestaoDel = precoDeliveryParaMesmoCmv(pr.sIva, x);
+    document.getElementById('receitaDelSugestao').textContent = sugestaoDel > 0
+      ? `💡 Para o delivery dar o mesmo CMV que a loja (${x.cmvPct}%), publica a ${eur(sugestaoDel)} (c/ IVA).`
+      : '';
+
+    const cmvColor = v => v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)';
+
     document.getElementById('retLojaSIva').textContent = precoLoja > 0 ? eur(retLoja.sIva) : '—';
     document.getElementById('retLojaPart').textContent = precoLoja > 0 ? eur(retLoja.participacao) : '—';
     document.getElementById('retLojaCusto').textContent = precoLoja > 0 ? eur(custoPorcao) : '—';
     const retLojaEl = document.getElementById('retLojaRetorno');
     retLojaEl.textContent = precoLoja > 0 ? eur(retLoja.retorno) : '—';
     retLojaEl.style.color = precoLoja > 0 ? (retLoja.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
-    document.getElementById('retLojaCmv').textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' : '—';
+    const retLojaCmvEl = document.getElementById('retLojaCmv');
+    retLojaCmvEl.textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' + (retLoja.cmvReal > cmvAlerta ? ' ⚠️' : '') : '—';
+    retLojaCmvEl.style.color = precoLoja > 0 ? cmvColor(retLoja.cmvReal) : '';
 
     document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(retDel.sIva) : '—';
     document.getElementById('retDelComissao').textContent = precoDel > 0 ? eur(retDel.comissao) : '—';
@@ -3741,7 +3765,9 @@ function atualizarPreviewCustoReceita(){
     const retDelEl = document.getElementById('retDelRetorno');
     retDelEl.textContent = precoDel > 0 ? eur(retDel.retorno) : '—';
     retDelEl.style.color = precoDel > 0 ? (retDel.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
-    document.getElementById('retDelCmv').textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' : '—';
+    const retDelCmvEl = document.getElementById('retDelCmv');
+    retDelCmvEl.textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' + (retDel.cmvReal > cmvAlerta ? ' ⚠️' : '') : '—';
+    retDelCmvEl.style.color = precoDel > 0 ? cmvColor(retDel.cmvReal) : '';
   }
 }
 
@@ -3766,6 +3792,7 @@ async function saveReceita(){
     perdaPct: val('receitaPerdaPct') || 0,
     cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
     deliveryTaxaPct: val('receitaDelTaxaPct'), deliveryIvaTaxaPct: val('receitaDelIvaTaxaPct'),
+    cmvAlertaPct: val('receitaCmvAlertaPct') || 35,
     precoVendaDelivery: val('receitaPrecoVendaDelivery') || null,
     modoFazer: document.getElementById('receitaModoFazer').value.trim(),
     rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100),
