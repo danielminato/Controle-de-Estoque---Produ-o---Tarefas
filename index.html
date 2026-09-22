@@ -642,6 +642,9 @@
       <label class="field">Nº de porções (ex.: 60 bolas de pizza)
         <input type="number" id="receitaPorcoes" step="any" value="1" oninput="atualizarPreviewCustoReceita()">
       </label>
+      <label class="field">% de perda (quebras no preparo)
+        <input type="number" id="receitaPerdaPct" step="any" value="0" title="Ex.: 10 = de 60 bolas feitas, só 54 ficam boas para vender" oninput="atualizarPreviewCustoReceita()">
+      </label>
       <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda atual (€)
         <input type="number" id="receitaPrecoVenda" step="any" placeholder="preço no menu" oninput="atualizarPreviewCustoReceita()">
       </label>
@@ -670,6 +673,7 @@
         <div>
           <div class="stat-label">Peso por porção</div>
           <div class="stat" id="receitaPesoPorcao" style="font-size:18px;">0 g</div>
+          <div class="save-note" id="receitaPorcoesUteis"></div>
         </div>
         <div id="receitaCmvWrap" style="display:none;">
           <div class="stat-label">CMV% atual</div>
@@ -3293,6 +3297,14 @@ function rendPctDoItem(receita, ri){
   return v > 0 ? v : 100;
 }
 
+// Porções realmente aproveitáveis depois de descontar quebras/perdas no preparo
+// (ex.: 60 bolas com 10% de perda = 54 bolas a dividir o custo total).
+function porcoesUteis(porcoes, perdaPct){
+  const p = Number(porcoes) || 0;
+  const perda = Math.min(Math.max(Number(perdaPct) || 0, 0), 99);
+  return p * (1 - perda / 100);
+}
+
 function custoTotalDaReceita(receita, visitados){
   const itens = receitaItens.filter(ri => ri.receitaId === receita.id);
   return itens.reduce((soma, ri) => {
@@ -3363,13 +3375,23 @@ function renderReceitas(){
     return;
   }
 
-  content.innerHTML = receitas.map(r => {
+  const grupos = [
+    { chave: 'prato_final', titulo: 'Pratos finais', filtro: p => p && p.tipo === 'prato_final' },
+    { chave: 'bebida', titulo: 'Bebidas', filtro: p => p && p.tipo !== 'prato_final' && p.categoria === 'Bebidas' },
+    { chave: 'semi', titulo: 'Molhos e pré-preparados', filtro: p => p && p.tipo === 'semi_preparado' && p.categoria !== 'Bebidas' },
+    { chave: 'outros', titulo: 'Outros', filtro: p => true }
+  ];
+  const jaEncaixadas = new Set();
+
+  const cardDeReceita = r => {
     const p = produtos.find(x => x.id === r.produtoId);
     const { custoTotal, custoPorGrama } = calcularCustoReceita(r.id);
     const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
     const ehPratoFinal = p && p.tipo === 'prato_final';
     const porcoes = (r.extra && r.extra.porcoes) || 1;
-    const custoPorcao = custoTotal / porcoes;
+    const perdaPct = (r.extra && r.extra.perdaPct) || 0;
+    const util = porcoesUteis(porcoes, perdaPct) || porcoes;
+    const custoPorcao = custoTotal / util;
     const cmv = (ehPratoFinal && r.precoVenda) ? (custoPorcao / r.precoVenda * 100) : null;
     const pr = r.extra && r.extra.cmvPct ? calcularPrecificacao(custoPorcao, r.extra) : null;
 
@@ -3378,7 +3400,7 @@ function renderReceitas(){
         <div class="row between" style="margin-bottom:10px;">
           <div>
             <h3 style="font-size:17px;">${p ? p.nome : '(produto removido)'}</h3>
-            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões) · ${eur(custoPorcao)}/porção${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}${pr ? ' · Sugerido c/ IVA: ' + eur(pr.final) + ' (delivery ' + eur(pr.dFinal) + ')' : ''}</div>
+            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''} · ${eur(custoPorcao)}/porção${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}${pr ? ' · Sugerido c/ IVA: ' + eur(pr.final) + ' (delivery ' + eur(pr.dFinal) + ')' : ''}</div>
           </div>
           <div class="row" style="gap:20px;">
             <div style="text-align:right;">
@@ -3415,6 +3437,18 @@ function renderReceitas(){
         }).join('')}</tbody></table>
         ${r.extra && r.extra.modoFazer ? `<div class="save-note" style="margin-top:10px;white-space:pre-wrap;"><strong>Modo de fazer:</strong> ${r.extra.modoFazer.replace(/</g,'&lt;')}</div>` : ''}
       </div>`;
+  };
+
+  content.innerHTML = grupos.map(g => {
+    const desteGrupo = receitas.filter(r => {
+      if(jaEncaixadas.has(r.id)) return false;
+      const p = produtos.find(x => x.id === r.produtoId);
+      if(!g.filtro(p)) return false;
+      jaEncaixadas.add(r.id);
+      return true;
+    });
+    if(desteGrupo.length === 0) return '';
+    return `<h3 style="font-size:16px;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);">${g.titulo}</h3>` + desteGrupo.map(cardDeReceita).join('');
   }).join('');
 }
 
@@ -3467,6 +3501,7 @@ function openReceitaModal(id){
   const x = (r && r.extra) || {};
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
   document.getElementById('receitaPorcoes').value = def(x.porcoes, 1);
+  document.getElementById('receitaPerdaPct').value = def(x.perdaPct, 0);
   document.getElementById('receitaCmvPct').value = def(x.cmvPct, 30);
   document.getElementById('receitaPartPct').value = def(x.participacaoPct, 10);
   document.getElementById('receitaIvaPct').value = def(x.ivaPct, 13);
@@ -3575,12 +3610,15 @@ function atualizarPreviewCustoReceita(){
   }, 0);
   const custoPorGrama = rendimentoG > 0 ? custoTotal / rendimentoG : 0;
   const porcoes = parseFloat(document.getElementById('receitaPorcoes').value) || 1;
-  const custoPorcao = custoTotal / porcoes;
+  const perdaPct = parseFloat(document.getElementById('receitaPerdaPct').value) || 0;
+  const util = porcoesUteis(porcoes, perdaPct) || porcoes;
+  const custoPorcao = custoTotal / util;
 
   document.getElementById('receitaCustoTotal').textContent = eur(custoTotal);
   document.getElementById('receitaCustoPorGrama').textContent = custoPorGrama.toFixed(4) + '€';
   document.getElementById('receitaCustoPorcao').textContent = eur(custoPorcao);
   document.getElementById('receitaPesoPorcao').textContent = (rendimentoG / porcoes).toFixed(0) + ' g';
+  document.getElementById('receitaPorcoesUteis').textContent = perdaPct > 0 ? (util.toFixed(1) + ' porções úteis (de ' + porcoes + ')') : '';
   document.getElementById('receitaRendimentoAuto').style.display = document.getElementById('receitaRendimentoG').value ? 'none' : 'block';
   document.getElementById('receitaRendimentoAuto').textContent = 'Rendimento calculado: ' + rendimentoG.toFixed(0) + ' g (soma dos ingredientes)';
 
@@ -3621,6 +3659,7 @@ async function saveReceita(){
   const val = id => parseFloat(document.getElementById(id).value);
   const extra = {
     porcoes: val('receitaPorcoes') || 1,
+    perdaPct: val('receitaPerdaPct') || 0,
     cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
     deliveryCmvPct: val('receitaDelCmvPct'), deliveryTaxaPct: val('receitaDelTaxaPct'),
     modoFazer: document.getElementById('receitaModoFazer').value.trim(),
