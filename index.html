@@ -702,7 +702,7 @@
       <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
         <div><strong>Como o preço mínimo é montado:</strong></div>
         <div><strong>Loja:</strong> 1️⃣ Preço s/ IVA = Custo ÷ % CMV alvo → 2️⃣ + Participação (% sobre o preço s/ IVA) → 3️⃣ × (1 + % IVA) = preço final.</div>
-        <div><strong>Delivery:</strong> a plataforma desconta a comissão (e o IVA dela) DO preço que publicas — então o preço a publicar já precisa "cobrir" esse desconto, não é só somar a comissão por cima. 1️⃣ calcula quanto precisas de reter (custo/CMV + participação) → 2️⃣ divide para achar o preço s/ IVA que, depois de descontada a comissão e o IVA dela, ainda sobra esse valor → 3️⃣ aplica o teu IVA por cima.</div>
+        <div><strong>Delivery:</strong> a plataforma desconta a comissão (e o IVA dela) DO preço que publicas, e a participação também sai desse mesmo preço — então não dá para somar essas fatias por cima, tem de se dividir. O app acha o preço em que, depois de tirar comissão + IVA da comissão + participação, ainda sobra o preço-base (custo ÷ CMV alvo) — e só depois aplica o teu IVA.</div>
       </div>
       <div class="field-row">
         <label class="field">% CMV alvo (loja)<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
@@ -724,10 +724,11 @@
         </div>
         <div class="save-note" style="font-weight:600;margin:14px 0 6px;">DELIVERY</div>
         <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label" title="(Custo ÷ % CMV alvo delivery) + Participação — o que precisas de reter depois da comissão">Preciso reter</div><div class="stat" id="precDAlvo" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="Preço s/ IVA ÷ (1 − % Comissão × (1 + % IVA da comissão))">1️⃣ Preço a publicar s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Custo ÷ % CMV alvo (delivery) — o que precisa de sobrar depois de tirar comissão, IVA dela e participação">Preço-base (sem comissão/participação)</div><div class="stat" id="precDBase" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço-base ÷ (1 − % Comissão×(1+% IVA da comissão) − % Participação)">1️⃣ Preço a publicar s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
           <div><div class="stat-label" title="Preço a publicar s/ IVA × % Comissão">− Comissão (info)</div><div class="stat" id="precDComissao" style="font-size:16px;">—</div></div>
           <div><div class="stat-label" title="Comissão × % IVA sobre a comissão">− IVA da comissão (info)</div><div class="stat" id="precDIvaComissao" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço a publicar s/ IVA × % Participação">− Participação (info)</div><div class="stat" id="precDPart" style="font-size:16px;">—</div></div>
           <div><div class="stat-label" title="Preço a publicar s/ IVA × (1 + % IVA do prato)">2️⃣ Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
         </div>
       </div>
@@ -3389,23 +3390,23 @@ function calcularPrecificacao(custoPorcao, x){
   const participacao = sIva * part;
   const totalSIva = sIva + participacao;
 
-  // Delivery: a plataforma desconta a comissão (e o IVA dela) DO preço que publicas —
-  // por isso o preço a publicar tem de ser dividido, não só somado com a comissão por cima.
-  // Se um prato precisa de reter "alvo" depois do desconto, e a plataforma tira
-  // comissao% + comissao%×ivaComissao% do preço publicado (sem IVA do prato), então:
-  //   alvo = precoPublicado × (1 − comissao×(1+ivaComissao))  →  precoPublicado = alvo ÷ (1 − comissao×(1+ivaComissao))
+  // Delivery: a comissão E a participação são ambas uma % do MESMO preço final que vais
+  // publicar (ainda por descobrir) — por isso resolvem-se juntas, não uma depois da outra.
+  // Quero que sobre, depois de tirar comissão + IVA da comissão + participação, o mesmo
+  // "preço-base" que teria na loja (custo ÷ % CMV alvo, sem participação nem comissão):
+  //   dSIva = precoPublicado × (1 − comissao×(1+ivaComissao) − participacao%)
+  //   precoPublicado = dSIva ÷ (1 − comissao×(1+ivaComissao) − participacao%)
   const cmvD = pct(x.deliveryCmvPct), taxa = pct(x.deliveryTaxaPct), ivaTaxa = pct(x.deliveryIvaTaxaPct);
   const dSIva = cmvD > 0 ? custoPorcao / cmvD : 0;
-  const dPart = dSIva * part;
-  const dAlvo = dSIva + dPart;
-  const dDivisor = 1 - taxa * (1 + ivaTaxa);
-  const dPrecoPublicadoSIva = dDivisor > 0 ? dAlvo / dDivisor : 0;
+  const dDivisor = 1 - taxa * (1 + ivaTaxa) - part;
+  const dPrecoPublicadoSIva = dDivisor > 0 ? dSIva / dDivisor : 0;
   const dComissao = dPrecoPublicadoSIva * taxa;
   const dIvaComissao = dComissao * ivaTaxa;
+  const dPart = dPrecoPublicadoSIva * part;
 
   return {
     sIva, participacao, totalSIva, final: totalSIva * (1 + iva), margem: sIva - custoPorcao,
-    dSIva, dPart, dAlvo, dPrecoPublicadoSIva, dComissao, dIvaComissao,
+    dSIva, dPart, dPrecoPublicadoSIva, dComissao, dIvaComissao,
     dFinal: dPrecoPublicadoSIva * (1 + iva)
   };
 }
@@ -3739,8 +3740,8 @@ function atualizarPreviewCustoReceita(){
   const pr = calcularPrecificacao(custoPorcao, x);
   const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
   set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
-  set('precDAlvo', pr.dAlvo); set('precDSIva', pr.dPrecoPublicadoSIva);
-  set('precDComissao', pr.dComissao); set('precDIvaComissao', pr.dIvaComissao); set('precDFinal', pr.dFinal);
+  set('precDBase', pr.dSIva); set('precDSIva', pr.dPrecoPublicadoSIva);
+  set('precDComissao', pr.dComissao); set('precDIvaComissao', pr.dIvaComissao); set('precDPart', pr.dPart); set('precDFinal', pr.dFinal);
 
   // "O que vais cobrar de verdade" — só faz sentido para um prato que se vende diretamente
   const ehPratoFinal = (() => { const p = produtos.find(pp => pp.id === document.getElementById('receitaProdutoId').value); return p && p.tipo === 'prato_final'; })();
