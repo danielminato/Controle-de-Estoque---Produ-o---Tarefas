@@ -706,26 +706,36 @@
 
     <div id="receitaPrecifWrap">
       <h3 style="font-size:15px;margin:16px 0 8px;">Precificação (por porção)</h3>
+      <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
+        <div><strong>Como o preço é montado, passo a passo:</strong></div>
+        <div>1️⃣ <strong>Preço s/ IVA</strong> = Custo da porção ÷ % CMV alvo. É o preço em que o custo representa exatamente essa % do preço.</div>
+        <div>2️⃣ <strong>+ Participação</strong> = Preço s/ IVA × % Participação (a fatia para os colaboradores).</div>
+        <div>3️⃣ <strong>Preço final c/ IVA</strong> = (Preço s/ IVA + Participação) × (1 + % IVA).</div>
+        <div>No delivery é a mesma conta, com o CMV alvo do delivery, e mais um passo: <strong>+ Taxa delivery</strong> = (Delivery s/ IVA + Participação) × % Taxa delivery, antes de aplicar o IVA.</div>
+      </div>
       <div class="field-row">
-        <label class="field">% CMV alvo<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% Participação<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% CMV alvo (loja)<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% Participação (colaboradores)<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
         <label class="field">% IVA<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="field-row">
-        <label class="field">% CMV delivery<input type="number" id="receitaDelCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% Taxa delivery<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% CMV alvo (delivery)<input type="number" id="receitaDelCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% Taxa delivery (comissão da plataforma)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="card" style="background:var(--cream);">
+        <div class="save-note" style="font-weight:600;margin-bottom:6px;">LOJA</div>
         <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="precSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">+ Participação</div><div class="stat" id="precPart" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">Preço final c/ IVA (loja)</div><div class="stat" id="precFinal" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">Margem</div><div class="stat" id="precMargem" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Custo da porção ÷ % CMV alvo">1️⃣ Preço s/ IVA</div><div class="stat" id="precSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço s/ IVA × % Participação">2️⃣ + Participação</div><div class="stat" id="precPart" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="(Preço s/ IVA + Participação) × (1 + % IVA)">3️⃣ Preço final c/ IVA</div><div class="stat" id="precFinal" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço s/ IVA − Custo da porção (sem contar participação nem IVA)">Margem</div><div class="stat" id="precMargem" style="font-size:16px;">—</div></div>
         </div>
-        <div class="row between" style="flex-wrap:wrap;gap:12px;margin-top:10px;">
-          <div><div class="stat-label">Delivery s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">+ Taxa delivery</div><div class="stat" id="precDTaxa" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
+        <div class="save-note" style="font-weight:600;margin:14px 0 6px;">DELIVERY</div>
+        <div class="row between" style="flex-wrap:wrap;gap:12px;">
+          <div><div class="stat-label" title="Custo da porção ÷ % CMV alvo (delivery)">1️⃣ Delivery s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Delivery s/ IVA × % Participação">2️⃣ + Participação</div><div class="stat" id="precDPart" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="(Delivery s/ IVA + Participação) × % Taxa delivery">3️⃣ + Taxa delivery</div><div class="stat" id="precDTaxa" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="(Delivery s/ IVA + Participação + Taxa delivery) × (1 + % IVA)">4️⃣ Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
         </div>
       </div>
     </div>
