@@ -653,9 +653,6 @@
       <label class="field">% de perda (quebras no preparo)
         <input type="number" id="receitaPerdaPct" step="any" value="0" title="Ex.: 10 = de 60 bolas feitas, só 54 ficam boas para vender" oninput="atualizarPreviewCustoReceita()">
       </label>
-      <label class="field" id="receitaPrecoVendaWrap" style="display:none;">Preço de venda atual (€)
-        <input type="number" id="receitaPrecoVenda" step="any" placeholder="preço no menu" oninput="atualizarPreviewCustoReceita()">
-      </label>
     </div>
 
     <div class="save-note" id="receitaRendimentoAuto" style="margin-bottom:6px;"></div>
@@ -697,30 +694,25 @@
           <div class="stat" id="receitaPesoPorcao" style="font-size:18px;">0 g</div>
           <div class="save-note" id="receitaPorcoesUteis"></div>
         </div>
-        <div id="receitaCmvWrap" style="display:none;">
-          <div class="stat-label">CMV% atual</div>
-          <div class="stat" id="receitaCmv" style="font-size:18px;">—</div>
-        </div>
       </div>
     </div>
 
     <div id="receitaPrecifWrap">
-      <h3 style="font-size:15px;margin:16px 0 8px;">Precificação (por porção)</h3>
+      <h3 style="font-size:15px;margin:16px 0 8px;">Preço mínimo sugerido (por porção)</h3>
       <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
-        <div><strong>Como o preço é montado, passo a passo:</strong></div>
-        <div>1️⃣ <strong>Preço s/ IVA</strong> = Custo da porção ÷ % CMV alvo. É o preço em que o custo representa exatamente essa % do preço.</div>
-        <div>2️⃣ <strong>+ Participação</strong> = Preço s/ IVA × % Participação (a fatia para os colaboradores).</div>
-        <div>3️⃣ <strong>Preço final c/ IVA</strong> = (Preço s/ IVA + Participação) × (1 + % IVA).</div>
-        <div>No delivery é a mesma conta, com o CMV alvo do delivery, e mais um passo: <strong>+ Taxa delivery</strong> = (Delivery s/ IVA + Participação) × % Taxa delivery, antes de aplicar o IVA.</div>
+        <div><strong>Como o preço mínimo é montado:</strong></div>
+        <div><strong>Loja:</strong> 1️⃣ Preço s/ IVA = Custo ÷ % CMV alvo → 2️⃣ + Participação (% sobre o preço s/ IVA) → 3️⃣ × (1 + % IVA) = preço final.</div>
+        <div><strong>Delivery:</strong> a plataforma desconta a comissão (e o IVA dela) DO preço que publicas — então o preço a publicar já precisa "cobrir" esse desconto, não é só somar a comissão por cima. 1️⃣ calcula quanto precisas de reter (custo/CMV + participação) → 2️⃣ divide para achar o preço s/ IVA que, depois de descontada a comissão e o IVA dela, ainda sobra esse valor → 3️⃣ aplica o teu IVA por cima.</div>
       </div>
       <div class="field-row">
         <label class="field">% CMV alvo (loja)<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
         <label class="field">% Participação (colaboradores)<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% IVA<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% IVA (do prato)<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="field-row">
         <label class="field">% CMV alvo (delivery)<input type="number" id="receitaDelCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% Taxa delivery (comissão da plataforma)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% Comissão da plataforma<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% IVA sobre a comissão<input type="number" id="receitaDelIvaTaxaPct" step="any" value="23" title="A comissão é um serviço da plataforma, normalmente taxado à parte do IVA do prato (em regra 23%)." oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="card" style="background:var(--cream);">
         <div class="save-note" style="font-weight:600;margin-bottom:6px;">LOJA</div>
@@ -732,10 +724,44 @@
         </div>
         <div class="save-note" style="font-weight:600;margin:14px 0 6px;">DELIVERY</div>
         <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label" title="Custo da porção ÷ % CMV alvo (delivery)">1️⃣ Delivery s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="Delivery s/ IVA × % Participação">2️⃣ + Participação</div><div class="stat" id="precDPart" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="(Delivery s/ IVA + Participação) × % Taxa delivery">3️⃣ + Taxa delivery</div><div class="stat" id="precDTaxa" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="(Delivery s/ IVA + Participação + Taxa delivery) × (1 + % IVA)">4️⃣ Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="(Custo ÷ % CMV alvo delivery) + Participação — o que precisas de reter depois da comissão">Preciso reter</div><div class="stat" id="precDAlvo" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço s/ IVA ÷ (1 − % Comissão × (1 + % IVA da comissão))">1️⃣ Preço a publicar s/ IVA</div><div class="stat" id="precDSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço a publicar s/ IVA × % Comissão">− Comissão (info)</div><div class="stat" id="precDComissao" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Comissão × % IVA sobre a comissão">− IVA da comissão (info)</div><div class="stat" id="precDIvaComissao" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="Preço a publicar s/ IVA × (1 + % IVA do prato)">2️⃣ Preço final delivery c/ IVA</div><div class="stat" id="precDFinal" style="font-size:16px;">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="receitaRetornoWrap" style="display:none;">
+      <h3 style="font-size:15px;margin:16px 0 8px;">O que vais cobrar de verdade</h3>
+      <div class="save-note" style="margin-bottom:10px;">O preço acima é o mínimo. Aqui é o preço que TU escolhes praticar (pode ser maior) — e o que sobra de verdade depois de tudo.</div>
+      <div class="field-row">
+        <label class="field">Preço publicado — loja (c/ IVA)
+          <input type="number" id="receitaPrecoVenda" step="any" placeholder="ex.: 16.00" oninput="atualizarPreviewCustoReceita()">
+        </label>
+        <label class="field">Preço publicado — delivery (c/ IVA)
+          <input type="number" id="receitaPrecoVendaDelivery" step="any" placeholder="ex.: 18.00" oninput="atualizarPreviewCustoReceita()">
+        </label>
+      </div>
+      <div class="card" style="background:var(--cream);">
+        <div class="save-note" style="font-weight:600;margin-bottom:6px;">LOJA</div>
+        <div class="row between" style="flex-wrap:wrap;gap:12px;">
+          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="retLojaSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− Participação</div><div class="stat" id="retLojaPart" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− Custo</div><div class="stat" id="retLojaCusto" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="O que fica mesmo no teu bolso, por porção, depois de custo e participação">= Retorno líquido</div><div class="stat" id="retLojaRetorno" style="font-size:18px;font-weight:700;">—</div></div>
+          <div><div class="stat-label">CMV real</div><div class="stat" id="retLojaCmv" style="font-size:16px;">—</div></div>
+        </div>
+        <div class="save-note" style="font-weight:600;margin:14px 0 6px;">DELIVERY</div>
+        <div class="row between" style="flex-wrap:wrap;gap:12px;">
+          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="retDelSIva" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− Comissão</div><div class="stat" id="retDelComissao" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− IVA da comissão</div><div class="stat" id="retDelIvaComissao" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− Participação</div><div class="stat" id="retDelPart" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label">− Custo</div><div class="stat" id="retDelCusto" style="font-size:16px;">—</div></div>
+          <div><div class="stat-label" title="O que fica mesmo no teu bolso, por porção, depois de comissão, IVA da comissão, custo e participação">= Retorno líquido</div><div class="stat" id="retDelRetorno" style="font-size:18px;font-weight:700;">—</div></div>
+          <div><div class="stat-label">CMV real</div><div class="stat" id="retDelCmv" style="font-size:16px;">—</div></div>
         </div>
       </div>
     </div>
@@ -3362,15 +3388,41 @@ function calcularPrecificacao(custoPorcao, x){
   const sIva = cmv > 0 ? custoPorcao / cmv : 0;
   const participacao = sIva * part;
   const totalSIva = sIva + participacao;
-  const cmvD = pct(x.deliveryCmvPct), taxa = pct(x.deliveryTaxaPct);
+
+  // Delivery: a plataforma desconta a comissão (e o IVA dela) DO preço que publicas —
+  // por isso o preço a publicar tem de ser dividido, não só somado com a comissão por cima.
+  // Se um prato precisa de reter "alvo" depois do desconto, e a plataforma tira
+  // comissao% + comissao%×ivaComissao% do preço publicado (sem IVA do prato), então:
+  //   alvo = precoPublicado × (1 − comissao×(1+ivaComissao))  →  precoPublicado = alvo ÷ (1 − comissao×(1+ivaComissao))
+  const cmvD = pct(x.deliveryCmvPct), taxa = pct(x.deliveryTaxaPct), ivaTaxa = pct(x.deliveryIvaTaxaPct);
   const dSIva = cmvD > 0 ? custoPorcao / cmvD : 0;
   const dPart = dSIva * part;
-  const dTotal = dSIva + dPart;
-  const dTaxa = dTotal * taxa;
+  const dAlvo = dSIva + dPart;
+  const dDivisor = 1 - taxa * (1 + ivaTaxa);
+  const dPrecoPublicadoSIva = dDivisor > 0 ? dAlvo / dDivisor : 0;
+  const dComissao = dPrecoPublicadoSIva * taxa;
+  const dIvaComissao = dComissao * ivaTaxa;
+
   return {
     sIva, participacao, totalSIva, final: totalSIva * (1 + iva), margem: sIva - custoPorcao,
-    dSIva, dPart, dTotal, dTaxa, dFinal: (dTotal + dTaxa) * (1 + iva)
+    dSIva, dPart, dAlvo, dPrecoPublicadoSIva, dComissao, dIvaComissao,
+    dFinal: dPrecoPublicadoSIva * (1 + iva)
   };
+}
+
+// Dado um preço que decidiste mesmo praticar (já com IVA), quanto fica de retorno líquido
+// por porção — descontando custo, participação e (no delivery) a comissão e o IVA dela.
+function calcularRetornoReal(custoPorcao, precoCIva, x){
+  const pct = v => (Number(v) || 0) / 100;
+  const iva = pct(x.ivaPct), part = pct(x.participacaoPct);
+  const taxa = pct(x.comissaoPct), ivaTaxa = pct(x.ivaComissaoPct);
+  const sIva = precoCIva > 0 ? precoCIva / (1 + iva) : 0;
+  const comissao = sIva * taxa;
+  const ivaComissao = comissao * ivaTaxa;
+  const participacao = sIva * part;
+  const retorno = sIva - comissao - ivaComissao - participacao - custoPorcao;
+  const cmvReal = sIva > 0 ? custoPorcao / sIva * 100 : 0;
+  return { sIva, comissao, ivaComissao, participacao, retorno, cmvReal };
 }
 
 function calcularCustoReceita(receitaId){
@@ -3440,15 +3492,19 @@ function renderReceitas(){
     const perdaPct = (r.extra && r.extra.perdaPct) || 0;
     const util = porcoesUteis(porcoes, perdaPct) || porcoes;
     const custoPorcao = custoTotal / util;
-    const cmv = (ehPratoFinal && r.precoVenda) ? (custoPorcao / r.precoVenda * 100) : null;
     const pr = r.extra && r.extra.cmvPct ? calcularPrecificacao(custoPorcao, r.extra) : null;
+    const retLoja = (ehPratoFinal && r.precoVenda) ? calcularRetornoReal(custoPorcao, r.precoVenda, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 }) : null;
+    const precoDelivery = r.extra && r.extra.precoVendaDelivery;
+    const retDel = (ehPratoFinal && precoDelivery) ? calcularRetornoReal(custoPorcao, precoDelivery, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: r.extra && r.extra.deliveryTaxaPct, ivaComissaoPct: r.extra && r.extra.deliveryIvaTaxaPct }) : null;
+    const cmv = retLoja ? retLoja.cmvReal : null;
 
     return `
       <div class="card" style="margin-bottom:14px;">
         <div class="row between" style="margin-bottom:10px;">
           <div>
             <h3 style="font-size:17px;">${p ? p.nome : '(produto removido)'}</h3>
-            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''} · ${eur(custoPorcao)}/porção${r.precoVenda ? ' · Preço de venda: ' + eur(r.precoVenda) : ''}${pr ? ' · Sugerido c/ IVA: ' + eur(pr.final) + ' (delivery ' + eur(pr.dFinal) + ')' : ''}</div>
+            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''} · ${eur(custoPorcao)}/porção${pr ? ' · Mínimo sugerido c/ IVA: ' + eur(pr.final) + ' (delivery ' + eur(pr.dFinal) + ')' : ''}</div>
+            ${retLoja || retDel ? `<div class="save-note">${retLoja ? 'Vendes na loja por ' + eur(r.precoVenda) + ' → retorno ' + eur(retLoja.retorno) + '/porção' : ''}${retLoja && retDel ? ' · ' : ''}${retDel ? 'Delivery por ' + eur(precoDelivery) + ' → retorno ' + eur(retDel.retorno) + '/porção' : ''}</div>` : ''}
           </div>
           <div class="row" style="gap:20px;">
             <div style="text-align:right;">
@@ -3549,6 +3605,8 @@ function openReceitaModal(id){
   document.getElementById('receitaPrecoVenda').value = r ? (r.precoVenda ?? '') : '';
 
   const x = (r && r.extra) || {};
+  document.getElementById('receitaPrecoVendaDelivery').value = x.precoVendaDelivery ?? '';
+  document.getElementById('receitaDelIvaTaxaPct').value = (x.deliveryIvaTaxaPct !== undefined && x.deliveryIvaTaxaPct !== null && x.deliveryIvaTaxaPct !== '') ? x.deliveryIvaTaxaPct : 23;
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
   document.getElementById('receitaGrupo').value = x.grupo || '';
   const gruposUsados = Array.from(new Set(receitas.map(rr => (rr.extra && rr.extra.grupo && rr.extra.grupo.trim())).filter(Boolean))).sort();
@@ -3576,11 +3634,7 @@ function openReceitaModal(id){
 }
 
 function onReceitaProdutoChange(){
-  const produtoId = document.getElementById('receitaProdutoId').value;
-  const p = produtos.find(x => x.id === produtoId);
-  const ehPratoFinal = p && p.tipo === 'prato_final';
-  document.getElementById('receitaPrecoVendaWrap').style.display = ehPratoFinal ? 'block' : 'none';
-  document.getElementById('receitaCmvWrap').style.display = ehPratoFinal ? 'block' : 'none';
+  atualizarPreviewCustoReceita();
 }
 
 function fecharCircularidade(produtoResultadoId, ingredienteId){
@@ -3678,22 +3732,41 @@ function atualizarPreviewCustoReceita(){
   document.getElementById('receitaRendimentoAuto').textContent = 'Rendimento calculado: ' + rendimentoG.toFixed(0) + ' g (soma dos ingredientes)';
 
   const num = id => document.getElementById(id).value;
-  const pr = calcularPrecificacao(custoPorcao, {
+  const x = {
     cmvPct: num('receitaCmvPct'), participacaoPct: num('receitaPartPct'), ivaPct: num('receitaIvaPct'),
-    deliveryCmvPct: num('receitaDelCmvPct'), deliveryTaxaPct: num('receitaDelTaxaPct')
-  });
+    deliveryCmvPct: num('receitaDelCmvPct'), deliveryTaxaPct: num('receitaDelTaxaPct'), deliveryIvaTaxaPct: num('receitaDelIvaTaxaPct')
+  };
+  const pr = calcularPrecificacao(custoPorcao, x);
   const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
   set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
-  set('precDSIva', pr.dSIva); set('precDPart', pr.dPart); set('precDTaxa', pr.dTaxa); set('precDFinal', pr.dFinal);
+  set('precDAlvo', pr.dAlvo); set('precDSIva', pr.dPrecoPublicadoSIva);
+  set('precDComissao', pr.dComissao); set('precDIvaComissao', pr.dIvaComissao); set('precDFinal', pr.dFinal);
 
-  const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value);
-  const cmvEl = document.getElementById('receitaCmv');
-  if(precoVenda > 0){
-    const cmv = custoPorcao / precoVenda * 100;
-    cmvEl.textContent = cmv.toFixed(1) + '%';
-    cmvEl.style.color = cmv > 33 ? 'var(--danger-text)' : 'var(--ok-text)';
-  }else{
-    cmvEl.textContent = '—';
+  // "O que vais cobrar de verdade" — só faz sentido para um prato que se vende diretamente
+  const ehPratoFinal = (() => { const p = produtos.find(pp => pp.id === document.getElementById('receitaProdutoId').value); return p && p.tipo === 'prato_final'; })();
+  document.getElementById('receitaRetornoWrap').style.display = ehPratoFinal ? 'block' : 'none';
+  if(ehPratoFinal){
+    const precoLoja = parseFloat(document.getElementById('receitaPrecoVenda').value) || 0;
+    const precoDel = parseFloat(document.getElementById('receitaPrecoVendaDelivery').value) || 0;
+    const retLoja = calcularRetornoReal(custoPorcao, precoLoja, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 });
+    const retDel = calcularRetornoReal(custoPorcao, precoDel, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: x.deliveryTaxaPct, ivaComissaoPct: x.deliveryIvaTaxaPct });
+    document.getElementById('retLojaSIva').textContent = precoLoja > 0 ? eur(retLoja.sIva) : '—';
+    document.getElementById('retLojaPart').textContent = precoLoja > 0 ? eur(retLoja.participacao) : '—';
+    document.getElementById('retLojaCusto').textContent = precoLoja > 0 ? eur(custoPorcao) : '—';
+    const retLojaEl = document.getElementById('retLojaRetorno');
+    retLojaEl.textContent = precoLoja > 0 ? eur(retLoja.retorno) : '—';
+    retLojaEl.style.color = precoLoja > 0 ? (retLoja.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
+    document.getElementById('retLojaCmv').textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' : '—';
+
+    document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(retDel.sIva) : '—';
+    document.getElementById('retDelComissao').textContent = precoDel > 0 ? eur(retDel.comissao) : '—';
+    document.getElementById('retDelIvaComissao').textContent = precoDel > 0 ? eur(retDel.ivaComissao) : '—';
+    document.getElementById('retDelPart').textContent = precoDel > 0 ? eur(retDel.participacao) : '—';
+    document.getElementById('retDelCusto').textContent = precoDel > 0 ? eur(custoPorcao) : '—';
+    const retDelEl = document.getElementById('retDelRetorno');
+    retDelEl.textContent = precoDel > 0 ? eur(retDel.retorno) : '—';
+    retDelEl.style.color = precoDel > 0 ? (retDel.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
+    document.getElementById('retDelCmv').textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' : '—';
   }
 }
 
@@ -3717,7 +3790,8 @@ async function saveReceita(){
     porcoes: val('receitaPorcoes') || 1,
     perdaPct: val('receitaPerdaPct') || 0,
     cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
-    deliveryCmvPct: val('receitaDelCmvPct'), deliveryTaxaPct: val('receitaDelTaxaPct'),
+    deliveryCmvPct: val('receitaDelCmvPct'), deliveryTaxaPct: val('receitaDelTaxaPct'), deliveryIvaTaxaPct: val('receitaDelIvaTaxaPct'),
+    precoVendaDelivery: val('receitaPrecoVendaDelivery') || null,
     modoFazer: document.getElementById('receitaModoFazer').value.trim(),
     rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100),
     pct: receitaItensAtuais.map(ri => ri.pct > 0 ? ri.pct : 0),
