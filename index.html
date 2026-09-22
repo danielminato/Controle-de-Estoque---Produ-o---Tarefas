@@ -3684,7 +3684,7 @@ function atualizarPreviewCustoReceita(){
   });
   const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
   set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
-  set('precDSIva', pr.dSIva); set('precDTaxa', pr.dTaxa); set('precDFinal', pr.dFinal);
+  set('precDSIva', pr.dSIva); set('precDPart', pr.dPart); set('precDTaxa', pr.dTaxa); set('precDFinal', pr.dFinal);
 
   const precoVenda = parseFloat(document.getElementById('receitaPrecoVenda').value);
   const cmvEl = document.getElementById('receitaCmv');
