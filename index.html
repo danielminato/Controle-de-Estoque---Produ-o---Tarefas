@@ -3273,7 +3273,16 @@ async function deleteProducaoItem(id){
 
 // ---------- RECEITAS (custo recursivo) ----------
 
+// Peso realmente aproveitável de um lote, descontando a % de perda/quebra no preparo
+// (ex.: um lote de 17560g de massa com 10% de perda só rende 15804g de massa boa).
+function pesoUtilDaReceita(receita){
+  const perda = Math.min(Math.max((receita.extra && Number(receita.extra.perdaPct)) || 0, 0), 99);
+  return receita.rendimentoG * (1 - perda / 100);
+}
+
 // Custo por grama de um produto, resolvendo receitas recursivamente quando aplicável.
+// Já vem com a perda descontada — quem usa este produto como ingrediente (por peso)
+// paga o custo real, não o custo "se nada se perdesse".
 // `visitados` evita loops infinitos (ex: A usa B que usa A por engano).
 function custoPorGramaProduto(produtoId, visitados){
   visitados = visitados || new Set();
@@ -3284,7 +3293,8 @@ function custoPorGramaProduto(produtoId, visitados){
   const receita = receitas.find(r => r.produtoId === produtoId);
   if(receita && receita.rendimentoG > 0){
     const custoTotal = custoTotalDaReceita(receita, visitados);
-    return custoTotal / receita.rendimentoG;
+    const pesoUtil = pesoUtilDaReceita(receita);
+    return pesoUtil > 0 ? custoTotal / pesoUtil : 0;
   }
 
   const p = produtos.find(x => x.id === produtoId);
@@ -3335,7 +3345,8 @@ function calcularCustoReceita(receitaId){
   const receita = receitas.find(r => r.id === receitaId);
   if(!receita) return { custoTotal: 0, custoPorGrama: 0 };
   const custoTotal = custoTotalDaReceita(receita, new Set());
-  const custoPorGrama = receita.rendimentoG > 0 ? custoTotal / receita.rendimentoG : 0;
+  const pesoUtil = pesoUtilDaReceita(receita);
+  const custoPorGrama = pesoUtil > 0 ? custoTotal / pesoUtil : 0;
   return { custoTotal, custoPorGrama };
 }
 
@@ -3608,9 +3619,10 @@ function atualizarPreviewCustoReceita(){
     const custoG = receitas.find(r2 => r2.produtoId === p.id) ? custoPorGramaProduto(p.id) : (precoPorGrama(p) || 0);
     return soma + custoG * (ri.quantidadeG||0) / ((ri.rendPct > 0 ? ri.rendPct : 100) / 100);
   }, 0);
-  const custoPorGrama = rendimentoG > 0 ? custoTotal / rendimentoG : 0;
   const porcoes = parseFloat(document.getElementById('receitaPorcoes').value) || 1;
   const perdaPct = parseFloat(document.getElementById('receitaPerdaPct').value) || 0;
+  const pesoUtil = rendimentoG * (1 - Math.min(Math.max(perdaPct,0),99) / 100);
+  const custoPorGrama = pesoUtil > 0 ? custoTotal / pesoUtil : 0;
   const util = porcoesUteis(porcoes, perdaPct) || porcoes;
   const custoPorcao = custoTotal / util;
 
