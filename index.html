@@ -3384,15 +3384,21 @@ function calcularPrecificacao(custoPorcao, x){
 
 // Dado um preço que decidiste mesmo praticar (já com IVA), quanto fica de retorno líquido
 // por porção — descontando custo, participação e (no delivery) a comissão e o IVA dela.
+// A comissão da plataforma incide sobre o preço TOTAL que o cliente paga (já com o teu IVA
+// dentro) — não sobre um preço líquido teu. Depois de tirar comissão + IVA da comissão, o
+// que sobra ainda tem o teu IVA embutido, por isso divide-se por (1+IVA) para chegar ao
+// valor líquido de verdade. Para a loja (taxa=0) isto reduz-se à conta simples de sempre.
 function calcularRetornoReal(custoPorcao, precoCIva, x){
   const pct = v => (Number(v) || 0) / 100;
   const iva = pct(x.ivaPct), part = pct(x.participacaoPct);
   const taxa = pct(x.comissaoPct), ivaTaxa = pct(x.ivaComissaoPct);
-  const sIva = precoCIva > 0 ? precoCIva / (1 + iva) : 0;
-  const comissao = sIva * taxa;
+  if(precoCIva <= 0) return { sIva: 0, comissao: 0, ivaComissao: 0, participacao: 0, retorno: 0, cmvReal: 0 };
+  const comissao = precoCIva * taxa;
   const ivaComissao = comissao * ivaTaxa;
+  const sobraComIva = precoCIva - comissao - ivaComissao;
+  const sIva = sobraComIva / (1 + iva);
   const participacao = sIva * part;
-  const retorno = sIva - comissao - ivaComissao - participacao - custoPorcao;
+  const retorno = sIva - participacao - custoPorcao;
   const cmvReal = sIva > 0 ? custoPorcao / sIva * 100 : 0;
   return { sIva, comissao, ivaComissao, participacao, retorno, cmvReal };
 }
