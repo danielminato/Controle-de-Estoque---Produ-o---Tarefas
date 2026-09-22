@@ -493,6 +493,10 @@
       <div class="save-note">Fichas técnicas dos semi-preparados e pratos finais. O custo é calculado automaticamente a partir dos ingredientes — incluindo semi-preparados que sejam eles próprios ingredientes de outra receita.</div>
       <button class="btn" onclick="openReceitaModal()">+ Nova receita</button>
     </div>
+    <div class="row" style="gap:10px;margin-bottom:14px;align-items:center;">
+      <label style="font-size:13px;color:var(--ink-soft);">Grupo</label>
+      <select id="receitaFiltroGrupo" onchange="renderReceitas()" style="max-width:260px;"></select>
+    </div>
     <div id="receitasContent"></div>
   </div>
 
@@ -634,6 +638,10 @@
     <input type="hidden" id="receitaId">
     <label class="field">Produto resultante
       <select id="receitaProdutoId" onchange="onReceitaProdutoChange()"></select>
+    </label>
+    <label class="field">Grupo (para organizar e filtrar a lista)
+      <input type="text" id="receitaGrupo" list="receitaGrupoOpcoes" placeholder="ex.: Pizzas, Massas, Molhos, Bebidas...">
+      <datalist id="receitaGrupoOpcoes"></datalist>
     </label>
     <div class="field-row">
       <label class="field">Rendimento total (g/ml)
@@ -3386,13 +3394,18 @@ function renderReceitas(){
     return;
   }
 
-  const grupos = [
-    { chave: 'prato_final', titulo: 'Pratos finais', filtro: p => p && p.tipo === 'prato_final' },
-    { chave: 'bebida', titulo: 'Bebidas', filtro: p => p && p.tipo !== 'prato_final' && p.categoria === 'Bebidas' },
-    { chave: 'semi', titulo: 'Molhos e pré-preparados', filtro: p => p && p.tipo === 'semi_preparado' && p.categoria !== 'Bebidas' },
-    { chave: 'outros', titulo: 'Outros', filtro: p => true }
-  ];
-  const jaEncaixadas = new Set();
+  const SEM_GRUPO = 'Sem grupo';
+  const grupoDaReceita = r => (r.extra && r.extra.grupo && r.extra.grupo.trim()) || SEM_GRUPO;
+
+  // popula o filtro com os grupos que já existem, sem perder a escolha atual
+  const filtroSel = document.getElementById('receitaFiltroGrupo');
+  const grupoAtualFiltro = filtroSel ? filtroSel.value : '';
+  const gruposExistentes = Array.from(new Set(receitas.map(grupoDaReceita))).sort((a,b) => a===SEM_GRUPO ? 1 : b===SEM_GRUPO ? -1 : a.localeCompare(b));
+  if(filtroSel){
+    filtroSel.innerHTML = '<option value="">Todos os grupos</option>' + gruposExistentes.map(g => `<option value="${g}">${g}</option>`).join('');
+    filtroSel.value = gruposExistentes.includes(grupoAtualFiltro) ? grupoAtualFiltro : '';
+  }
+  const filtroAtivo = filtroSel ? filtroSel.value : '';
 
   const cardDeReceita = r => {
     const p = produtos.find(x => x.id === r.produtoId);
@@ -3450,16 +3463,17 @@ function renderReceitas(){
       </div>`;
   };
 
-  content.innerHTML = grupos.map(g => {
-    const desteGrupo = receitas.filter(r => {
-      if(jaEncaixadas.has(r.id)) return false;
-      const p = produtos.find(x => x.id === r.produtoId);
-      if(!g.filtro(p)) return false;
-      jaEncaixadas.add(r.id);
-      return true;
-    });
+  const visiveis = filtroAtivo ? receitas.filter(r => grupoDaReceita(r) === filtroAtivo) : receitas;
+  if(visiveis.length === 0){
+    content.innerHTML = '<div class="empty">Nenhuma receita neste grupo.</div>';
+    return;
+  }
+
+  const gruposParaMostrar = filtroAtivo ? [filtroAtivo] : gruposExistentes;
+  content.innerHTML = gruposParaMostrar.map(titulo => {
+    const desteGrupo = visiveis.filter(r => grupoDaReceita(r) === titulo);
     if(desteGrupo.length === 0) return '';
-    return `<h3 style="font-size:16px;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);">${g.titulo}</h3>` + desteGrupo.map(cardDeReceita).join('');
+    return `<h3 style="font-size:16px;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);">${titulo}</h3>` + desteGrupo.map(cardDeReceita).join('');
   }).join('');
 }
 
@@ -3511,6 +3525,10 @@ function openReceitaModal(id){
 
   const x = (r && r.extra) || {};
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
+  document.getElementById('receitaGrupo').value = x.grupo || '';
+  const gruposUsados = Array.from(new Set(receitas.map(rr => (rr.extra && rr.extra.grupo && rr.extra.grupo.trim())).filter(Boolean))).sort();
+  document.getElementById('receitaGrupoOpcoes').innerHTML = gruposUsados.map(g => `<option value="${g}">`).join('');
+
   document.getElementById('receitaPorcoes').value = def(x.porcoes, 1);
   document.getElementById('receitaPerdaPct').value = def(x.perdaPct, 0);
   document.getElementById('receitaCmvPct').value = def(x.cmvPct, 30);
@@ -3670,6 +3688,7 @@ async function saveReceita(){
   const receitaIdFinal = id || uid();
   const val = id => parseFloat(document.getElementById(id).value);
   const extra = {
+    grupo: document.getElementById('receitaGrupo').value.trim(),
     porcoes: val('receitaPorcoes') || 1,
     perdaPct: val('receitaPerdaPct') || 0,
     cmvPct: val('receitaCmvPct'), participacaoPct: val('receitaPartPct'), ivaPct: val('receitaIvaPct'),
