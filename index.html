@@ -282,6 +282,7 @@
   <button data-view="checklists">Checklists</button>
   <button data-view="producao">Produção</button>
   <button data-view="receitas">Receitas</button>
+  <button data-view="bebidas">Bebidas</button>
   <button data-view="utilizadores">Utilizadores</button>
 </nav>
 
@@ -500,6 +501,12 @@
       <select id="receitaFiltroGrupo" onchange="renderReceitas()" style="max-width:260px;"></select>
     </div>
     <div id="receitasContent"></div>
+  </div>
+
+  <!-- BEBIDAS -->
+  <div class="view" id="view-bebidas">
+    <div class="save-note" style="margin-bottom:14px;">Preços de venda das bebidas — sem precisar de montar uma ficha técnica. O custo vem direto da embalagem cadastrada em Produtos.</div>
+    <div id="bebidasContent"></div>
   </div>
 
   <!-- UTILIZADORES -->
@@ -1289,6 +1296,7 @@ function renderAll(){
   renderChecklistHistorico();
   renderProducaoItens();
   renderReceitas();
+  renderBebidas();
 }
 
 // ---------- FORNECEDORES ----------
@@ -2788,6 +2796,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'estoque') renderEstoque();
+    if(btn.dataset.view === 'bebidas') renderBebidas();
   });
 });
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -3690,7 +3699,19 @@ function renderReceitaItensList(){
   const wrap = document.getElementById('receitaItensList');
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
 
-  wrap.innerHTML = receitaItensAtuais.map((ri, idx) => {
+  // Mostra por categoria (família) e depois por nome, para ser mais fácil de encontrar num
+  // prato com muitos ingredientes — mas os índices usados nos botões/inputs continuam a
+  // apontar para a posição REAL em receitaItensAtuais (a ordem de gravação não muda).
+  const categoriaDoItem = ri => { const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.categoria) || 'Sem categoria'; };
+  const nomeDoItem = ri => { const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.nome) || ''; };
+  const ordem = receitaItensAtuais.map((ri, idx) => idx).sort((a, b) => {
+    const ra = receitaItensAtuais[a], rb = receitaItensAtuais[b];
+    return categoriaDoItem(ra).localeCompare(categoriaDoItem(rb)) || nomeDoItem(ra).localeCompare(nomeDoItem(rb));
+  });
+
+  let categoriaAnterior = null;
+  wrap.innerHTML = ordem.map(idx => {
+    const ri = receitaItensAtuais[idx];
     const opcoes = produtos.filter(p => p.id !== produtoResultadoId).map(p => {
       const custoG = precoPorGrama(p);
       const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
@@ -3700,7 +3721,14 @@ function renderReceitaItensList(){
     const campoPct = ehBase
       ? '<span class="save-note" style="min-width:84px;text-align:center;">100% (é a base)</span>'
       : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
-    return `
+
+    const categoriaAtual = categoriaDoItem(ri);
+    const cabecalho = categoriaAtual !== categoriaAnterior
+      ? `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;">${categoriaAtual}</div>`
+      : '';
+    categoriaAnterior = categoriaAtual;
+
+    return cabecalho + `
       <div class="price-row" style="flex-wrap:wrap;${ehBase ? 'background:var(--cream);border-radius:8px;padding:6px 6px;margin-left:-6px;margin-right:-6px;' : ''}">
         <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
         <input type="number" step="any" id="ri-q-${idx}" placeholder="ex.: 290" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
@@ -3714,10 +3742,19 @@ function renderReceitaItensList(){
   atualizarPreviewCustoReceita();
 }
 
+// Sugere a quantidade já cadastrada na embalagem do produto (ex.: Burrata 125g → sugere
+// 125g), em vez de deixar em 0 — evita esquecer de mudar de "1 unidade" e o custo sair errado.
+function quantidadeSugeridaDoProduto(produtoId){
+  const p = produtos.find(x => x.id === produtoId);
+  const emb = p && embalagemBase(p);
+  return emb ? emb.qtd : 0;
+}
+
 function addReceitaItemRow(){
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
   const primeiro = produtos.find(p => p.id !== produtoResultadoId);
-  receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: primeiro ? primeiro.id : '', quantidadeG: 0 });
+  const id = primeiro ? primeiro.id : '';
+  receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: id, quantidadeG: quantidadeSugeridaDoProduto(id) });
   renderReceitaItensList();
 }
 
@@ -3725,6 +3762,11 @@ function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
   const item = receitaItensAtuais[idx];
   item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct') ? (parseFloat(valor)||0) : valor;
+  if(campo === 'ingredienteProdutoId'){
+    if(idx !== receitaBaseIdx){ item.quantidadeG = quantidadeSugeridaDoProduto(valor); item.pct = 0; }
+    renderReceitaItensList();
+    return;
+  }
 
   const arred = n => Math.round(n * 10000) / 10000;
   if(campo === 'quantidadeG'){
@@ -3900,6 +3942,111 @@ async function deleteReceita(id){
   receitas = receitas.filter(r => r.id !== id);
   receitaItens = receitaItens.filter(ri => ri.receitaId !== id);
   renderReceitas();
+}
+
+// ---------- BEBIDAS (precificação direta, sem ficha técnica) ----------
+// Estado por produto (não gravado — recalcula sempre a partir dos valores por defeito).
+let bebidasEstado = {};
+let bebidasGlobal = { comissaoPct: 30, ivaComissaoPct: 23 };
+
+function estadoBebida(produtoId){
+  if(!bebidasEstado[produtoId]) bebidasEstado[produtoId] = { cmvPct: 30, ivaPct: 23, precoCobrado: '' };
+  return bebidasEstado[produtoId];
+}
+
+function renderBebidas(){
+  const content = document.getElementById('bebidasContent');
+  if(!content) return;
+  const bebidas = produtos.filter(p => p.categoria === 'Bebidas').sort((a,b) => a.nome.localeCompare(b.nome));
+  if(bebidas.length === 0){
+    content.innerHTML = '<div class="empty">Nenhum produto na categoria "Bebidas" ainda.</div>';
+    return;
+  }
+
+  content.innerHTML = `
+    <div class="card" style="background:var(--cream);margin-bottom:14px;">
+      <div class="field-row">
+        <label class="field">% Comissão da plataforma (delivery)<input type="number" id="bebComissaoPct" step="any" value="${bebidasGlobal.comissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
+        <label class="field">% IVA sobre a comissão<input type="number" id="bebIvaComissaoPct" step="any" value="${bebidasGlobal.ivaComissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th>Produto</th><th>Custo/unid.</th><th title="% do custo sobre o preço de venda">%CMV alvo</th><th>%IVA</th>
+        <th title="Custo ÷ %CMV — o mínimo antes de somar o teu IVA">Sugerido s/IVA</th>
+        <th title="Sugerido s/IVA × (1+%IVA)">Sugerido c/IVA</th>
+        <th>Preço que cobras (c/IVA)</th><th>CMV real</th><th>Retorno</th>
+        <th title="Preço a publicar no delivery para dar o mesmo retorno do preço que cobras (ou do sugerido, se ainda não preencheste)">Sugestão delivery (c/IVA)</th>
+      </tr></thead>
+      <tbody>${bebidas.map(p => linhaBebidaHtml(p)).join('')}</tbody>
+    </table>
+    </div>`;
+
+  bebidas.forEach(p => atualizarLinhaBebida(p.id));
+}
+
+function linhaBebidaHtml(p){
+  const est = estadoBebida(p.id);
+  const custo = precoPorGrama(p);
+  if(custo == null){
+    return `<tr><td>${p.nome}</td><td colspan="9" class="save-note">sem preço/embalagem definida — completa em Produtos</td></tr>`;
+  }
+  return `<tr id="beb-row-${p.id}">
+    <td>${p.nome}</td>
+    <td>${eur(custo)}</td>
+    <td><input type="number" step="any" value="${est.cmvPct}" style="max-width:70px;" oninput="atualizarBebidaEstado('${p.id}','cmvPct',this.value)"></td>
+    <td><input type="number" step="any" value="${est.ivaPct}" style="max-width:60px;" oninput="atualizarBebidaEstado('${p.id}','ivaPct',this.value)"></td>
+    <td id="beb-sug-siva-${p.id}">—</td>
+    <td id="beb-sug-civa-${p.id}">—</td>
+    <td><input type="number" step="any" placeholder="ex.: 2.50" value="${est.precoCobrado}" style="max-width:80px;" oninput="atualizarBebidaEstado('${p.id}','precoCobrado',this.value)"></td>
+    <td id="beb-cmvreal-${p.id}" style="font-weight:600;">—</td>
+    <td id="beb-retorno-${p.id}" style="font-weight:600;">—</td>
+    <td id="beb-delivery-${p.id}">—</td>
+  </tr>`;
+}
+
+function atualizarBebidaEstado(produtoId, campo, valor){
+  const est = estadoBebida(produtoId);
+  est[campo] = campo === 'precoCobrado' ? valor : (parseFloat(valor) || 0);
+  atualizarLinhaBebida(produtoId);
+}
+
+function atualizarComissaoGlobalBebidas(){
+  bebidasGlobal.comissaoPct = parseFloat(document.getElementById('bebComissaoPct').value) || 0;
+  bebidasGlobal.ivaComissaoPct = parseFloat(document.getElementById('bebIvaComissaoPct').value) || 0;
+  produtos.filter(p => p.categoria === 'Bebidas').forEach(p => atualizarLinhaBebida(p.id));
+}
+
+function atualizarLinhaBebida(produtoId){
+  const p = produtos.find(x => x.id === produtoId);
+  const custo = p && precoPorGrama(p);
+  if(!p || custo == null) return;
+  const est = estadoBebida(produtoId);
+  const pr = calcularPrecificacao(custo, { cmvPct: est.cmvPct, participacaoPct: 0, ivaPct: est.ivaPct });
+
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  set('beb-sug-siva-' + produtoId, eur(pr.sIva));
+  set('beb-sug-civa-' + produtoId, eur(pr.final));
+
+  const precoCobrado = parseFloat(est.precoCobrado) || 0;
+  let sIvaReferencia = pr.sIva;
+  if(precoCobrado > 0){
+    const ret = calcularRetornoReal(custo, precoCobrado, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: 0, ivaComissaoPct: 0 });
+    sIvaReferencia = ret.sIva;
+    const cmvEl = document.getElementById('beb-cmvreal-' + produtoId);
+    cmvEl.textContent = ret.cmvReal.toFixed(1) + '%';
+    cmvEl.style.color = ret.cmvReal > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
+    const retEl = document.getElementById('beb-retorno-' + produtoId);
+    retEl.textContent = eur(ret.retorno);
+    retEl.style.color = ret.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)';
+  }else{
+    set('beb-cmvreal-' + produtoId, '—');
+    set('beb-retorno-' + produtoId, '—');
+  }
+
+  const sugestaoDelivery = precoDeliveryParaMesmoCmv(sIvaReferencia, { ivaPct: est.ivaPct, deliveryTaxaPct: bebidasGlobal.comissaoPct, deliveryIvaTaxaPct: bebidasGlobal.ivaComissaoPct });
+  set('beb-delivery-' + produtoId, sugestaoDelivery > 0 ? eur(sugestaoDelivery) : '—');
 }
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
