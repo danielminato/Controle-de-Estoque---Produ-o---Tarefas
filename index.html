@@ -672,6 +672,7 @@
       <div>⚖️ <strong>Base</strong> — marca isto só num ingrediente, e só se os outros forem uma % dele (ex.: massa de pizza: a farinha é a base, a água é 72% dela). Se cada ingrediente tem um peso fixo próprio (a maioria dos pratos), não marques nenhum.</div>
       <div>％ <strong>% da base</strong> — só funciona depois de marcares uma base acima. Escreves a % em vez do peso, e o app calcula o peso sozinho.</div>
       <div>♻️ <strong>Rend.%</strong> — deixa em 100 na maioria dos casos. Só baixa se ESTE ingrediente em concreto perde peso ao preparar (ex.: descascar, coar) — quanto menor, mais caro fica, porque parte do que compraste vai para o lixo.</div>
+      <div>🔻▪️🔺 <strong>Base / Recheio / Finalização</strong> — só muda a ORDEM em que aparece na ficha pronta (não mexe no custo). Serve para a ficha ler na ordem em que montas o prato: primeiro a base (ex.: massa, molho), depois o recheio, por último quem entra ao fim (ex.: azeite, ervas por cima).</div>
     </div>
     <div class="price-row" style="font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.02em;">
       <span style="flex:1.4;">Ingrediente</span>
@@ -679,6 +680,7 @@
       <span style="max-width:84px;flex:1;">% da base</span>
       <span style="max-width:70px;flex:1;">Rend.%</span>
       <span style="min-width:60px;">Base?</span>
+      <span style="max-width:110px;flex:1;">Camada</span>
       <span style="width:52px;"></span>
     </div>
     <div id="receitaItensList"></div>
@@ -3492,7 +3494,8 @@ function renderReceitas(){
   const cardDeReceita = r => {
     const p = produtos.find(x => x.id === r.produtoId);
     const { custoTotal, custoPorGrama } = calcularCustoReceita(r.id);
-    const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+    const camadaDoItem = ri => (r.extra && r.extra.camada && r.extra.camada[ri.ordem] !== undefined && r.extra.camada[ri.ordem] !== null) ? Number(r.extra.camada[ri.ordem]) : camadaPadraoDoItem(ri);
+    const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=> camadaDoItem(a) - camadaDoItem(b) || (a.ordem||0)-(b.ordem||0));
     const ehPratoFinal = p && p.tipo === 'prato_final';
     const porcoes = (r.extra && r.extra.porcoes) || 1;
     const perdaPct = (r.extra && r.extra.perdaPct) || 0;
@@ -3535,19 +3538,28 @@ function renderReceitas(){
           </div>
         </div>
         <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Custo/g</th><th>Custo</th></tr></thead>
-        <tbody>${itens.map(ri => {
-          const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
-          const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
-          const rend = rendPctDoItem(r, ri);
-          const ehBaseAqui = r.extra && r.extra.baseIdx === (ri.ordem||0);
-          return `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
-            <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
-            <td>${ri.quantidadeG}g</td>
-            <td>${rend}%</td>
-            <td>${custoG.toFixed(4)}€</td>
-            <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
-          </tr>`;
-        }).join('')}</tbody></table>
+        <tbody>${(() => {
+          const NOME_CAMADA = ['🔻 Base', '▪️ Recheio', '🔺 Finalização'];
+          let camadaAnterior = null;
+          return itens.map(ri => {
+            const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
+            const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
+            const rend = rendPctDoItem(r, ri);
+            const ehBaseAqui = r.extra && r.extra.baseIdx === (ri.ordem||0);
+            const camadaAtual = camadaDoItem(ri);
+            const cabecalho = camadaAtual !== camadaAnterior
+              ? `<tr><td colspan="5" style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;padding-top:10px;border-bottom:none;">${NOME_CAMADA[camadaAtual] || ''}</td></tr>`
+              : '';
+            camadaAnterior = camadaAtual;
+            return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
+              <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
+              <td>${ri.quantidadeG}g</td>
+              <td>${rend}%</td>
+              <td>${custoG.toFixed(4)}€</td>
+              <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
+            </tr>`;
+          }).join('');
+        })()}</tbody></table>
         ${r.extra && r.extra.modoFazer ? `<div class="save-note" style="margin-top:10px;white-space:pre-wrap;"><strong>Modo de fazer:</strong> ${r.extra.modoFazer.replace(/</g,'&lt;')}</div>` : ''}
       </div>`;
   };
@@ -3624,7 +3636,8 @@ function openReceitaModal(id){
 
   receitaItensAtuais = r
     ? receitaItens.filter(ri => ri.receitaId === id).sort((a,b) => (a.ordem||0)-(b.ordem||0)).map(ri => ({
-        ...ri, rendPct: rendPctDoItem(r, ri), pct: Number(x.pct && x.pct[ri.ordem]) || 0
+        ...ri, rendPct: rendPctDoItem(r, ri), pct: Number(x.pct && x.pct[ri.ordem]) || 0,
+        camada: (x.camada && x.camada[ri.ordem] !== undefined && x.camada[ri.ordem] !== null) ? Number(x.camada[ri.ordem]) : camadaPadraoDoItem(ri)
       }))
     : [];
   receitaBaseIdx = (x.baseIdx !== undefined && x.baseIdx !== null && x.baseIdx >= 0 && x.baseIdx < receitaItensAtuais.length) ? x.baseIdx : -1;
@@ -3716,6 +3729,12 @@ function opcoesIngredienteHtml(produtoResultadoId, selecionadoId){
   }).join('');
 }
 
+// Camada padrão de um ingrediente quando ainda não foi escolhida à mão: um semi-preparado
+// (massa, molho...) costuma ser a base do prato; o resto entra como recheio.
+function camadaPadraoDoItem(ri){
+  return receitas.find(r => r.produtoId === ri.ingredienteProdutoId) ? 0 : 1;
+}
+
 function renderReceitaItensList(){
   const wrap = document.getElementById('receitaItensList');
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
@@ -3752,6 +3771,11 @@ function renderReceitaItensList(){
         ${campoPct}
         <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="100" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
         <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;min-width:60px;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> ${ehBase ? '⚖️ base' : 'base'}</label>
+        <select title="Onde entra na montagem — só afeta a ordem em que aparece na ficha (não no custo)" style="max-width:110px;" onchange="atualizarReceitaItem(${idx}, 'camada', this.value)">
+          <option value="0" ${ (ri.camada??camadaPadraoDoItem(ri))===0 ? 'selected':''}>🔻 Base</option>
+          <option value="1" ${ (ri.camada??camadaPadraoDoItem(ri))===1 ? 'selected':''}>▪️ Recheio</option>
+          <option value="2" ${ (ri.camada??camadaPadraoDoItem(ri))===2 ? 'selected':''}>🔺 Finalização</option>
+        </select>
         <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
       </div>`;
   }).join('');
@@ -3787,7 +3811,8 @@ function addReceitaItemRow(){
 function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
   const item = receitaItensAtuais[idx];
-  item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct') ? (parseFloat(valor)||0) : valor;
+  item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct' || campo === 'camada') ? (parseFloat(valor)||0) : valor;
+  if(campo === 'camada'){ atualizarPreviewCustoReceita(); return; }
   if(campo === 'ingredienteProdutoId'){
     if(idx !== receitaBaseIdx){ item.quantidadeG = quantidadeSugeridaDoProduto(valor); item.pct = 0; }
     renderReceitaItensList();
@@ -3921,6 +3946,7 @@ async function saveReceita(){
     modoFazer: document.getElementById('receitaModoFazer').value.trim(),
     rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100),
     pct: receitaItensAtuais.map(ri => ri.pct > 0 ? ri.pct : 0),
+    camada: receitaItensAtuais.map(ri => ri.camada ?? camadaPadraoDoItem(ri)),
     baseIdx: receitaBaseIdx
   };
   const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '', extra };
