@@ -3668,8 +3668,13 @@ async function criarProdutoRapidoParaReceita(){
 
   const ehSemiPreparado = await showConfirm(`"${nome.trim()}" é um semi-preparado (molho, massa, base — vira ingrediente de outros pratos)?\n\nConfirmar = semi-preparado\nCancelar = prato final (vendido diretamente ao cliente)`);
 
+  const categoriasExistentes = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean))).sort();
+  const sugestaoCategoria = ehSemiPreparado ? 'Semi-Preparados' : 'Pizzas';
+  const categoriaDigitada = prompt(`Categoria (ex.: ${categoriasExistentes.slice(0,6).join(', ')}...):`, sugestaoCategoria);
+  const categoria = (categoriaDigitada || '').trim() || sugestaoCategoria;
+
   const novo = {
-    id: uid(), codigo: '', nome: nome.trim(), categoria: '', tipo: ehSemiPreparado ? 'semi_preparado' : 'prato_final',
+    id: uid(), codigo: '', nome: nome.trim(), categoria, tipo: ehSemiPreparado ? 'semi_preparado' : 'prato_final',
     areaIds: [], precos: [], qtdMinima: 0, qtdAtual: 0, fornecedorEscolhidoId: '', nota: '',
     embalagemQtd: null, embalagemUnidade: '', embalagemConfirmada: false, densidade: 1
   };
@@ -3766,8 +3771,17 @@ function addReceitaItemRow(){
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
   const primeiro = produtos.find(p => p.id !== produtoResultadoId);
   const id = primeiro ? primeiro.id : '';
+  const novoIdx = receitaItensAtuais.length;
   receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: id, quantidadeG: quantidadeSugeridaDoProduto(id) });
   renderReceitaItensList();
+  // a lista fica ordenada por categoria, então a linha nova pode não aparecer no fim —
+  // rola até ela e destaca por um instante, para não se perder à procura.
+  const linhaNova = document.getElementById('ri-q-' + novoIdx)?.closest('.price-row');
+  if(linhaNova){
+    linhaNova.scrollIntoView({behavior: 'smooth', block: 'center'});
+    linhaNova.style.outline = '2px solid var(--terracotta)';
+    setTimeout(() => { linhaNova.style.outline = ''; }, 1500);
+  }
 }
 
 function atualizarReceitaItem(idx, campo, valor){
