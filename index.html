@@ -639,7 +639,7 @@
     <h3>Ficha técnica</h3>
     <input type="hidden" id="receitaId">
     <label class="field">Produto resultante
-      <select id="receitaProdutoId" onchange="onReceitaProdutoChange()"></select>
+      <select id="receitaProdutoId" onchange="onReceitaProdutoIdChange()"></select>
     </label>
     <label class="field">Grupo (para organizar e filtrar a lista)
       <input type="text" id="receitaGrupo" list="receitaGrupoOpcoes" placeholder="ex.: Pizzas, Massas, Molhos, Bebidas...">
@@ -3591,14 +3591,7 @@ function openReceitaModal(id){
   document.getElementById('receitaId').value = id || '';
   const r = receitas.find(x => x.id === id);
 
-  const sel = document.getElementById('receitaProdutoId');
-  const ehResultado = p => p.tipo === 'semi_preparado' || p.tipo === 'prato_final';
-  const opt = p => `<option value="${p.id}" ${r && r.produtoId===p.id ? 'selected':''}>${p.nome}${p.tipo === 'prato_final' ? ' (prato final)' : p.tipo === 'semi_preparado' ? ' (semi-preparado)' : ''}</option>`;
-  const ordenar = (a,b) => a.nome.localeCompare(b.nome);
-  sel.innerHTML =
-    '<option value="">— escolhe o produto que esta receita produz —</option>' +
-    '<optgroup label="Semi-preparados e pratos finais">' + produtos.filter(ehResultado).sort(ordenar).map(opt).join('') + '</optgroup>' +
-    '<optgroup label="Outros produtos (ex.: Massa de Pizza, Molho de Tomate)">' + produtos.filter(p => !ehResultado(p)).sort(ordenar).map(opt).join('') + '</optgroup>';
+  popularSelectProdutoReceita(r ? r.produtoId : '');
 
   document.getElementById('receitaRendimentoG').value = r ? r.rendimentoG : '';
   document.getElementById('receitaPrecoVenda').value = r ? (r.precoVenda ?? '') : '';
@@ -3634,6 +3627,54 @@ function openReceitaModal(id){
 
 function onReceitaProdutoChange(){
   atualizarPreviewCustoReceita();
+}
+
+function popularSelectProdutoReceita(selecionadoId){
+  const sel = document.getElementById('receitaProdutoId');
+  const ehResultado = p => p.tipo === 'semi_preparado' || p.tipo === 'prato_final';
+  const opt = p => `<option value="${p.id}" ${selecionadoId===p.id ? 'selected':''}>${p.nome}${p.tipo === 'prato_final' ? ' (prato final)' : p.tipo === 'semi_preparado' ? ' (semi-preparado)' : ''}</option>`;
+  const ordenar = (a,b) => a.nome.localeCompare(b.nome);
+  sel.innerHTML =
+    '<option value="">— escolhe o produto que esta receita produz —</option>' +
+    '<option value="__novo__">+ Criar novo produto...</option>' +
+    '<optgroup label="Semi-preparados e pratos finais">' + produtos.filter(ehResultado).sort(ordenar).map(opt).join('') + '</optgroup>' +
+    '<optgroup label="Outros produtos (ex.: Massa de Pizza, Molho de Tomate)">' + produtos.filter(p => !ehResultado(p)).sort(ordenar).map(opt).join('') + '</optgroup>';
+}
+
+async function onReceitaProdutoIdChange(){
+  const sel = document.getElementById('receitaProdutoId');
+  if(sel.value === '__novo__'){
+    await criarProdutoRapidoParaReceita();
+    return;
+  }
+  onReceitaProdutoChange();
+}
+
+// Cria um produto simples (sem área, fornecedor ou preço — isso define-se depois em
+// "Produtos") só para poder ser escolhido como resultado de uma ficha técnica nova.
+async function criarProdutoRapidoParaReceita(){
+  const sel = document.getElementById('receitaProdutoId');
+  const nome = prompt('Nome do novo produto:');
+  if(!nome || !nome.trim()){ sel.value = ''; onReceitaProdutoChange(); return; }
+
+  const ehSemiPreparado = await showConfirm(`"${nome.trim()}" é um semi-preparado (molho, massa, base — vira ingrediente de outros pratos)?\n\nConfirmar = semi-preparado\nCancelar = prato final (vendido diretamente ao cliente)`);
+
+  const novo = {
+    id: uid(), codigo: '', nome: nome.trim(), categoria: '', tipo: ehSemiPreparado ? 'semi_preparado' : 'prato_final',
+    areaIds: [], precos: [], qtdMinima: 0, qtdAtual: 0, fornecedorEscolhidoId: '', nota: '',
+    embalagemQtd: null, embalagemUnidade: '', embalagemConfirmada: false, densidade: 1
+  };
+  try{
+    await sbInsertRow('produtos', produtoToDb(novo));
+    produtos.push(novo);
+  }catch(e){
+    await showAlert('Não consegui criar o produto. Tenta de novo.');
+    sel.value = '';
+    onReceitaProdutoChange();
+    return;
+  }
+  popularSelectProdutoReceita(novo.id);
+  onReceitaProdutoChange();
 }
 
 function fecharCircularidade(produtoResultadoId, ingredienteId){
