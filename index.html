@@ -1978,10 +1978,17 @@ function produtoAtivo(p){
 function produtosDoGrupo(g){
   return produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
 }
+const ORDEM_AREAS_NOVAS = ['ÁREA DE PIZZA', 'COZINHA', 'SALA/ESTOQUE'];
+function rankAreaNova(nome){
+  const idx = ORDEM_AREAS_NOVAS.indexOf(nome);
+  return idx === -1 ? ORDEM_AREAS_NOVAS.length : idx;
+}
+
 function areasDoGrupo(g){
-  return Array.from(new Set(
+  const areas = Array.from(new Set(
     produtosDoGrupo(g).flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
   ));
+  return areas.sort((a,b) => rankAreaNova(a) - rankAreaNova(b) || a.localeCompare(b));
 }
 
 function ultimoZeroDoGrupo(g){
@@ -4114,7 +4121,17 @@ function renderGruposOperacional(){
     wrap.innerHTML = '<div class="save-note">Ainda não há grupos de compra configurados. Fala com o teu patrão.</div>';
     return;
   }
-  wrap.innerHTML = grupos.map(g => {
+
+  const hoje = diaSemanaHoje();
+  const deHoje = grupos.filter(g => diasContagemDoGrupo(g).includes(hoje));
+  // Se nenhum grupo tem hoje marcado (ou algum grupo não tem dias definidos), mostra todos —
+  // o filtro só entra quando reduz mesmo as opções, nunca esconde tudo.
+  const mostrar = deHoje.length > 0 ? deHoje : grupos;
+  const aviso = deHoje.length > 0 && deHoje.length < grupos.length
+    ? `<div class="save-note" style="margin-bottom:10px;">A mostrar só os grupos de hoje (${hoje}). Precisas de outro? Pede ao teu patrão para contar por ti, ou fala com ele.</div>`
+    : '';
+
+  wrap.innerHTML = aviso + mostrar.map(g => {
     const dias = diasContagemDoGrupo(g);
     const subtitulo = dias.length ? `<div style="font-size:12px;font-weight:400;color:var(--ink-soft);margin-top:2px;">Contar: ${dias.join(', ')}</div>` : '';
     return `<button class="grupo-btn" onclick="selecionarGrupoOperacional('${g.id}')">${g.nome}${subtitulo}</button>`;
