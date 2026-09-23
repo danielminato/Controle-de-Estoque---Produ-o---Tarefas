@@ -3695,6 +3695,22 @@ function fecharCircularidade(produtoResultadoId, ingredienteId){
   return itens.some(ri => fecharCircularidade(produtoResultadoId, ri.ingredienteProdutoId));
 }
 
+// Lista de ingredientes do dropdown, agrupada por categoria (família) e depois por nome,
+// para ser fácil de encontrar num prato com muitos produtos.
+function opcoesIngredienteHtml(produtoResultadoId, selecionadoId){
+  const candidatos = produtos.filter(p => p.id !== produtoResultadoId);
+  const categorias = Array.from(new Set(candidatos.map(p => p.categoria || 'Sem categoria'))).sort((a,b) => a.localeCompare(b));
+  const opt = p => {
+    const custoG = precoPorGrama(p);
+    const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
+    return `<option value="${p.id}" ${selecionadoId===p.id?'selected':''}>${label}</option>`;
+  };
+  return categorias.map(cat => {
+    const doGrupo = candidatos.filter(p => (p.categoria || 'Sem categoria') === cat).sort((a,b) => a.nome.localeCompare(b.nome));
+    return `<optgroup label="${cat}">${doGrupo.map(opt).join('')}</optgroup>`;
+  }).join('');
+}
+
 function renderReceitaItensList(){
   const wrap = document.getElementById('receitaItensList');
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
@@ -3712,11 +3728,7 @@ function renderReceitaItensList(){
   let categoriaAnterior = null;
   wrap.innerHTML = ordem.map(idx => {
     const ri = receitaItensAtuais[idx];
-    const opcoes = produtos.filter(p => p.id !== produtoResultadoId).map(p => {
-      const custoG = precoPorGrama(p);
-      const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
-      return `<option value="${p.id}" ${ri.ingredienteProdutoId===p.id?'selected':''}>${label}</option>`;
-    }).join('');
+    const opcoes = opcoesIngredienteHtml(produtoResultadoId, ri.ingredienteProdutoId);
     const ehBase = idx === receitaBaseIdx;
     const campoPct = ehBase
       ? '<span class="save-note" style="min-width:84px;text-align:center;">100% (é a base)</span>'
