@@ -3628,6 +3628,14 @@ function receitaItemFromDb(ri){ return {
   quantidadeG: Number(ri.quantidade_g)||0, ordem: ri.ordem||0
 };}
 
+// ids das receitas abertas (expandidas) na lista — fecha por padrão para a lista
+// ficar um índice de nomes fácil de rolar, como no seletor de produto da ficha.
+let receitasAbertas = new Set();
+function toggleReceitaAberta(id){
+  if(receitasAbertas.has(id)) receitasAbertas.delete(id); else receitasAbertas.add(id);
+  renderReceitas();
+}
+
 function renderReceitas(){
   const content = document.getElementById('receitasContent');
   if(!content) return;
@@ -3675,16 +3683,16 @@ function renderReceitas(){
               <div class="stat-label">${label}</div>
               <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${v.toFixed(1)}%</div>
             </div>`;
+    const aberto = receitasAbertas.has(r.id);
 
-    return `
-      <div class="card" style="margin-bottom:14px;">
-        <div class="row between" style="margin-bottom:10px;">
-          <div>
-            <h3 style="font-size:17px;">${p ? p.nome : '(produto removido)'}</h3>
-            <div class="save-note">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''} · ${eur(custoPorcao)}/porção${custoExtraDeliveryTotal > 0 ? ' (+ ' + eur(custoExtraDeliveryTotal / util) + ' só no delivery)' : ''}${pr ? ' · Mínimo sugerido c/ IVA: ' + eur(pr.final) : ''}</div>
-            ${retLoja || retDel ? `<div class="save-note">${retLoja ? 'Vendes na loja por ' + eur(r.precoVenda) + ' → retorno ' + eur(retLoja.retorno) + '/porção' : ''}${retLoja && retDel ? ' · ' : ''}${retDel ? 'Delivery por ' + eur(precoDelivery) + ' → retorno ' + eur(retDel.retorno) + '/porção' : ''}</div>` : ''}
-          </div>
-          <div class="row" style="gap:20px;">
+    const resumoLinha = `${eur(custoPorcao)}/porção` +
+      (retLoja ? ' · loja ' + eur(r.precoVenda) + ' → retorno ' + eur(retLoja.retorno) : '') +
+      (retDel ? ' · delivery ' + eur(precoDelivery) + ' → retorno ' + eur(retDel.retorno) : '');
+
+    const detalhe = !aberto ? '' : `
+        <div style="padding:0 18px 18px;border-top:1px solid var(--line);">
+          <div class="save-note" style="margin:12px 0;">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''}${custoExtraDeliveryTotal > 0 ? ' · +' + eur(custoExtraDeliveryTotal / util) + ' só no delivery' : ''}${pr ? ' · Mínimo sugerido c/ IVA: ' + eur(pr.final) : ''}</div>
+          <div class="row" style="gap:20px;margin-bottom:12px;">
             <div style="text-align:right;">
               <div class="stat-label">Custo total</div>
               <div class="stat" style="font-size:17px;">${eur(custoTotal)}</div>
@@ -3696,35 +3704,45 @@ function renderReceitas(){
             ${retLoja ? cmvBadge('CMV loja', retLoja.cmvReal) : ''}
             ${retDel ? cmvBadge('CMV delivery', retDel.cmvReal) : ''}
           </div>
+          <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Custo/g</th><th>Custo</th></tr></thead>
+          <tbody>${(() => {
+            const NOME_CAMADA = ['🔻 Base', '▪️ Recheio', '🔺 Finalização', '🗑️ Descartáveis'];
+            let camadaAnterior = null;
+            return itens.map(ri => {
+              const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
+              const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
+              const rend = rendPctDoItem(r, ri);
+              const ehBaseAqui = r.extra && r.extra.baseIdx === (ri.ordem||0);
+              const camadaAtual = camadaDoItem(ri);
+              const cabecalho = camadaAtual !== camadaAnterior
+                ? `<tr><td colspan="5" style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;padding-top:10px;border-bottom:none;">${NOME_CAMADA[camadaAtual] || ''}</td></tr>`
+                : '';
+              camadaAnterior = camadaAtual;
+              return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
+                <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
+                <td>${ri.quantidadeG}g</td>
+                <td>${rend}%</td>
+                <td>${custoG.toFixed(4)}€</td>
+                <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
+              </tr>`;
+            }).join('');
+          })()}</tbody></table>
+          ${r.extra && r.extra.modoFazer ? `<div class="save-note" style="margin-top:10px;white-space:pre-wrap;"><strong>Modo de fazer:</strong> ${r.extra.modoFazer.replace(/</g,'&lt;')}</div>` : ''}
+        </div>`;
+
+    return `
+      <div class="card" style="margin-bottom:10px;padding:0;">
+        <div class="row between" style="padding:14px 18px;cursor:pointer;" onclick="toggleReceitaAberta('${r.id}')">
           <div>
+            <h3 style="font-size:16px;">${aberto ? '▾' : '▸'} ${p ? p.nome : '(produto removido)'}</h3>
+            <div class="save-note">${resumoLinha}</div>
+          </div>
+          <div onclick="event.stopPropagation();">
             <button class="icon-btn" onclick="openReceitaModal('${r.id}')">editar</button>
             <button class="icon-btn danger" onclick="deleteReceita('${r.id}')">remover</button>
           </div>
         </div>
-        <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Custo/g</th><th>Custo</th></tr></thead>
-        <tbody>${(() => {
-          const NOME_CAMADA = ['🔻 Base', '▪️ Recheio', '🔺 Finalização', '🗑️ Descartáveis'];
-          let camadaAnterior = null;
-          return itens.map(ri => {
-            const ip = produtos.find(x => x.id === ri.ingredienteProdutoId);
-            const custoG = custoPorGramaProduto(ri.ingredienteProdutoId);
-            const rend = rendPctDoItem(r, ri);
-            const ehBaseAqui = r.extra && r.extra.baseIdx === (ri.ordem||0);
-            const camadaAtual = camadaDoItem(ri);
-            const cabecalho = camadaAtual !== camadaAnterior
-              ? `<tr><td colspan="5" style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;padding-top:10px;border-bottom:none;">${NOME_CAMADA[camadaAtual] || ''}</td></tr>`
-              : '';
-            camadaAnterior = camadaAtual;
-            return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
-              <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
-              <td>${ri.quantidadeG}g</td>
-              <td>${rend}%</td>
-              <td>${custoG.toFixed(4)}€</td>
-              <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
-            </tr>`;
-          }).join('');
-        })()}</tbody></table>
-        ${r.extra && r.extra.modoFazer ? `<div class="save-note" style="margin-top:10px;white-space:pre-wrap;"><strong>Modo de fazer:</strong> ${r.extra.modoFazer.replace(/</g,'&lt;')}</div>` : ''}
+        ${detalhe}
       </div>`;
   };
 
@@ -3734,9 +3752,10 @@ function renderReceitas(){
     return;
   }
 
+  const nomeDaReceita = r => { const p = produtos.find(x => x.id === r.produtoId); return (p && p.nome) || ''; };
   const gruposParaMostrar = filtroAtivo ? [filtroAtivo] : gruposExistentes;
   content.innerHTML = gruposParaMostrar.map(titulo => {
-    const desteGrupo = visiveis.filter(r => grupoDaReceita(r) === titulo);
+    const desteGrupo = visiveis.filter(r => grupoDaReceita(r) === titulo).sort((a,b) => nomeDaReceita(a).localeCompare(nomeDaReceita(b)));
     if(desteGrupo.length === 0) return '';
     return `<h3 style="font-size:16px;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);">${titulo}</h3>` + desteGrupo.map(cardDeReceita).join('');
   }).join('');
@@ -3905,23 +3924,24 @@ function renderReceitaItensList(){
   const wrap = document.getElementById('receitaItensList');
   const produtoResultadoId = document.getElementById('receitaProdutoId').value;
 
-  // Mostra por categoria (família) e depois por nome, para ser mais fácil de encontrar num
-  // prato com muitos ingredientes — mas os índices usados nos botões/inputs continuam a
-  // apontar para a posição REAL em receitaItensAtuais (a ordem de gravação não muda).
-  // Uma linha sem ingrediente escolhido ainda ("— escolhe o ingrediente —") ordena sempre
-  // no fim, para uma linha recém-criada aparecer previsível no fundo da lista.
-  const categoriaDoItem = ri => { if(!ri.ingredienteProdutoId) return null; const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.categoria) || 'Sem categoria'; };
+  // Mostra na mesma ordem da ficha pronta — base, recheio, finalização, descartáveis —
+  // para o que se vê ao editar já ser a pré-visualização da montagem final. Os índices
+  // usados nos botões/inputs continuam a apontar para a posição REAL em receitaItensAtuais
+  // (a ordem de gravação não muda). Uma linha sem ingrediente escolhido ainda ("— escolhe
+  // o ingrediente —") ordena sempre no fim, para uma linha recém-criada aparecer no fundo.
+  const NOME_CAMADA = ['🔻 Base', '▪️ Recheio', '🔺 Finalização', '🗑️ Descartáveis'];
+  const camadaDoItemAtual = ri => (ri.camada !== undefined && ri.camada !== null) ? ri.camada : camadaPadraoDoItem(ri);
   const nomeDoItem = ri => { const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.nome) || ''; };
   const ordem = receitaItensAtuais.map((ri, idx) => idx).sort((a, b) => {
     const ra = receitaItensAtuais[a], rb = receitaItensAtuais[b];
-    const ca = categoriaDoItem(ra), cb = categoriaDoItem(rb);
-    if(ca === null && cb === null) return 0;
-    if(ca === null) return 1;
-    if(cb === null) return -1;
-    return ca.localeCompare(cb) || nomeDoItem(ra).localeCompare(nomeDoItem(rb));
+    const semA = !ra.ingredienteProdutoId, semB = !rb.ingredienteProdutoId;
+    if(semA && semB) return 0;
+    if(semA) return 1;
+    if(semB) return -1;
+    return camadaDoItemAtual(ra) - camadaDoItemAtual(rb) || nomeDoItem(ra).localeCompare(nomeDoItem(rb));
   });
 
-  let categoriaAnterior = null;
+  let camadaAnterior = null;
   wrap.innerHTML = ordem.map(idx => {
     const ri = receitaItensAtuais[idx];
     const opcoes = opcoesIngredienteHtml(produtoResultadoId, ri.ingredienteProdutoId);
@@ -3930,11 +3950,11 @@ function renderReceitaItensList(){
       ? '<span class="save-note" style="min-width:84px;text-align:center;">100% (é a base)</span>'
       : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
 
-    const categoriaAtual = categoriaDoItem(ri);
-    const cabecalho = (categoriaAtual !== null && categoriaAtual !== categoriaAnterior)
-      ? `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;">${categoriaAtual}</div>`
+    const camadaAtual = ri.ingredienteProdutoId ? camadaDoItemAtual(ri) : null;
+    const cabecalho = (camadaAtual !== null && camadaAtual !== camadaAnterior)
+      ? `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;">${NOME_CAMADA[camadaAtual] || ''}</div>`
       : '';
-    categoriaAnterior = categoriaAtual;
+    camadaAnterior = camadaAtual;
 
     return cabecalho + `
       <div class="price-row" style="flex-wrap:wrap;${ehBase ? 'background:var(--cream);border-radius:8px;padding:6px 6px;margin-left:-6px;margin-right:-6px;' : ''}">
@@ -3982,10 +4002,27 @@ function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
   const item = receitaItensAtuais[idx];
   item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct' || campo === 'camada') ? (parseFloat(valor)||0) : valor;
-  if(campo === 'camada'){ atualizarPreviewCustoReceita(); return; }
+  if(campo === 'camada'){
+    // muda de grupo (base/recheio/finalização/descartáveis) — re-renderiza para a linha
+    // já aparecer no lugar novo, com destaque, em vez de ficar com a posição desatualizada.
+    renderReceitaItensList();
+    const linha = document.getElementById('ri-q-' + idx)?.closest('.price-row');
+    if(linha){
+      linha.scrollIntoView({behavior: 'smooth', block: 'center'});
+      linha.style.outline = '2px solid var(--terracotta)';
+      setTimeout(() => { linha.style.outline = ''; }, 1200);
+    }
+    return;
+  }
   if(campo === 'ingredienteProdutoId'){
     if(idx !== receitaBaseIdx){ item.quantidadeG = quantidadeSugeridaDoProduto(valor); item.pct = 0; }
     renderReceitaItensList();
+    const linha = document.getElementById('ri-q-' + idx)?.closest('.price-row');
+    if(linha){
+      linha.scrollIntoView({behavior: 'smooth', block: 'center'});
+      linha.style.outline = '2px solid var(--terracotta)';
+      setTimeout(() => { linha.style.outline = ''; }, 1200);
+    }
     return;
   }
 
