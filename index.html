@@ -2284,10 +2284,38 @@ function openProdutoModal(id){
   document.getElementById('modalProduto').classList.add('open');
 }
 
+// Distância de edição simples (Levenshtein) — usada só para detectar nomes de produto
+// muito parecidos (ex.: "Lucifera"/"Licifera", um erro de digitação que gerou duplicado
+// no passado) e avisar antes de criar mais um sem querer.
+function distanciaEdicao(a, b){
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const d = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) d[i][0]=i;
+  for(let j=0;j<=n;j++) d[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
+  return d[m][n];
+}
+
+// Pergunta antes de criar um produto novo se já existe outro com nome igual ou muito
+// parecido. Devolve true para seguir em frente (sem duplicado parecido, ou confirmado).
+async function confirmarNaoDuplicadoProduto(nome, idParaIgnorar){
+  const alvo = nome.trim();
+  if(!alvo) return true;
+  const parecido = produtos.find(p =>
+    p.id !== idParaIgnorar && p.nome && p.nome.trim() &&
+    (p.nome.trim().toLowerCase() === alvo.toLowerCase() || distanciaEdicao(p.nome.trim(), alvo) <= 2)
+  );
+  if(!parecido) return true;
+  return await showConfirm(`Já existe um produto parecido: "${parecido.nome}". Tens a certeza que "${alvo}" é mesmo um produto diferente (não um duplicado/erro de digitação)?`);
+}
+
 async function saveProduto(){
   const id = document.getElementById('produtoId').value;
   const nome = document.getElementById('produtoNome').value.trim();
   if(!nome){ await showAlert('Indica o nome do produto'); return; }
+  if(!(await confirmarNaoDuplicadoProduto(nome, id))) return;
 
   const precos = Array.from(document.querySelectorAll('#precosList .price-row')).map(row => {
     const fornecedorId = row.querySelector('.preco-fornecedor').value;
@@ -3871,6 +3899,7 @@ async function criarProdutoRapidoParaReceita(){
   const sel = document.getElementById('receitaProdutoId');
   const nome = prompt('Nome do novo produto:');
   if(!nome || !nome.trim()){ sel.value = ''; onReceitaProdutoChange(); return; }
+  if(!(await confirmarNaoDuplicadoProduto(nome, null))){ sel.value = ''; onReceitaProdutoChange(); return; }
 
   const ehSemiPreparado = await showConfirm(`"${nome.trim()}" é um semi-preparado (molho, massa, base — vira ingrediente de outros pratos)?\n\nConfirmar = semi-preparado\nCancelar = prato final (vendido diretamente ao cliente)`);
 
