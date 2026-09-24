@@ -777,6 +777,9 @@
         <label class="field">Preço publicado — delivery (c/ IVA)
           <input type="number" id="receitaPrecoVendaDelivery" step="any" placeholder="ex.: 18.00" oninput="atualizarPreviewCustoReceita()">
         </label>
+        <label class="field">…ou escolhe o CMV alvo do delivery (%)
+          <input type="number" id="receitaDelCmvPct" step="any" placeholder="ex.: 20" title="Escreve o CMV que queres no delivery e o preço a publicar é preenchido ao lado (com comissão, IVA da comissão e caixa já contados)." oninput="aplicarCmvDelivery()">
+        </label>
       </div>
       <label class="save-note" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:10px;" title="Soma o custo da caixa de pizza (produto cadastrado em Produtos) só na conta do delivery">
         <input type="checkbox" id="receitaIncluirCaixa" onchange="atualizarPreviewCustoReceita()"> 📦 Incluir custo da caixa de pizza no delivery
@@ -3891,6 +3894,7 @@ function openReceitaModal(id){
   document.getElementById('receitaPrecoVendaDelivery').value = x.precoVendaDelivery ?? '';
   document.getElementById('receitaDelIvaTaxaPct').value = (x.deliveryIvaTaxaPct !== undefined && x.deliveryIvaTaxaPct !== null && x.deliveryIvaTaxaPct !== '') ? x.deliveryIvaTaxaPct : 23;
   document.getElementById('receitaIncluirCaixa').checked = !!x.incluirCaixaPizza;
+  document.getElementById('receitaDelCmvPct').value = '';
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
   document.getElementById('receitaGrupo').value = x.grupo || '';
   const gruposUsados = Array.from(new Set(receitas.map(rr => (rr.extra && rr.extra.grupo && rr.extra.grupo.trim())).filter(Boolean))).sort();
@@ -4143,6 +4147,20 @@ function custoCaixaPizza(){
   return caixa ? (precoPorGrama(caixa) || 0) : 0;
 }
 
+let ultimoPreviewReceita = null;
+
+// Escolhe o CMV alvo do delivery e preenche o preço a publicar: valor s/ IVA do CMV alvo
+// (custo da porção ÷ CMV) + caixa por cima, depois comissão, IVA da comissão e IVA do prato.
+function aplicarCmvDelivery(){
+  const cmv = parseFloat(document.getElementById('receitaDelCmvPct').value) || 0;
+  if(!ultimoPreviewReceita || cmv <= 0 || cmv >= 100) return;
+  const { custoPorcao, custoExtraDeliveryPorcao, x } = ultimoPreviewReceita;
+  const sIva = custoPorcao / (cmv / 100) + custoExtraDeliveryPorcao;
+  const preco = precoDeliveryParaMesmoCmv(sIva, x);
+  if(preco > 0) document.getElementById('receitaPrecoVendaDelivery').value = preco.toFixed(2);
+  atualizarPreviewCustoReceita();
+}
+
 function atualizarPreviewCustoReceita(){
   const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || somaQuantidadesReceita();
   const custoDoItem = ri => {
@@ -4180,6 +4198,7 @@ function atualizarPreviewCustoReceita(){
     deliveryTaxaPct: num('receitaDelTaxaPct'), deliveryIvaTaxaPct: num('receitaDelIvaTaxaPct')
   };
   const pr = calcularPrecificacao(custoPorcao, x);
+  ultimoPreviewReceita = { custoPorcao, custoExtraDeliveryPorcao, x };
   const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
   set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
 
