@@ -1921,7 +1921,7 @@ function renderProdutos(){
     return `
     <tr>
       <td>${p.codigo || '—'}</td>
-      <td>${p.nome}${p.nota ? ' <span title="'+p.nota+'">ℹ️</span>' : ''}</td>
+      <td>${p.nome}${p.nota ? ' <span title="'+p.nota+'">ℹ️</span>' : ''}${(p.tipo === 'prato_final' || p.tipo === 'semi_preparado') && !receitas.some(r => r.produtoId === p.id) ? ' <span class="badge warn" title="Este produto ainda não tem ficha técnica em Receitas">sem ficha</span>' : ''}</td>
       <td>${p.categoria || '—'}</td>
       <td>${{materia_prima:'Matéria-prima', semi_preparado:'Semi-preparado', prato_final:'Prato final'}[p.tipo] || 'Matéria-prima'}</td>
       <td>${areaBadges(p.areaIds)}</td>
