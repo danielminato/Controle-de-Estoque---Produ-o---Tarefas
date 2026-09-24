@@ -75,6 +75,20 @@
     margin-bottom:-1px;
   }
   nav button.active{color:var(--terracotta-dark);border-bottom-color:var(--terracotta);}
+  #navAreas{background:var(--cream);padding:10px 32px;border-bottom:1px solid var(--line);}
+  #navAreas button{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:8px 18px;border-radius:20px;border-bottom:none;margin-bottom:0;}
+  #navAreas button.active{background:var(--terracotta-dark);color:#fff;}
+  #navGrupos{padding:10px 32px 0;border-bottom:none;}
+  #navGrupos button{font-size:13px;padding:6px 14px;border-radius:14px;border-bottom:none;margin-bottom:0;background:var(--line);color:var(--ink-soft);}
+  #navGrupos button.active{background:var(--terracotta);color:#fff;font-weight:600;}
+  @media (max-width:640px){
+    .topbar{padding:16px 14px;}
+    main{padding:16px 14px;}
+    nav, #navAreas, #navGrupos{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-left:14px;padding-right:14px;}
+    nav button{white-space:nowrap;padding:8px 10px;font-size:13px;}
+    #navAreas button{white-space:nowrap;padding:6px 12px;font-size:12px;}
+    #navGrupos button{white-space:nowrap;padding:5px 10px;font-size:12px;}
+  }
   main{padding:26px 32px;max-width:1100px;}
   .view{display:none;}
   .view.active{display:block;}
@@ -274,19 +288,9 @@
   </div>
 </div>
 
-<nav>
-  <button data-view="produtos" class="active">Produtos</button>
-  <button data-view="fornecedores">Fornecedores</button>
-  <button data-view="areas">Áreas</button>
-  <button data-view="estoque">Estoque</button>
-  <button data-view="contagens">Contagens <span id="navContagensBadge"></span></button>
-  <button data-view="checklists">Checklists</button>
-  <button data-view="producao">Produção</button>
-  <button data-view="receitas">Receitas</button>
-  <button data-view="bebidas">Bebidas</button>
-  <button data-view="retorno">Taxa de Retorno</button>
-  <button data-view="utilizadores">Utilizadores</button>
-</nav>
+<nav id="navAreas"></nav>
+<nav id="navGrupos"></nav>
+<nav id="navTabs"></nav>
 
 <main>
 
@@ -550,6 +554,11 @@
         <tbody id="utilizadoresBody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- ÁREA AINDA SEM ABAS (ex.: Marketing) -->
+  <div class="view" id="view-vazio">
+    <div class="empty">Esta área ainda não tem nada por aqui — chegará com o tempo.</div>
   </div>
 
   <div id="printArea" style="display:none;"></div>
@@ -2813,17 +2822,115 @@ async function importSeedData(){
 }
 
 // ---------- NAV / MODAL ----------
-document.querySelectorAll('nav button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+// Estrutura de navegação em 2-3 níveis: grande área (Administrativo/Financeiro/
+// Operacional/Marketing) → dentro de Operacional, subgrupos (Estoque/Boas Práticas/
+// Produção) → as abas de sempre. Pensado para crescer: um "app" novo (ex.: escalas e
+// fluxos) entra só como mais uma área ou aba aqui, sem mexer nas views existentes.
+const NAV_AREAS = {
+  administrativo: { label: 'Administrativo', tabs: [
+    { view: 'utilizadores', label: 'Utilizadores' },
+  ]},
+  financeiro: { label: 'Financeiro', tabs: [
+    { view: 'retorno', label: 'Taxa de Retorno' },
+  ]},
+  operacional: { label: 'Operacional', grupos: [
+    { key: 'estoque', label: 'Estoque', tabs: [
+      { view: 'produtos', label: 'Produtos' },
+      { view: 'fornecedores', label: 'Fornecedores' },
+      { view: 'areas', label: 'Áreas' },
+      { view: 'estoque', label: 'Estoque' },
+      { view: 'contagens', label: 'Contagens <span id="navContagensBadge"></span>' },
+    ]},
+    { key: 'boaspraticas', label: 'Boas Práticas', tabs: [
+      { view: 'checklists', label: 'Checklists' },
+    ]},
+    { key: 'producao', label: 'Produção', tabs: [
+      { view: 'producao', label: 'Produção' },
+      { view: 'receitas', label: 'Receitas' },
+      { view: 'bebidas', label: 'Bebidas' },
+    ]},
+  ]},
+  marketing: { label: 'Marketing', tabs: [] },
+};
+
+let navAreaAtual = 'operacional';
+let navGrupoAtual = 'estoque';
+let navViewAtual = 'produtos';
+
+function tabsDaAreaAtual(){
+  const area = NAV_AREAS[navAreaAtual];
+  if(!area) return [];
+  if(area.grupos){
+    const grupo = area.grupos.find(g => g.key === navGrupoAtual) || area.grupos[0];
+    return grupo ? grupo.tabs : [];
+  }
+  return area.tabs || [];
+}
+
+function ativarView(view){
+  navViewAtual = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if(el) el.classList.add('active');
+  if(view === 'estoque') renderEstoque();
+  if(view === 'bebidas') renderBebidas();
+  if(view === 'retorno') renderRetorno();
+}
+
+function renderNav(){
+  document.getElementById('navAreas').innerHTML = Object.keys(NAV_AREAS).map(key =>
+    `<button data-area="${key}" class="${key === navAreaAtual ? 'active' : ''}">${NAV_AREAS[key].label}</button>`
+  ).join('');
+
+  const area = NAV_AREAS[navAreaAtual];
+  const navGrupos = document.getElementById('navGrupos');
+  if(area.grupos){
+    if(!area.grupos.some(g => g.key === navGrupoAtual)) navGrupoAtual = area.grupos[0].key;
+    navGrupos.style.display = 'flex';
+    navGrupos.innerHTML = area.grupos.map(g =>
+      `<button data-grupo="${g.key}" class="${g.key === navGrupoAtual ? 'active' : ''}">${g.label}</button>`
+    ).join('');
+  }else{
+    navGrupos.style.display = 'none';
+    navGrupos.innerHTML = '';
+  }
+
+  const tabs = tabsDaAreaAtual();
+  const navTabs = document.getElementById('navTabs');
+  if(tabs.length === 0){
+    navTabs.innerHTML = '';
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-' + btn.dataset.view).classList.add('active');
-    if(btn.dataset.view === 'estoque') renderEstoque();
-    if(btn.dataset.view === 'bebidas') renderBebidas();
-    if(btn.dataset.view === 'retorno') renderRetorno();
-  });
+    document.getElementById('view-vazio').classList.add('active');
+    return;
+  }
+  if(!tabs.some(t => t.view === navViewAtual)) navViewAtual = tabs[0].view;
+  navTabs.innerHTML = tabs.map(t =>
+    `<button data-view="${t.view}" class="${t.view === navViewAtual ? 'active' : ''}">${t.label}</button>`
+  ).join('');
+  ativarView(navViewAtual);
+}
+
+document.getElementById('navAreas').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-area]');
+  if(!btn) return;
+  navAreaAtual = btn.dataset.area;
+  navGrupoAtual = null;
+  renderNav();
 });
+document.getElementById('navGrupos').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-grupo]');
+  if(!btn) return;
+  navGrupoAtual = btn.dataset.grupo;
+  renderNav();
+});
+document.getElementById('navTabs').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-view]');
+  if(!btn) return;
+  navViewAtual = btn.dataset.view;
+  renderNav();
+});
+renderNav();
+
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 let usuarioAtualEmail = null;
