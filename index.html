@@ -4155,7 +4155,7 @@ function aplicarCmvDelivery(){
   const cmv = parseFloat(document.getElementById('receitaDelCmvPct').value) || 0;
   if(!ultimoPreviewReceita || cmv <= 0 || cmv >= 100) return;
   const { custoPorcao, custoExtraDeliveryPorcao, x } = ultimoPreviewReceita;
-  const sIva = custoPorcao / (cmv / 100) + custoExtraDeliveryPorcao;
+  const sIva = (custoPorcao + custoExtraDeliveryPorcao) / (cmv / 100);
   const preco = precoDeliveryParaMesmoCmv(sIva, x);
   if(preco > 0) document.getElementById('receitaPrecoVendaDelivery').value = preco.toFixed(2);
   atualizarPreviewCustoReceita();
@@ -4216,9 +4216,9 @@ function atualizarPreviewCustoReceita(){
     // já cobrindo o custo extra do delivery (ex.: caixa de pizza), se houver.
     // Se já publicaste um preço de loja, usa esse (o retorno real de agora); senão usa
     // o mínimo teórico do CMV alvo.
-    // A caixa (custo só do delivery) entra por cima do valor que a loja já dá — não entra
-    // na conta do CMV alvo.
-    const sIvaMinimoDelivery = pr.sIva + custoExtraDeliveryPorcao;
+    // O custo do delivery inclui a caixa, e o CMV alvo é calculado sobre esse custo — assim
+    // o CMV real do delivery fica igual ao alvo (e a taxa de retorno igual à da loja).
+    const sIvaMinimoDelivery = calcularPrecificacao(custoPorcaoDelivery, x).sIva;
     const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) + custoExtraDeliveryPorcao : sIvaMinimoDelivery;
     const sugestaoDel = precoDeliveryParaMesmoCmv(sIvaReferencia, x);
     const minimoDelCmv = precoDeliveryParaMesmoCmv(sIvaMinimoDelivery, x);
