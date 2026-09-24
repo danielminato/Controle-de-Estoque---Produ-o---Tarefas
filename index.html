@@ -2040,22 +2040,28 @@ function ultimoZeroDoGrupo(g){
   return zeros.reduce((max, c) => new Date(c.criado_em) > new Date(max) ? c.criado_em : max, zeros[0].criado_em);
 }
 
-function areasRecontadasDesdeUltimoZero(g){
+// Contagens finalizadas "reais" (com pelo menos um item físico contado — não um registo
+// automático deixado por um zeramento anterior) deste grupo desde a última vez que um
+// pedido foi finalizado.
+function contagensReaisDesdeUltimoZero(g){
   const t0 = ultimoZeroDoGrupo(g);
-  return new Set(
-    contagens
-      .filter(c => c.grupo_id === g.id && c.status === 'finalizada' && c.area && (!t0 || new Date(c.criado_em) > new Date(t0)))
-      // ignora submissões com tudo a 0 — não representam uma contagem física real
-      // (ex.: registos automáticos deixados por um zeramento anterior)
-      .filter(c => (c.itens||[]).some(it => (Number(it.quantidade)||0) > 0))
-      .map(c => c.area)
+  return contagens.filter(c =>
+    c.grupo_id === g.id && c.status === 'finalizada' && c.area &&
+    (!t0 || new Date(c.criado_em) > new Date(t0)) &&
+    (c.itens||[]).some(it => (Number(it.quantidade)||0) > 0)
   );
 }
 
-function produtoAreasTodasRecontadas(p, recontadas){
+// Um produto só conta como recontado se ELE MESMO aparecer nos itens de uma contagem real
+// da(s) área(s) dele — não basta a área em geral ter tido alguma contagem. Um produto criado
+// ou movido para a área depois da última contagem física nunca apareceria nela, e ficaria
+// com o "em estoque" desatualizado (às vezes 0 de fábrica) sem que isso fosse detectado.
+function produtoFoiRecontado(p, contagensReais){
   const areasProduto = (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean);
   if(areasProduto.length === 0) return true;
-  return areasProduto.every(a => recontadas.has(a));
+  return areasProduto.every(area =>
+    contagensReais.some(c => c.area === area && (c.itens||[]).some(it => it.produto_id === p.id))
+  );
 }
 
 function fornecedorEfetivo(p){
@@ -2386,17 +2392,14 @@ function renderEstoque(){
       return;
     }
     const g = grupos.find(x => x.id === grupoId);
-    const recontadas = areasRecontadasDesdeUltimoZero(g);
+    const contagensReais = contagensReaisDesdeUltimoZero(g);
     const candidatos = linhas.filter(l => l.aComprar > 0 && g.fornecedorIds.includes(l.fornecedorCompraId));
-    const paraComprar = candidatos.filter(l => produtoAreasTodasRecontadas(l.p, recontadas));
-    const escondidosPorNaoContado = candidatos.filter(l => !produtoAreasTodasRecontadas(l.p, recontadas));
+    const paraComprar = candidatos.filter(l => produtoFoiRecontado(l.p, contagensReais));
+    const escondidosPorNaoContado = candidatos.filter(l => !produtoFoiRecontado(l.p, contagensReais));
 
-    const areasNaoContadas = Array.from(new Set(
-      escondidosPorNaoContado.flatMap(l => (l.p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
-        .filter(a => !recontadas.has(a))
-    ));
-    const avisoAreas = areasNaoContadas.length > 0
-      ? `<div class="save-note" style="margin-bottom:14px;border-color:var(--danger-text);color:var(--danger-text);">⚠️ ${escondidosPorNaoContado.length} produto(s) escondido(s) desta lista por pertencerem a área(s) ainda não recontadas desde a última finalização deste grupo: <strong>${areasNaoContadas.join(', ')}</strong>. Pede para recontarem essas áreas antes de comprar.</div>`
+    const nomesAreasDoProduto = p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean).join('/') || '—';
+    const avisoAreas = escondidosPorNaoContado.length > 0
+      ? `<div class="save-note" style="margin-bottom:14px;border-color:var(--danger-text);color:var(--danger-text);">⚠️ ${escondidosPorNaoContado.length} produto(s) escondido(s) desta lista por ainda não terem sido recontados desde a última finalização deste grupo: <strong>${escondidosPorNaoContado.map(l => `${l.p.nome} (${nomesAreasDoProduto(l.p)})`).join(', ')}</strong>. Pede para recontarem antes de comprar.</div>`
       : '';
 
     if(paraComprar.length === 0){
@@ -2662,25 +2665,21 @@ async function finalizarGrupoCompra(grupoId){
   const todosAfetados = produtos.filter(p => g.fornecedorIds.includes(fornecedorEfetivo(p)));
   if(todosAfetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
 
-  // Só zera produtos cujas áreas foram realmente recontadas desde o último "Finalizar pedido"
-  // deste grupo — produtos de áreas ainda não recontadas mantêm o valor atual, para não
+  // Só zera produtos que ELES MESMOS foram realmente recontados desde o último "Finalizar
+  // pedido" deste grupo — produtos ainda não recontados mantêm o valor atual, para não
   // aparecerem como "sem estoque"/precisando de compra total sem uma contagem real por trás.
-  const recontadas = areasRecontadasDesdeUltimoZero(g);
-  const afetados = todosAfetados.filter(p => produtoAreasTodasRecontadas(p, recontadas));
+  const contagensReais = contagensReaisDesdeUltimoZero(g);
+  const afetados = todosAfetados.filter(p => produtoFoiRecontado(p, contagensReais));
   const ignorados = todosAfetados.filter(p => !afetados.includes(p));
 
   if(afetados.length === 0){
-    await showAlert(`Nenhuma área do grupo "${g.nome}" foi recontada desde a última finalização — nada para zerar. Pede para recontarem as áreas primeiro.`);
+    await showAlert(`Nenhum produto do grupo "${g.nome}" foi recontado desde a última finalização — nada para zerar. Pede para recontarem as áreas primeiro.`);
     return;
   }
 
   let aviso = '';
   if(ignorados.length > 0){
-    const areasIgnoradas = Array.from(new Set(
-      ignorados.flatMap(p => (p.areaIds||[]).map(id => nomeArea(id)).filter(Boolean))
-        .filter(a => !recontadas.has(a))
-    ));
-    aviso = `\n\n⚠️ ${ignorados.length} produto(s) NÃO serão zerados por pertencerem a área(s) ainda não recontadas desde a última finalização: ${areasIgnoradas.join(', ')}. Esses mantêm o valor atual em estoque.`;
+    aviso = `\n\n⚠️ ${ignorados.length} produto(s) NÃO serão zerados por ainda não terem sido recontados: ${ignorados.map(p => p.nome).join(', ')}. Esses mantêm o valor atual em estoque.`;
   }
 
   const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em ${afetados.length} produto(s) do grupo "${g.nome}" (das áreas já recontadas), para a próxima contagem começar do zero.${aviso}\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
