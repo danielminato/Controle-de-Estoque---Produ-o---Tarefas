@@ -1258,14 +1258,18 @@ function produtoToDb(p){ return {
   area_ids: p.areaIds||[], precos: p.precos||[], qtd_minima: p.qtdMinima||0, qtd_atual: p.qtdAtual||0,
   fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null,
   embalagem_qtd: p.embalagemQtd || null, embalagem_unidade: p.embalagemUnidade || null,
-  embalagem_confirmada: !!p.embalagemConfirmada, densidade: p.densidade || 1
+  embalagem_confirmada: !!p.embalagemConfirmada, densidade: p.densidade || 1,
+  // só envia "precificacao" se a coluna existir no banco (veio do banco com essa chave) —
+  // senão gravar todos os produtos falharia por coluna inexistente.
+  ...(p.precificacao !== undefined ? { precificacao: p.precificacao } : {})
 };}
 function produtoFromDb(r){ return {
   id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
   areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
   fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || '',
   embalagemQtd: r.embalagem_qtd != null ? Number(r.embalagem_qtd) : null, embalagemUnidade: r.embalagem_unidade || '',
-  embalagemConfirmada: !!r.embalagem_confirmada, densidade: r.densidade != null ? Number(r.densidade) : 1
+  embalagemConfirmada: !!r.embalagem_confirmada, densidade: r.densidade != null ? Number(r.densidade) : 1,
+  ...('precificacao' in r ? { precificacao: r.precificacao || {} } : {})
 };}
 function grupoToDb(g){ return {
   id:g.id, nome:g.nome, fornecedor_ids: g.fornecedorIds||[],
@@ -4339,8 +4343,29 @@ let bebidasEstado = {};
 let bebidasGlobal = { comissaoPct: 30, ivaComissaoPct: 23 };
 
 function estadoBebida(produtoId){
-  if(!bebidasEstado[produtoId]) bebidasEstado[produtoId] = { cmvPct: 30, ivaPct: 23, precoCobrado: '' };
+  if(!bebidasEstado[produtoId]){
+    const p = produtos.find(x => x.id === produtoId);
+    const s = (p && p.precificacao) || {};
+    bebidasEstado[produtoId] = {
+      cmvPct: s.cmvPct ?? 30, ivaPct: s.ivaPct ?? 23,
+      precoCobrado: s.precoCobrado ?? '', precoDelivery: s.precoDelivery ?? ''
+    };
+  }
   return bebidasEstado[produtoId];
+}
+
+// Grava os preços da bebida no banco (coluna "precificacao" do produto), com pequena espera
+// para não gravar a cada tecla. Só funciona depois de a coluna existir no Supabase.
+const bebidasGravarTimers = {};
+function gravarPrecificacaoBebida(produtoId){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p || p.precificacao === undefined) return;
+  p.precificacao = { ...estadoBebida(produtoId) };
+  clearTimeout(bebidasGravarTimers[produtoId]);
+  bebidasGravarTimers[produtoId] = setTimeout(async () => {
+    try{ await sbUpdateRow('produtos', produtoId, { precificacao: p.precificacao }); }
+    catch(e){ avisarErroGravar(); }
+  }, 700);
 }
 
 function renderBebidas(){
@@ -4352,7 +4377,8 @@ function renderBebidas(){
     return;
   }
 
-  content.innerHTML = `
+  const semColuna = produtos.length > 0 && produtos[0].precificacao === undefined;
+  content.innerHTML = (semColuna ? `<div class="save-note" style="margin-bottom:14px;border-color:var(--danger-text);color:var(--danger-text);">⚠️ Os preços das bebidas ainda NÃO ficam guardados: falta criar a coluna "precificacao" na tabela produtos do Supabase.</div>` : '') + `
     <div class="card" style="background:var(--cream);margin-bottom:14px;">
       <div class="field-row">
         <label class="field">% Comissão da plataforma (delivery)<input type="number" id="bebComissaoPct" step="any" value="${bebidasGlobal.comissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
@@ -4367,6 +4393,7 @@ function renderBebidas(){
         <th title="Sugerido s/IVA × (1+%IVA)">Sugerido c/IVA</th>
         <th>Preço que cobras (c/IVA)</th><th>CMV real</th><th>Retorno</th>
         <th title="Preço a publicar no delivery para dar o mesmo retorno do preço que cobras (ou do sugerido, se ainda não preencheste)">Sugestão delivery (c/IVA)</th>
+        <th>Preço delivery publicado (c/IVA)</th><th>CMV delivery</th><th>Retorno delivery</th>
       </tr></thead>
       <tbody>${bebidas.map(p => linhaBebidaHtml(p)).join('')}</tbody>
     </table>
@@ -4379,7 +4406,7 @@ function linhaBebidaHtml(p){
   const est = estadoBebida(p.id);
   const custo = precoPorGrama(p);
   if(custo == null){
-    return `<tr><td>${p.nome}</td><td colspan="9" class="save-note">sem preço/embalagem definida — completa em Produtos</td></tr>`;
+    return `<tr><td>${p.nome}</td><td colspan="12" class="save-note">sem preço/embalagem definida — completa em Produtos</td></tr>`;
   }
   return `<tr id="beb-row-${p.id}">
     <td>${p.nome}</td>
@@ -4392,13 +4419,17 @@ function linhaBebidaHtml(p){
     <td id="beb-cmvreal-${p.id}" style="font-weight:600;">—</td>
     <td id="beb-retorno-${p.id}" style="font-weight:600;">—</td>
     <td id="beb-delivery-${p.id}">—</td>
+    <td><input type="number" step="any" placeholder="ex.: 3.10" value="${est.precoDelivery}" style="max-width:80px;" oninput="atualizarBebidaEstado('${p.id}','precoDelivery',this.value)"></td>
+    <td id="beb-cmvdel-${p.id}" style="font-weight:600;">—</td>
+    <td id="beb-retdel-${p.id}" style="font-weight:600;">—</td>
   </tr>`;
 }
 
 function atualizarBebidaEstado(produtoId, campo, valor){
   const est = estadoBebida(produtoId);
-  est[campo] = campo === 'precoCobrado' ? valor : (parseFloat(valor) || 0);
+  est[campo] = (campo === 'precoCobrado' || campo === 'precoDelivery') ? valor : (parseFloat(valor) || 0);
   atualizarLinhaBebida(produtoId);
+  gravarPrecificacaoBebida(produtoId);
 }
 
 function atualizarComissaoGlobalBebidas(){
@@ -4436,6 +4467,20 @@ function atualizarLinhaBebida(produtoId){
 
   const sugestaoDelivery = precoDeliveryParaMesmoCmv(sIvaReferencia, { ivaPct: est.ivaPct, deliveryTaxaPct: bebidasGlobal.comissaoPct, deliveryIvaTaxaPct: bebidasGlobal.ivaComissaoPct });
   set('beb-delivery-' + produtoId, sugestaoDelivery > 0 ? eur(sugestaoDelivery) : '—');
+
+  const precoDel = parseFloat(est.precoDelivery) || 0;
+  if(precoDel > 0){
+    const retDel = calcularRetornoReal(custo, precoDel, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: bebidasGlobal.comissaoPct, ivaComissaoPct: bebidasGlobal.ivaComissaoPct });
+    const cmvDelEl = document.getElementById('beb-cmvdel-' + produtoId);
+    cmvDelEl.textContent = retDel.cmvReal.toFixed(1) + '%';
+    cmvDelEl.style.color = retDel.cmvReal > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
+    const retDelEl = document.getElementById('beb-retdel-' + produtoId);
+    retDelEl.textContent = eur(retDel.retorno);
+    retDelEl.style.color = retDel.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)';
+  }else{
+    set('beb-cmvdel-' + produtoId, '—');
+    set('beb-retdel-' + produtoId, '—');
+  }
 }
 
 // Ranking de retorno: junta pratos (Receitas, só os que já têm preço de venda preenchido)
@@ -4479,11 +4524,17 @@ function renderRetorno(){
     if(custo == null) return;
     const est = estadoBebida(p.id);
     const precoCobrado = parseFloat(est.precoCobrado) || 0;
-    if(precoCobrado <= 0) return;
-    const ret = calcularRetornoReal(custo, precoCobrado, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: 0, ivaComissaoPct: 0 });
-    const loja = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: precoCobrado };
-    // a sugestão de delivery para bebidas é calculada para dar exatamente o mesmo retorno da loja
-    const delivery = { retorno: ret.retorno, pct: loja.pct, cmv: ret.cmvReal, preco: null, igualLoja: true };
+    const precoDelivery = parseFloat(est.precoDelivery) || 0;
+    if(precoCobrado <= 0 && precoDelivery <= 0) return;
+    let loja = null, delivery = null;
+    if(precoCobrado > 0){
+      const ret = calcularRetornoReal(custo, precoCobrado, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: 0, ivaComissaoPct: 0 });
+      loja = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: precoCobrado };
+    }
+    if(precoDelivery > 0){
+      const ret = calcularRetornoReal(custo, precoDelivery, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: bebidasGlobal.comissaoPct, ivaComissaoPct: bebidasGlobal.ivaComissaoPct });
+      delivery = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: precoDelivery };
+    }
     linhas.push({ nome: p.nome, grupo: 'Bebidas', loja, delivery });
   });
 
