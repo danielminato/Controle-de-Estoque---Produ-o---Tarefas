@@ -2035,7 +2035,14 @@ function areasDoGrupo(g){
 }
 
 function ultimoZeroDoGrupo(g){
-  const zeros = contagens.filter(c => c.grupo_id === '' && c.grupo_nome === `${g.nome} (finalização de pedido)`);
+  // Reconhece o marcador de "já finalizei este pedido" por grupo_id (robusto a
+  // renomeações do grupo depois do evento) OU pelo nome exato antigo (para os registos
+  // de antes desta correção, que foram gravados sem grupo_id e ficariam invisíveis se o
+  // grupo já tiver sido renomeado desde então).
+  const zeros = contagens.filter(c =>
+    c.grupo_nome === `${g.nome} (finalização de pedido)` ||
+    (g.id && c.grupo_id === g.id && /\(finaliza[cç][aã]o de pedido\)$/.test(c.grupo_nome||''))
+  );
   if(zeros.length === 0) return null;
   return zeros.reduce((max, c) => new Date(c.criado_em) > new Date(max) ? c.criado_em : max, zeros[0].criado_em);
 }
@@ -2627,7 +2634,7 @@ async function importarContagemExcel(file){
   document.getElementById('inputImportarContagem').value = '';
 }
 
-async function registarHistoricoAntesDeZerar(produtosAfetados, origem){
+async function registarHistoricoAntesDeZerar(produtosAfetados, origem, grupoId){
   const itens = produtosAfetados.map(p => {
     const mp = melhorPreco(p);
     const preco = mp ? mp.preco : 0;
@@ -2639,7 +2646,10 @@ async function registarHistoricoAntesDeZerar(produtosAfetados, origem){
       headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
       body: JSON.stringify({
         id: uid(),
-        grupo_id: '',
+        // guarda o grupo_id real (quando aplicável) além do nome, para o marcador de
+        // "já finalizei este pedido" continuar a ser encontrado mesmo se o grupo for
+        // renomeado depois — só o nome quebrava a comparação após uma renomeação.
+        grupo_id: grupoId || '',
         grupo_nome: origem,
         usuario_email: usuarioAtualEmail,
         itens,
@@ -2685,7 +2695,7 @@ async function finalizarGrupoCompra(grupoId){
   const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em ${afetados.length} produto(s) do grupo "${g.nome}" (das áreas já recontadas), para a próxima contagem começar do zero.${aviso}\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
   if(!ok) return;
 
-  await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`);
+  await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`, g.id);
   afetados.forEach(p => { p.qtdAtual = 0; });
   await saveProdutos();
   renderAll();
