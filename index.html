@@ -284,6 +284,7 @@
   <button data-view="producao">Produção</button>
   <button data-view="receitas">Receitas</button>
   <button data-view="bebidas">Bebidas</button>
+  <button data-view="retorno">Taxa de Retorno</button>
   <button data-view="utilizadores">Utilizadores</button>
 </nav>
 
@@ -508,6 +509,23 @@
   <div class="view" id="view-bebidas">
     <div class="save-note" style="margin-bottom:14px;">Preços de venda das bebidas — sem precisar de montar uma ficha técnica. O custo vem direto da embalagem cadastrada em Produtos.</div>
     <div id="bebidasContent"></div>
+  </div>
+
+  <!-- TAXA DE RETORNO -->
+  <div class="view" id="view-retorno">
+    <div class="save-note" style="margin-bottom:14px;">Ranking dos pratos e bebidas com preço definido, do maior para o menor retorno — a base para decidir onde vale mais a pena empurrar vendas e promoções. Só entram itens com preço de venda já preenchido (em Receitas ou Bebidas).</div>
+    <div class="row" style="gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:13px;color:var(--ink-soft);">Grupo</label>
+      <select id="retornoFiltroGrupo" onchange="renderRetorno()" style="max-width:220px;"></select>
+      <label style="font-size:13px;color:var(--ink-soft);margin-left:14px;">Ordenar por</label>
+      <select id="retornoOrdenarPor" onchange="renderRetorno()" style="max-width:200px;">
+        <option value="lojaPct">Retorno % — loja</option>
+        <option value="deliveryPct">Retorno % — delivery</option>
+        <option value="lojaEur">Retorno € — loja</option>
+        <option value="deliveryEur">Retorno € — delivery</option>
+      </select>
+    </div>
+    <div id="retornoContent"></div>
   </div>
 
   <!-- UTILIZADORES -->
@@ -2803,6 +2821,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'estoque') renderEstoque();
     if(btn.dataset.view === 'bebidas') renderBebidas();
+    if(btn.dataset.view === 'retorno') renderRetorno();
   });
 });
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -4163,6 +4182,101 @@ function atualizarLinhaBebida(produtoId){
 
   const sugestaoDelivery = precoDeliveryParaMesmoCmv(sIvaReferencia, { ivaPct: est.ivaPct, deliveryTaxaPct: bebidasGlobal.comissaoPct, deliveryIvaTaxaPct: bebidasGlobal.ivaComissaoPct });
   set('beb-delivery-' + produtoId, sugestaoDelivery > 0 ? eur(sugestaoDelivery) : '—');
+}
+
+// Ranking de retorno: junta pratos (Receitas, só os que já têm preço de venda preenchido)
+// e bebidas (só as que já têm "preço que cobras" preenchido) numa lista só, ordenável.
+function renderRetorno(){
+  const content = document.getElementById('retornoContent');
+  if(!content) return;
+
+  const linhas = [];
+
+  receitas.forEach(r => {
+    const p = produtos.find(x => x.id === r.produtoId);
+    if(!p || p.tipo !== 'prato_final') return;
+    const grupo = (r.extra && r.extra.grupo && r.extra.grupo.trim()) || 'Sem grupo';
+    const itens = receitaItens.filter(ri => ri.receitaId === r.id);
+    const custoItem = ri => custoPorGramaProduto(ri.ingredienteProdutoId) * (ri.quantidadeG||0) / (rendPctDoItem(r, ri) / 100);
+    const custoTotal = itens.reduce((s, ri) => s + custoItem(ri), 0);
+    const custoExtraDeliveryTotal = (r.extra && r.extra.incluirCaixaPizza) ? custoCaixaPizza() : 0;
+    const porcoes = (r.extra && r.extra.porcoes) || 1;
+    const perdaPct = (r.extra && r.extra.perdaPct) || 0;
+    const util = porcoesUteis(porcoes, perdaPct) || porcoes;
+    const custoPorcao = custoTotal / util;
+    const custoPorcaoDelivery = custoPorcao + custoExtraDeliveryTotal / util;
+
+    let loja = null, delivery = null;
+    if(r.precoVenda){
+      const ret = calcularRetornoReal(custoPorcao, r.precoVenda, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 });
+      loja = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: r.precoVenda };
+    }
+    const precoDelivery = r.extra && r.extra.precoVendaDelivery;
+    if(precoDelivery){
+      const ret = calcularRetornoReal(custoPorcaoDelivery, precoDelivery, { ivaPct: r.extra && r.extra.ivaPct, participacaoPct: r.extra && r.extra.participacaoPct, comissaoPct: r.extra && r.extra.deliveryTaxaPct, ivaComissaoPct: r.extra && r.extra.deliveryIvaTaxaPct });
+      delivery = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: precoDelivery };
+    }
+    if(!loja && !delivery) return;
+    linhas.push({ nome: p.nome, grupo, loja, delivery });
+  });
+
+  produtos.filter(p => p.categoria === 'Bebidas').forEach(p => {
+    const custo = precoPorGrama(p);
+    if(custo == null) return;
+    const est = estadoBebida(p.id);
+    const precoCobrado = parseFloat(est.precoCobrado) || 0;
+    if(precoCobrado <= 0) return;
+    const ret = calcularRetornoReal(custo, precoCobrado, { ivaPct: est.ivaPct, participacaoPct: 0, comissaoPct: 0, ivaComissaoPct: 0 });
+    const loja = { retorno: ret.retorno, pct: ret.sIva > 0 ? (ret.retorno / ret.sIva * 100) : 0, cmv: ret.cmvReal, preco: precoCobrado };
+    // a sugestão de delivery para bebidas é calculada para dar exatamente o mesmo retorno da loja
+    const delivery = { retorno: ret.retorno, pct: loja.pct, cmv: ret.cmvReal, preco: null, igualLoja: true };
+    linhas.push({ nome: p.nome, grupo: 'Bebidas', loja, delivery });
+  });
+
+  if(linhas.length === 0){
+    content.innerHTML = '<div class="empty">Ainda sem itens com preço de venda definido. Preenche o preço em Receitas ou Bebidas para aparecerem aqui.</div>';
+    return;
+  }
+
+  const filtroSel = document.getElementById('retornoFiltroGrupo');
+  const grupoAtual = filtroSel ? filtroSel.value : '';
+  const gruposExistentes = Array.from(new Set(linhas.map(l => l.grupo))).sort((a,b) =>
+    a==='Bebidas' ? -1 : b==='Bebidas' ? 1 : a==='Sem grupo' ? 1 : b==='Sem grupo' ? -1 : a.localeCompare(b));
+  if(filtroSel){
+    filtroSel.innerHTML = '<option value="">Todos os grupos</option>' + gruposExistentes.map(g => `<option value="${g}">${g}</option>`).join('');
+    filtroSel.value = gruposExistentes.includes(grupoAtual) ? grupoAtual : '';
+  }
+  const filtroAtivo = filtroSel ? filtroSel.value : '';
+  const visiveis = filtroAtivo ? linhas.filter(l => l.grupo === filtroAtivo) : linhas;
+
+  const ordenarPor = document.getElementById('retornoOrdenarPor') ? document.getElementById('retornoOrdenarPor').value : 'lojaPct';
+  const valorDeOrdem = l => {
+    if(ordenarPor === 'deliveryPct') return l.delivery ? l.delivery.pct : -Infinity;
+    if(ordenarPor === 'lojaEur') return l.loja ? l.loja.retorno : -Infinity;
+    if(ordenarPor === 'deliveryEur') return l.delivery ? l.delivery.retorno : -Infinity;
+    return l.loja ? l.loja.pct : -Infinity;
+  };
+  const ordenados = [...visiveis].sort((a,b) => valorDeOrdem(b) - valorDeOrdem(a));
+
+  const cmvCor = v => v > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
+  const celula = bloco => bloco
+    ? `<div style="text-align:right;">
+         <div class="stat" style="font-size:16px;color:${cmvCor(bloco.cmv)};">${eur(bloco.retorno)}</div>
+         <div class="save-note">${bloco.pct.toFixed(1)}% retorno${bloco.preco != null ? ' · vende a ' + eur(bloco.preco) : (bloco.igualLoja ? ' · igual à loja (sugestão)' : '')}</div>
+       </div>`
+    : `<div style="text-align:right;color:var(--ink-soft);">—</div>`;
+
+  content.innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr><th>#</th><th>Item</th><th>Grupo</th><th>Retorno na loja</th><th>Retorno no delivery</th></tr></thead>
+    <tbody>${ordenados.map((l, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${l.nome}</td>
+        <td><span class="badge">${l.grupo}</span></td>
+        <td>${celula(l.loja)}</td>
+        <td>${celula(l.delivery)}</td>
+      </tr>`).join('')}</tbody>
+  </table></div>`;
 }
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
