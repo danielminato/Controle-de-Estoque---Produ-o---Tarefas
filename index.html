@@ -750,7 +750,7 @@
       <h3 style="font-size:15px;margin:16px 0 8px;">Preço mínimo sugerido (por porção)</h3>
       <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
         <div>1️⃣ <strong>Preço s/ IVA</strong> = Custo ÷ % CMV alvo → 2️⃣ <strong>+ Participação</strong> (% sobre o preço s/ IVA) → 3️⃣ <strong>× (1 + % IVA)</strong> = preço final.</div>
-        <div>Usa este preço como referência tanto para a loja como para o delivery — publica o mesmo valor nas duas frentes. A comissão da plataforma não entra aqui: ela desconta depois, e dá para ver o efeito dela em "O que vais cobrar de verdade", mais abaixo.</div>
+        <div>Este é o preço mínimo para a LOJA. No delivery a plataforma desconta comissão (e IVA sobre ela) e há a embalagem, então o preço a publicar é mais alto — a sugestão para o delivery aparece em "O que vais cobrar de verdade", mais abaixo.</div>
       </div>
       <div class="field-row">
         <label class="field">% CMV alvo<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
@@ -4197,12 +4197,18 @@ function atualizarPreviewCustoReceita(){
     // já cobrindo o custo extra do delivery (ex.: caixa de pizza), se houver.
     // Se já publicaste um preço de loja, usa esse (o retorno real de agora); senão usa
     // o mínimo teórico do CMV alvo.
-    const sIvaReferencia = (precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) : pr.sIva) + custoExtraDeliveryPorcao;
+    // A embalagem só existe no delivery e a participação é paga sobre o preço s/ IVA, por
+    // isso para igualar o retorno o s/ IVA tem de subir extra ÷ (1 − participação).
+    const fatorPart = 1 - (Number(x.participacaoPct) || 0) / 100;
+    const extraNoSIva = fatorPart > 0 ? custoExtraDeliveryPorcao / fatorPart : custoExtraDeliveryPorcao;
+    const sIvaMinimoDelivery = calcularPrecificacao(custoPorcaoDelivery, x).sIva;
+    const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) + extraNoSIva : sIvaMinimoDelivery;
     const sugestaoDel = precoDeliveryParaMesmoCmv(sIvaReferencia, x);
+    const minimoDelCmv = precoDeliveryParaMesmoCmv(sIvaMinimoDelivery, x);
     const notaEmbalagem = custoExtraDeliveryPorcao > 0 ? ` (já com ${eur(custoExtraDeliveryPorcao)} de embalagem incluído)` : '';
     document.getElementById('receitaDelSugestao').textContent = sugestaoDel > 0
       ? (precoLoja > 0
-          ? `💡 Para manter o mesmo retorno líquido da loja (a ${eur(precoLoja)}), publica no delivery a ${eur(sugestaoDel)} (c/ IVA)${notaEmbalagem}.`
+          ? `💡 Para manter o mesmo retorno líquido da loja (a ${eur(precoLoja)}), publica no delivery a ${eur(sugestaoDel)} (c/ IVA)${notaEmbalagem}. Só para bater o CMV alvo de ${x.cmvPct}% no delivery, o mínimo é ${eur(minimoDelCmv)}.`
           : `💡 Para manter o CMV alvo (${x.cmvPct}%) no delivery, publica a ${eur(sugestaoDel)} (c/ IVA)${notaEmbalagem}.`)
       : '';
 
