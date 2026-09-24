@@ -230,14 +230,22 @@
       </label>
       <button class="btn" style="width:100%;" onclick="fazerLoginGate()">Entrar</button>
       <div class="save-note" id="gateErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
+      <button class="link-btn" style="margin-top:8px;" onclick="mostrarRecuperarSenha()">Esqueci a password</button>
+      <div id="recuperarSenhaWrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+        <label class="field">O teu email
+          <input type="email" id="recuperarSenhaEmail" style="width:100%;">
+        </label>
+        <button class="btn secondary" style="width:100%;" onclick="enviarRecuperacaoSenha()">Enviar link de recuperação</button>
+        <div class="save-note" id="recuperarSenhaMsg" style="margin-top:8px;min-height:16px;"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="modal-bg" id="modalTrocarSenha">
   <div class="modal" style="max-width:380px;">
-    <h3 style="margin-bottom:12px;">Define a tua password</h3>
-    <p class="save-note" style="margin-bottom:14px;">Ainda estás a usar a password inicial (123456). Por segurança, escolhe uma nova antes de continuares.</p>
+    <h3 style="margin-bottom:12px;" id="trocarSenhaTitulo">Define a tua password</h3>
+    <p class="save-note" style="margin-bottom:14px;" id="trocarSenhaTexto">Ainda estás a usar a password inicial (123456). Por segurança, escolhe uma nova antes de continuares.</p>
     <label class="field">Nova password
       <input type="password" id="novaSenhaInput" style="width:100%;">
     </label>
@@ -2829,6 +2837,8 @@ async function fazerLoginGate(){
     usuarioAtualEmail = data.user?.email || email;
 
     if(senha === '123456'){
+      document.getElementById('trocarSenhaTitulo').textContent = 'Define a tua password';
+      document.getElementById('trocarSenhaTexto').textContent = 'Ainda estás a usar a password inicial (123456). Por segurança, escolhe uma nova antes de continuares.';
       document.getElementById('loginGate').style.display = 'none';
       document.getElementById('modalTrocarSenha').classList.add('open');
       return;
@@ -2837,6 +2847,61 @@ async function fazerLoginGate(){
   }catch(e){
     erroEl.textContent = 'Não consegui ligar. Verifica a tua internet e tenta de novo.';
   }
+}
+
+function mostrarRecuperarSenha(){
+  const wrap = document.getElementById('recuperarSenhaWrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+}
+
+async function enviarRecuperacaoSenha(){
+  const email = document.getElementById('recuperarSenhaEmail').value.trim();
+  const msgEl = document.getElementById('recuperarSenhaMsg');
+  msgEl.style.color = '';
+  msgEl.textContent = '';
+  if(!email){ msgEl.textContent = 'Escreve o teu email.'; return; }
+  try{
+    const redirectTo = window.location.origin + window.location.pathname;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if(res.ok){
+      msgEl.textContent = 'Se esse email estiver registado, chega uma mensagem com um link para escolheres uma password nova.';
+    }else{
+      msgEl.style.color = 'var(--danger-text)';
+      msgEl.textContent = 'Não consegui enviar agora. Tenta de novo daqui a pouco.';
+    }
+  }catch(e){
+    msgEl.style.color = 'var(--danger-text)';
+    msgEl.textContent = 'Não consegui ligar. Verifica a tua internet.';
+  }
+}
+
+// Se a página abriu a partir do link de recuperação do email (Supabase manda o token no
+// #hash da URL), entra direto no ecrã de escolher a password nova.
+async function verificarRecuperacaoSenha(){
+  const hash = window.location.hash;
+  if(!hash || !hash.includes('type=recovery')) return;
+  const params = new URLSearchParams(hash.slice(1));
+  const accessToken = params.get('access_token');
+  if(!accessToken) return;
+
+  sbAccessToken = accessToken;
+  sbRefreshToken = params.get('refresh_token') || null;
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${sbAccessToken}` } });
+    const data = await res.json();
+    if(res.ok) usuarioAtualEmail = data.email;
+  }catch(e){}
+
+  document.getElementById('trocarSenhaTitulo').textContent = 'Recuperar a tua password';
+  document.getElementById('trocarSenhaTexto').textContent = 'Escolhe uma password nova para entrar na tua conta.';
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('modalTrocarSenha').classList.add('open');
 }
 
 async function trocarSenhaObrigatoria(){
@@ -4861,6 +4926,7 @@ async function confirmarEnvioOperacional(){
   document.getElementById('oper-screen-sucesso').classList.add('active');
 }
 document.getElementById('gateSenha')?.addEventListener('keydown', e => { if(e.key === 'Enter') fazerLoginGate(); });
+verificarRecuperacaoSenha();
 </script>
 </body>
 </html>
