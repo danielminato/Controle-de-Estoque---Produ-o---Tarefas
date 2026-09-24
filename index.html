@@ -3754,7 +3754,8 @@ function opcoesIngredienteHtml(produtoResultadoId, selecionadoId){
     const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
     return `<option value="${p.id}" ${selecionadoId===p.id?'selected':''}>${label}</option>`;
   };
-  return categorias.map(cat => {
+  const placeholder = `<option value="" ${!selecionadoId ? 'selected' : ''}>— ESCOLHE O INGREDIENTE —</option>`;
+  return placeholder + categorias.map(cat => {
     const doGrupo = candidatos.filter(p => (p.categoria || 'Sem categoria') === cat).sort((a,b) => a.nome.localeCompare(b.nome));
     return `<optgroup label="${cat}">${doGrupo.map(opt).join('')}</optgroup>`;
   }).join('');
@@ -3773,11 +3774,17 @@ function renderReceitaItensList(){
   // Mostra por categoria (família) e depois por nome, para ser mais fácil de encontrar num
   // prato com muitos ingredientes — mas os índices usados nos botões/inputs continuam a
   // apontar para a posição REAL em receitaItensAtuais (a ordem de gravação não muda).
-  const categoriaDoItem = ri => { const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.categoria) || 'Sem categoria'; };
+  // Uma linha sem ingrediente escolhido ainda ("— escolhe o ingrediente —") ordena sempre
+  // no fim, para uma linha recém-criada aparecer previsível no fundo da lista.
+  const categoriaDoItem = ri => { if(!ri.ingredienteProdutoId) return null; const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.categoria) || 'Sem categoria'; };
   const nomeDoItem = ri => { const p = produtos.find(x => x.id === ri.ingredienteProdutoId); return (p && p.nome) || ''; };
   const ordem = receitaItensAtuais.map((ri, idx) => idx).sort((a, b) => {
     const ra = receitaItensAtuais[a], rb = receitaItensAtuais[b];
-    return categoriaDoItem(ra).localeCompare(categoriaDoItem(rb)) || nomeDoItem(ra).localeCompare(nomeDoItem(rb));
+    const ca = categoriaDoItem(ra), cb = categoriaDoItem(rb);
+    if(ca === null && cb === null) return 0;
+    if(ca === null) return 1;
+    if(cb === null) return -1;
+    return ca.localeCompare(cb) || nomeDoItem(ra).localeCompare(nomeDoItem(rb));
   });
 
   let categoriaAnterior = null;
@@ -3790,7 +3797,7 @@ function renderReceitaItensList(){
       : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
 
     const categoriaAtual = categoriaDoItem(ri);
-    const cabecalho = categoriaAtual !== categoriaAnterior
+    const cabecalho = (categoriaAtual !== null && categoriaAtual !== categoriaAnterior)
       ? `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;margin:10px 0 4px;">${categoriaAtual}</div>`
       : '';
     categoriaAnterior = categoriaAtual;
@@ -3823,14 +3830,11 @@ function quantidadeSugeridaDoProduto(produtoId){
 }
 
 function addReceitaItemRow(){
-  const produtoResultadoId = document.getElementById('receitaProdutoId').value;
-  const primeiro = produtos.find(p => p.id !== produtoResultadoId);
-  const id = primeiro ? primeiro.id : '';
   const novoIdx = receitaItensAtuais.length;
-  receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: id, quantidadeG: quantidadeSugeridaDoProduto(id) });
+  receitaItensAtuais.push({ id: uid(), ingredienteProdutoId: '', quantidadeG: 0 });
   renderReceitaItensList();
-  // a lista fica ordenada por categoria, então a linha nova pode não aparecer no fim —
-  // rola até ela e destaca por um instante, para não se perder à procura.
+  // uma linha sem ingrediente escolhido ordena sempre no fim (ver renderReceitaItensList),
+  // mas rola até ela e destaca por um instante, para garantir que não passa despercebida.
   const linhaNova = document.getElementById('ri-q-' + novoIdx)?.closest('.price-row');
   if(linhaNova){
     linhaNova.scrollIntoView({behavior: 'smooth', block: 'center'});
@@ -3959,6 +3963,7 @@ async function saveReceita(){
 
   if(!produtoId){ await showAlert('Escolhe o produto resultante.'); return; }
   if(receitaItensAtuais.length === 0){ await showAlert('Adiciona pelo menos um ingrediente.'); return; }
+  if(receitaItensAtuais.some(ri => !ri.ingredienteProdutoId)){ await showAlert('Falta escolher o ingrediente numa das linhas.'); return; }
   if(rendimentoG <= 0){ await showAlert('Indica a quantidade (g/ml) dos ingredientes.'); return; }
 
   const circular = receitaItensAtuais.some(ri => fecharCircularidade(produtoId, ri.ingredienteProdutoId));
