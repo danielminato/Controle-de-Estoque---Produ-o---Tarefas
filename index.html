@@ -4197,12 +4197,10 @@ function atualizarPreviewCustoReceita(){
     // já cobrindo o custo extra do delivery (ex.: caixa de pizza), se houver.
     // Se já publicaste um preço de loja, usa esse (o retorno real de agora); senão usa
     // o mínimo teórico do CMV alvo.
-    // A embalagem só existe no delivery e a participação é paga sobre o preço s/ IVA, por
-    // isso para igualar o retorno o s/ IVA tem de subir extra ÷ (1 − participação).
-    const fatorPart = 1 - (Number(x.participacaoPct) || 0) / 100;
-    const extraNoSIva = fatorPart > 0 ? custoExtraDeliveryPorcao / fatorPart : custoExtraDeliveryPorcao;
-    const sIvaMinimoDelivery = calcularPrecificacao(custoPorcaoDelivery, x).sIva;
-    const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) + extraNoSIva : sIvaMinimoDelivery;
+    // A caixa (custo só do delivery) entra por cima do valor que a loja já dá — não entra
+    // na conta do CMV alvo.
+    const sIvaMinimoDelivery = pr.sIva + custoExtraDeliveryPorcao;
+    const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) + custoExtraDeliveryPorcao : sIvaMinimoDelivery;
     const sugestaoDel = precoDeliveryParaMesmoCmv(sIvaReferencia, x);
     const minimoDelCmv = precoDeliveryParaMesmoCmv(sIvaMinimoDelivery, x);
     const notaEmbalagem = custoExtraDeliveryPorcao > 0 ? ` (já com ${eur(custoExtraDeliveryPorcao)} de embalagem incluído)` : '';
