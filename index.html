@@ -674,7 +674,6 @@
       <div>％ <strong>% da base</strong> — só funciona depois de marcares uma base acima. Escreves a % em vez do peso, e o app calcula o peso sozinho.</div>
       <div>♻️ <strong>Rend.%</strong> — deixa em 100 na maioria dos casos. Só baixa se ESTE ingrediente em concreto perde peso ao preparar (ex.: descascar, coar) — quanto menor, mais caro fica, porque parte do que compraste vai para o lixo.</div>
       <div>🔻▪️🔺🗑️ <strong>Base / Recheio / Finalização / Descartáveis</strong> — só muda a ORDEM em que aparece na ficha pronta (não mexe no custo). Serve para a ficha ler na ordem em que montas o prato: primeiro a base (ex.: massa, molho), depois o recheio, depois quem entra ao fim (ex.: azeite, ervas por cima), e por último os descartáveis (ex.: guardanapo).</div>
-      <div>📦 <strong>Só delivery</strong> — marca isto num ingrediente que só usas quando o prato vai de entrega (ex.: a caixa de pizza). O custo dele fica de fora do prato "normal" e só entra na conta de "O que vais cobrar de verdade" do delivery.</div>
     </div>
     <div class="price-row" style="font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.02em;">
       <span style="flex:1.4;">Ingrediente</span>
@@ -742,6 +741,9 @@
           <input type="number" id="receitaPrecoVendaDelivery" step="any" placeholder="ex.: 18.00" oninput="atualizarPreviewCustoReceita()">
         </label>
       </div>
+      <label class="save-note" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:10px;" title="Soma o custo da caixa de pizza (produto cadastrado em Produtos) só na conta do delivery">
+        <input type="checkbox" id="receitaIncluirCaixa" onchange="atualizarPreviewCustoReceita()"> 📦 Incluir custo da caixa de pizza no delivery
+      </label>
       <div class="save-note" id="receitaDelSugestao" style="margin-bottom:10px;"></div>
       <div class="field-row">
         <label class="field">% Comissão da plataforma (desconta do delivery)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
@@ -3526,11 +3528,10 @@ function renderReceitas(){
   const cardDeReceita = r => {
     const p = produtos.find(x => x.id === r.produtoId);
     const camadaDoItem = ri => (r.extra && r.extra.camada && r.extra.camada[ri.ordem] !== undefined && r.extra.camada[ri.ordem] !== null) ? Number(r.extra.camada[ri.ordem]) : camadaPadraoDoItem(ri);
-    const soDeliveryDoItem = ri => !!(r.extra && r.extra.soDelivery && r.extra.soDelivery[ri.ordem]);
     const itens = receitaItens.filter(ri => ri.receitaId === r.id).sort((a,b)=> camadaDoItem(a) - camadaDoItem(b) || (a.ordem||0)-(b.ordem||0));
     const custoItem = ri => custoPorGramaProduto(ri.ingredienteProdutoId) * (ri.quantidadeG||0) / (rendPctDoItem(r, ri) / 100);
-    const custoTotal = itens.filter(ri => !soDeliveryDoItem(ri)).reduce((s, ri) => s + custoItem(ri), 0);
-    const custoExtraDeliveryTotal = itens.filter(ri => soDeliveryDoItem(ri)).reduce((s, ri) => s + custoItem(ri), 0);
+    const custoTotal = itens.reduce((s, ri) => s + custoItem(ri), 0);
+    const custoExtraDeliveryTotal = (r.extra && r.extra.incluirCaixaPizza) ? custoCaixaPizza() : 0;
     const pesoUtil = pesoUtilDaReceita(r);
     const custoPorGrama = pesoUtil > 0 ? custoTotal / pesoUtil : 0;
     const ehPratoFinal = p && p.tipo === 'prato_final';
@@ -3590,7 +3591,7 @@ function renderReceitas(){
               : '';
             camadaAnterior = camadaAtual;
             return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
-              <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}${soDeliveryDoItem(ri) ? ' <span class="badge" style="font-size:10px;">📦 só delivery</span>' : ''}</td>
+              <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
               <td>${ri.quantidadeG}g</td>
               <td>${rend}%</td>
               <td>${custoG.toFixed(4)}€</td>
@@ -3658,6 +3659,7 @@ function openReceitaModal(id){
   const x = (r && r.extra) || {};
   document.getElementById('receitaPrecoVendaDelivery').value = x.precoVendaDelivery ?? '';
   document.getElementById('receitaDelIvaTaxaPct').value = (x.deliveryIvaTaxaPct !== undefined && x.deliveryIvaTaxaPct !== null && x.deliveryIvaTaxaPct !== '') ? x.deliveryIvaTaxaPct : 23;
+  document.getElementById('receitaIncluirCaixa').checked = !!x.incluirCaixaPizza;
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
   document.getElementById('receitaGrupo').value = x.grupo || '';
   const gruposUsados = Array.from(new Set(receitas.map(rr => (rr.extra && rr.extra.grupo && rr.extra.grupo.trim())).filter(Boolean))).sort();
@@ -3675,8 +3677,7 @@ function openReceitaModal(id){
   receitaItensAtuais = r
     ? receitaItens.filter(ri => ri.receitaId === id).sort((a,b) => (a.ordem||0)-(b.ordem||0)).map(ri => ({
         ...ri, rendPct: rendPctDoItem(r, ri), pct: Number(x.pct && x.pct[ri.ordem]) || 0,
-        camada: (x.camada && x.camada[ri.ordem] !== undefined && x.camada[ri.ordem] !== null) ? Number(x.camada[ri.ordem]) : camadaPadraoDoItem(ri),
-        soDelivery: !!(x.soDelivery && x.soDelivery[ri.ordem])
+        camada: (x.camada && x.camada[ri.ordem] !== undefined && x.camada[ri.ordem] !== null) ? Number(x.camada[ri.ordem]) : camadaPadraoDoItem(ri)
       }))
     : [];
   receitaBaseIdx = (x.baseIdx !== undefined && x.baseIdx !== null && x.baseIdx >= 0 && x.baseIdx < receitaItensAtuais.length) ? x.baseIdx : -1;
@@ -3823,7 +3824,6 @@ function renderReceitaItensList(){
           <option value="2" ${ (ri.camada??camadaPadraoDoItem(ri))===2 ? 'selected':''}>🔺 Finalização</option>
           <option value="3" ${ (ri.camada??camadaPadraoDoItem(ri))===3 ? 'selected':''}>🗑️ Descartáveis</option>
         </select>
-        <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;min-width:100px;" title="Este custo só entra na conta quando calculas para delivery — ex.: a caixa de pizza, que não usas no prato servido na loja"><input type="checkbox" ${ri.soDelivery?'checked':''} onchange="atualizarReceitaItem(${idx}, 'soDelivery', this.checked)"> 📦 só delivery</label>
         <button class="icon-btn danger" type="button" onclick="removerReceitaItem(${idx})">remover</button>
       </div>`;
   }).join('');
@@ -3857,7 +3857,7 @@ function atualizarReceitaItem(idx, campo, valor){
   if(!receitaItensAtuais[idx]) return;
   const item = receitaItensAtuais[idx];
   item[campo] = (campo === 'quantidadeG' || campo === 'rendPct' || campo === 'pct' || campo === 'camada') ? (parseFloat(valor)||0) : valor;
-  if(campo === 'camada' || campo === 'soDelivery'){ atualizarPreviewCustoReceita(); return; }
+  if(campo === 'camada'){ atualizarPreviewCustoReceita(); return; }
   if(campo === 'ingredienteProdutoId'){
     if(idx !== receitaBaseIdx){ item.quantidadeG = quantidadeSugeridaDoProduto(valor); item.pct = 0; }
     renderReceitaItensList();
@@ -3886,6 +3886,13 @@ function removerReceitaItem(idx){
   renderReceitaItensList();
 }
 
+// Custo de uma caixa de pizza (produto já cadastrado em Produtos) — atualizar o preço dela
+// lá propaga sozinho para o cálculo do delivery de todas as pizzas.
+function custoCaixaPizza(){
+  const caixa = produtos.find(p => p.nome && p.nome.toLowerCase().includes('caixa de pizza'));
+  return caixa ? (precoPorGrama(caixa) || 0) : 0;
+}
+
 function atualizarPreviewCustoReceita(){
   const rendimentoG = parseFloat(document.getElementById('receitaRendimentoG').value) || somaQuantidadesReceita();
   const custoDoItem = ri => {
@@ -3894,10 +3901,9 @@ function atualizarPreviewCustoReceita(){
     const custoG = receitas.find(r2 => r2.produtoId === p.id) ? custoPorGramaProduto(p.id) : (precoPorGrama(p) || 0);
     return custoG * (ri.quantidadeG||0) / ((ri.rendPct > 0 ? ri.rendPct : 100) / 100);
   };
-  // Itens "só delivery" (ex.: caixa de pizza) ficam de fora do custo/peso do prato em si —
-  // só entram na conta específica do delivery, mais abaixo.
-  const custoTotal = receitaItensAtuais.filter(ri => !ri.soDelivery).reduce((soma, ri) => soma + custoDoItem(ri), 0);
-  const custoExtraDeliveryTotal = receitaItensAtuais.filter(ri => ri.soDelivery).reduce((soma, ri) => soma + custoDoItem(ri), 0);
+  const custoTotal = receitaItensAtuais.reduce((soma, ri) => soma + custoDoItem(ri), 0);
+  const incluirCaixa = document.getElementById('receitaIncluirCaixa')?.checked;
+  const custoExtraDeliveryTotal = incluirCaixa ? custoCaixaPizza() : 0;
   const porcoes = parseFloat(document.getElementById('receitaPorcoes').value) || 1;
   const perdaPct = parseFloat(document.getElementById('receitaPerdaPct').value) || 0;
   const pesoUtil = rendimentoG * (1 - Math.min(Math.max(perdaPct,0),99) / 100);
@@ -4004,7 +4010,7 @@ async function saveReceita(){
     rend: receitaItensAtuais.map(ri => ri.rendPct > 0 ? ri.rendPct : 100),
     pct: receitaItensAtuais.map(ri => ri.pct > 0 ? ri.pct : 0),
     camada: receitaItensAtuais.map(ri => ri.camada ?? camadaPadraoDoItem(ri)),
-    soDelivery: receitaItensAtuais.map(ri => !!ri.soDelivery),
+    incluirCaixaPizza: document.getElementById('receitaIncluirCaixa').checked,
     baseIdx: receitaBaseIdx
   };
   const receitaObj = { id: receitaIdFinal, produtoId, rendimentoG, precoVenda, observacoes: '', extra };
