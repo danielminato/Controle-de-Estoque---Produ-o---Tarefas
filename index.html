@@ -230,14 +230,7 @@
       </label>
       <button class="btn" style="width:100%;" onclick="fazerLoginGate()">Entrar</button>
       <div class="save-note" id="gateErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
-      <button class="link-btn" style="margin-top:8px;" onclick="mostrarRecuperarSenha()">Esqueci a password</button>
-      <div id="recuperarSenhaWrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
-        <label class="field">O teu email
-          <input type="email" id="recuperarSenhaEmail" style="width:100%;">
-        </label>
-        <button class="btn secondary" style="width:100%;" onclick="enviarRecuperacaoSenha()">Enviar link de recuperação</button>
-        <div class="save-note" id="recuperarSenhaMsg" style="margin-top:8px;min-height:16px;"></div>
-      </div>
+      <div class="save-note" style="margin-top:10px;">Esqueceste a password? Fala com o teu patrão para a repor.</div>
     </div>
   </div>
 </div>
@@ -2849,36 +2842,9 @@ async function fazerLoginGate(){
   }
 }
 
-function mostrarRecuperarSenha(){
-  const wrap = document.getElementById('recuperarSenhaWrap');
-  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
-}
-
-async function enviarRecuperacaoSenha(){
-  const email = document.getElementById('recuperarSenhaEmail').value.trim();
-  const msgEl = document.getElementById('recuperarSenhaMsg');
-  msgEl.style.color = '';
-  msgEl.textContent = '';
-  if(!email){ msgEl.textContent = 'Escreve o teu email.'; return; }
-  try{
-    const redirectTo = window.location.origin + window.location.pathname;
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    if(res.ok){
-      msgEl.textContent = 'Se esse email estiver registado, chega uma mensagem com um link para escolheres uma password nova.';
-    }else{
-      msgEl.style.color = 'var(--danger-text)';
-      msgEl.textContent = 'Não consegui enviar agora. Tenta de novo daqui a pouco.';
-    }
-  }catch(e){
-    msgEl.style.color = 'var(--danger-text)';
-    msgEl.textContent = 'Não consegui ligar. Verifica a tua internet.';
-  }
-}
-
+// Caso um administrador dispare a recuperação de password pelo próprio painel do Supabase
+// (útil só para contas com email real — a maioria dos logins aqui usa emails fictícios,
+// por isso não há um "Esqueci a password" self-service no ecrã de login).
 // Se a página abriu a partir do link de recuperação do email (Supabase manda o token no
 // #hash da URL), entra direto no ecrã de escolher a password nova.
 async function verificarRecuperacaoSenha(){
