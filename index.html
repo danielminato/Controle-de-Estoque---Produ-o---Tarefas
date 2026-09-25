@@ -1210,18 +1210,31 @@ async function sbGet(table){
 }
 
 async function sbReplaceAll(table, rows){
-  // apaga tudo e insere de novo — simples e seguro para o volume de dados deste app
-  const del = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`, { method: 'DELETE', headers: sbHeadersFn() });
-  if(!del.ok) throw new Error('Falha ao guardar ' + table);
-  if(rows.length === 0) return;
-  const inserir = () => fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  // Grava PRIMEIRO (upsert por id) e só depois apaga o que já não existe. Assim, se a
+  // gravação falhar, nada foi apagado — antes apagava tudo e reinseria, e uma falha na
+  // reinserção deixou a tabela de produtos vazia.
+  if(rows.length === 0){
+    const del = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`, { method: 'DELETE', headers: sbHeadersFn() });
+    if(!del.ok) throw new Error('Falha ao guardar ' + table);
+    return;
+  }
+  const gravar = () => fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=id`, {
     method: 'POST',
-    headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+    headers: { ...sbHeadersFn(), Prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(rows)
   });
-  let res = await inserir();
-  if(!res.ok) res = await inserir();
+  let res = await gravar();
+  if(!res.ok) res = await gravar();
   if(!res.ok) throw new Error('Falha ao guardar ' + table);
+
+  const existentes = await sbGet(table);
+  const manter = new Set(rows.map(r => r.id));
+  const sobrando = existentes.map(r => r.id).filter(id => !manter.has(id));
+  for(let i = 0; i < sobrando.length; i += 50){
+    const lista = sobrando.slice(i, i + 50).map(id => encodeURIComponent(id)).join(',');
+    const del = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=in.(${lista})`, { method: 'DELETE', headers: sbHeadersFn() });
+    if(!del.ok) throw new Error('Falha ao guardar ' + table);
+  }
 }
 
 async function sbUpdateRow(table, id, patch){
