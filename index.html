@@ -1259,11 +1259,15 @@ function produtoToDb(p){ return {
   fornecedor_escolhido_id: p.fornecedorEscolhidoId || null, nota: p.nota || null,
   embalagem_qtd: p.embalagemQtd || null, embalagem_unidade: p.embalagemUnidade || null,
   embalagem_confirmada: !!p.embalagemConfirmada, densidade: p.densidade || 1,
-  // só envia "precificacao" se a coluna existir no banco (veio do banco com essa chave) —
-  // senão gravar todos os produtos falharia por coluna inexistente.
-  ...(p.precificacao !== undefined ? { precificacao: p.precificacao } : {})
+  // só envia "precificacao" se a coluna existir no banco (algum produto veio com essa
+  // chave). Quando existe, TODOS os produtos têm de enviá-la (mesmo null): um envio em
+  // lote com chaves diferentes entre linhas é recusado pelo banco.
+  ...(colunaPrecificacaoExiste ? { precificacao: p.precificacao ?? null } : {})
 };}
-function produtoFromDb(r){ return {
+let colunaPrecificacaoExiste = false;
+function produtoFromDb(r){
+  if('precificacao' in r) colunaPrecificacaoExiste = true;
+  return {
   id:r.id, codigo:r.codigo||'', nome:r.nome, categoria:r.categoria||'', tipo:r.tipo||'materia_prima',
   areaIds: r.area_ids||[], precos: r.precos||[], qtdMinima: Number(r.qtd_minima)||0, qtdAtual: Number(r.qtd_atual)||0,
   fornecedorEscolhidoId: r.fornecedor_escolhido_id || '', nota: r.nota || '',
