@@ -218,6 +218,86 @@
   .link-btn{ background:none;border:none;color:var(--ink-soft);font-size:13px;text-decoration:underline;cursor:pointer;padding:6px; }
   .grupos-extra{ display:none; margin-top:10px; }
   .grupos-extra.open{ display:block; }
+  /* ===== Escalas e Cenários (módulo trazido do projeto fluxos-e-escalas) ===== */
+  .fx{--primary:var(--terracotta-dark);--primary-dark:#1F3563;--border:var(--line);--text:var(--ink);--text-soft:var(--ink-soft);--ok:var(--ok-text);--danger:var(--danger-text);--warn:var(--warn-text);}
+  .fx .hidden{display:none;}
+  .fx .row{margin-bottom:0;gap:10px;}
+  .fx section.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;overflow-x:auto;}
+  .fx .panel h2{font-weight:700;font-size:15px;margin:0 0 4px;color:var(--ink);}
+  .fx .desc{font-size:12px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
+  .fx label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+  .fx input[type=checkbox],.fx input[type=radio]{width:16px;height:16px;}
+  .fx input[type=color]{width:36px;padding:2px;height:32px;}
+  .fx input[type=number]{width:78px;text-align:center;}
+  .fx button{cursor:pointer;font-family:'Inter',sans-serif;border:none;border-radius:6px;}
+  .fx .btn-primary{background:var(--primary);color:#fff;padding:9px 20px;font-size:12.5px;font-weight:600;}
+  .fx .btn-primary:hover{background:var(--primary-dark);}
+  .fx .btn-dark{background:var(--text);color:#fff;padding:9px 20px;font-size:12.5px;font-weight:600;}
+  .fx .btn-dark:hover{background:#000;}
+  .fx .btn-ghost{background:none;border:1px solid var(--border);color:var(--text-soft);padding:6px 13px;font-size:12px;}
+  .fx .btn-ghost:hover{border-color:var(--danger);color:var(--danger);}
+  .fx .params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;}
+  .fx .status{font-size:11px;color:var(--text-soft);text-align:center;margin-top:8px;min-height:14px;}
+  .fx th{font-size:10px;text-transform:uppercase;color:var(--text-soft);text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);font-weight:600;}
+  .fx td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .fx td.name,.fx td.dia{font-weight:600;}
+  .fx .tag{font-size:9px;padding:2px 7px;border-radius:12px;font-weight:600;}
+  .fx .tag.real{background:#E4F1EA;color:var(--ok);}
+  .fx .tag.estimado{background:#FBF0DD;color:var(--warn);}
+  .fx .tag.hibrido{background:#EAE5F5;color:#5A3C82;}
+  .fx .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:4px;}
+  .fx .fx-stat{background:var(--primary);color:#fff;padding:14px 16px;border-radius:var(--radius);}
+  .fx .fx-stat .label{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#C9D5EA;margin-bottom:6px;font-weight:600;}
+  .fx .fx-stat .value{font-size:20px;font-weight:700;}
+  .fx .fx-stat.highlight{background:var(--text);}
+  .fx .fx-stat.highlight .label{color:#B7BDC6;}
+  .fx table.dre-table td{text-align:right;}
+  .fx table.dre-table td:first-child{text-align:left;}
+  .fx .neg{color:var(--danger);}
+  .fx table.grid-table td{text-align:center;min-width:80px;}
+  .fx table.grid-table input[type=number]{width:100%;min-width:70px;}
+  .fx table.grid-table td.dia{text-align:left;min-width:110px;}
+  .fx .layout{display:flex;gap:20px;align-items:flex-start;}
+  .fx .layout .main{flex:1;min-width:0;}
+  .fx .sidebar{width:220px;flex-shrink:0;position:sticky;top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;}
+  .fx .sidebar h3{font-size:13px;font-weight:700;margin:0 0 4px;}
+  .fx .sidebar-desc{font-size:10.5px;color:var(--text-soft);margin:0 0 10px;line-height:1.4;}
+  .fx .sidebar-list{display:flex;flex-direction:column;gap:6px;max-height:65vh;overflow-y:auto;}
+  .fx .sidebar-emp{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:4px;font-size:11.5px;border:1px solid var(--border);}
+  .fx .sidebar-emp .who{display:flex;align-items:center;gap:6px;min-width:0;}
+  .fx .sidebar-emp .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .fx .sidebar-emp .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fx .sidebar-emp .hrs{font-weight:700;font-size:11px;flex-shrink:0;margin-left:6px;}
+  .fx .sidebar-total{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;}
+  @media (max-width:820px){ .fx .layout{flex-direction:column;} .fx .sidebar{width:100%;position:static;order:-1;} }
+  .fx .selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .fx .day-btn{padding:7px 13px;border:1px solid var(--border);background:#fff;font-size:12px;border-radius:20px;color:var(--text-soft);}
+  .fx .day-btn.active{background:var(--text);color:#fff;border-color:var(--text);}
+  .fx .turno-toggle{display:flex;gap:4px;margin-left:auto;}
+  .fx .turno-btn{padding:7px 16px;border:1px solid var(--primary);background:#fff;color:var(--primary);font-size:12px;border-radius:20px;font-weight:600;}
+  .fx .turno-btn.active{background:var(--primary);color:#fff;}
+  .fx .scheme{border:1px solid var(--border);border-radius:var(--radius);padding:20px;background:#fff;}
+  .fx .scheme-boxes{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+  .fx .scheme-box{flex:1;min-width:170px;border-radius:6px;padding:13px;position:relative;overflow:hidden;}
+  .fx .scheme-box .box-name{font-weight:700;font-size:13px;margin-bottom:8px;position:relative;z-index:2;}
+  .fx .scheme-box .fill-bar{position:absolute;left:0;bottom:0;width:100%;height:5px;background:rgba(0,0,0,.1);}
+  .fx .scheme-box .fill-bar .fill{height:100%;width:0%;background:var(--ok);transition:width .5s ease;}
+  .fx .scheme-box.short .fill-bar .fill{background:var(--danger);}
+  .fx .chip-list{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;position:relative;z-index:2;}
+  .fx .chip{background:rgba(255,255,255,.8);border:1px solid rgba(0,0,0,.12);padding:3px 9px;border-radius:14px;font-size:11px;font-weight:600;opacity:0;transform:translateY(4px);animation:chipIn .3s ease forwards;}
+  @keyframes chipIn{to{opacity:1;transform:translateY(0);}}
+  .fx .count-tag{font-size:10px;margin-top:6px;position:relative;z-index:2;}
+  .fx .count-tag.ok{color:var(--ok);}
+  .fx .count-tag.short{color:var(--danger);font-weight:700;}
+  .fx .sala-strip{border-top:1px solid var(--border);padding-top:12px;}
+  .fx .eligible-panel{margin-top:14px;}
+  .fx .eligible-area{margin-bottom:10px;}
+  .fx .eligible-area .label{font-size:11px;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:6px;}
+  .fx .eligible-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .fx .elig-chip{border:1px solid var(--border);padding:5px 10px;border-radius:20px;font-size:11.5px;background:#F5F6F8;}
+  .fx .elig-chip.on{background:var(--text);color:#fff;border-color:var(--text);}
+  .fx .elig-chip.disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed;}
+  .fx tr.total{background:#F0F2F5;font-weight:700;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
 </head>
@@ -554,6 +634,140 @@
         <tbody id="utilizadoresBody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- ESCALAS (trazidas do projeto fluxos-e-escalas) -->
+  <div class="view fx" id="view-escalas">
+
+  <div id="escalaView">
+    <section class="panel">
+      <h2>Áreas</h2>
+      <p class="desc">Áreas físicas do restaurante — pode renomear ou mudar cor.</p>
+      <div id="escAreasBox"></div>
+      <button class="btn-ghost" style="margin-top:10px;" onclick="FX.addEscArea()">+ Adicionar área</button>
+    </section>
+
+    <section class="panel">
+      <h2>Equipa</h2>
+      <p class="desc">Área principal, secundária (opcional — pode ser "Todas as áreas") e folgas fixas.</p>
+      <table id="escEmpTable"></table>
+      <button class="btn-primary" style="margin-top:10px;" onclick="FX.addEscEmployee()">+ Adicionar funcionário</button>
+    </section>
+
+    <section class="panel">
+      <h2>Mínimo necessário por dia / turno / área</h2>
+      <p class="desc">Desmarque "Aberto" para fechar o dia.</p>
+      <table id="escNeedsTable"></table>
+      <div class="row" style="margin-top:14px;">
+        <div style="max-width:180px;"><label>Duração Almoço (h)</label><input type="number" id="escDurAlmoco" step="0.5"></div>
+        <div style="max-width:180px;"><label>Duração Jantar (h)</label><input type="number" id="escDurJantar" step="0.5"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Escala visual</h2>
+      <div class="layout">
+        <div class="main">
+          <div class="selector" id="escDaySelector"></div>
+          <div class="scheme" id="escSchemeBox"></div>
+          <div class="eligible-panel" id="escEligiblePanel"></div>
+          <div class="row" style="margin-top:14px;">
+            <button class="btn-dark" onclick="FX.autofillEscWeek()">Preencher automaticamente</button>
+            <button class="btn-ghost" onclick="FX.exportEscSchedule()">Descarregar ficheiro (nome, dias, horário, total horas)</button>
+          </div>
+          <p class="status" id="escStatus"></p>
+        </div>
+        <aside class="sidebar">
+          <h3>Equipa · horas na semana</h3>
+          <p class="sidebar-desc">Total por pessoa, atualizado em tempo real.</p>
+          <div class="sidebar-list" id="escSidebarList"></div>
+          <div class="sidebar-total" id="escSidebarTotal"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Resumo semanal — pronto para a equipa</h2>
+      <p class="desc">A = almoço, J = jantar, AJ = dia inteiro, F = folga.</p>
+      <table id="escSummaryTable"></table>
+    </section>
+  </div>
+
+  </div>
+
+  <!-- CENÁRIOS (simulação de faturamento) -->
+  <div class="view fx" id="view-cenarios">
+<!-- LISTA DE CENÁRIOS -->
+  <div id="listView">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:14px;">
+        <h2 style="margin:0;">Os seus cenários</h2>
+        <button class="btn-primary" onclick="FX.newScenario()">+ Novo cenário</button>
+      </div>
+      <table id="cenTable"></table>
+      <p class="status" id="listStatus"></p>
+    </section>
+  </div>
+
+  <!-- EDITOR DE CENÁRIO -->
+  <div id="editorView" class="hidden">
+    <section class="panel">
+      <label>Nome do cenário</label>
+      <input type="text" id="cenNome" style="max-width:400px;" placeholder="Ex: Base 2026-2027">
+    </section>
+    <section class="panel">
+      <h2>Dias e turnos abertos</h2>
+      <p class="desc">Informativo — quais dias/turnos a operação funciona. Já não define o faturamento (isso vem do painel "Sazonalidade mensal" abaixo).</p>
+      <table class="grid-table" id="daysTable"></table>
+    </section>
+    <section class="panel">
+      <h2>Sazonalidade mensal</h2>
+      <p class="desc">Marque o mês de <b>Referência (100%)</b> — o seu melhor faturamento real conhecido. Nos outros meses, escreva a <b>% de queda</b> em relação a essa referência, ou clique em "%"/"€" para escrever o faturamento real direto (a queda calcula-se sozinha). "Real?" é só uma etiqueta sua, não afeta o cálculo.</p>
+      <div style="overflow-x:auto;"><table class="grid-table" id="monthsTable"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Estrutura de custos</h2>
+      <p class="desc">CMV e impostos são taxas proporcionais à receita. Os 3 tickets médios são globais (usados em todos os meses) e convertem o mix de faturamento em nº de clientes/pedidos.</p>
+      <div class="params-grid">
+        <div><label>CMV (% receita)</label><input type="number" id="cmv" step="0.5"></div>
+        <div><label>Impostos e taxas (% receita)</label><input type="number" id="impostos" step="0.5"></div>
+        <div><label>Salário base por funcionário (€/mês)</label><input type="number" id="salarioBase" step="50"></div>
+        <div><label>Ticket médio Almoço (€)</label><input type="number" id="ticketAlmoco" step="0.5"></div>
+        <div><label>Ticket médio Delivery (€)</label><input type="number" id="ticketDelivery" step="0.5"></div>
+        <div><label>Ticket médio Jantar (€)</label><input type="number" id="ticketJantar" step="0.5"></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Despesas mensais</h2>
+      <p class="desc">Nº de funcionários × salário base = despesa com pessoal daquele mês. As restantes linhas são editáveis diretamente. A última linha mostra o que sobra depois de todas as despesas.</p>
+      <div style="overflow-x:auto;"><table class="grid-table" id="expensesTable"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Resultado projetado</h2>
+      <div class="cards" id="cards"></div>
+    </section>
+    <div class="row">
+      <button class="btn-primary" onclick="FX.saveScenario()">Guardar cenário</button>
+      <button class="btn-ghost" onclick="FX.showView('list')">Cancelar</button>
+      <p class="status" id="editorStatus"></p>
+    </div>
+  </div>
+
+  
+  </div>
+
+  <div class="view fx" id="view-cenarios-comparar">
+<!-- COMPARAÇÃO -->
+  <div id="compareView">
+    <section class="panel">
+      <h2>Selecione 2 ou 3 cenários</h2>
+      <div id="compareCheckboxes"></div>
+      <button class="btn-dark" style="margin-top:14px;" onclick="FX.renderComparison()">Comparar</button>
+    </section>
+    <section class="panel"><div id="compareOutput"></div></section>
+  </div>
+
+  
   </div>
 
   <!-- BACKUP -->
@@ -2892,11 +3106,789 @@ async function importSeedData(){
   await showAlert(`Importação concluída:\n${novosFornecedores} fornecedores novos\n${novasAreas} áreas novas\n${novosProdutos} produtos novos\n${ignorados} produtos ignorados (código já existia)`);
 }
 
+// ---------- ESCALAS E CENÁRIOS (trazidos do projeto fluxos-e-escalas) ----------
+const FX = (function(){
+  // Mini cliente com a mesma "forma" do supabase-js usada pelo projeto original, mas por cima
+  // do fetch + login deste app (sem segunda biblioteca nem segundo login).
+  const sb = { from(table){
+    const q = { m:'GET', body:null, f:[], ord:null, rep:false, one:false, conf:null };
+    const api = {
+      select(){ if(q.m !== 'GET') q.rep = true; return api; },
+      insert(b){ q.m = 'POST'; q.body = b; return api; },
+      update(b){ q.m = 'PATCH'; q.body = b; return api; },
+      upsert(b, o){ q.m = 'UPSERT'; q.body = b; q.conf = o && o.onConflict; return api; },
+      delete(){ q.m = 'DELETE'; return api; },
+      eq(c, v){ q.f.push(`${c}=eq.${encodeURIComponent(v)}`); return api; },
+      in(c, vs){ q.f.push(`${c}=in.(${vs.map(v => encodeURIComponent(v)).join(',')})`); return api; },
+      order(c, o){ q.ord = `${c}.${o && o.ascending === false ? 'desc' : 'asc'}`; return api; },
+      maybeSingle(){ q.one = true; return api; },
+      then(ok, fail){ return run().then(ok, fail); }
+    };
+    async function run(){
+      try{
+        const params = [...q.f];
+        if(q.ord) params.push('order=' + q.ord);
+        if(q.m === 'GET') params.push('select=*');
+        if(q.m === 'UPSERT' && q.conf) params.push('on_conflict=' + encodeURIComponent(q.conf));
+        const headers = { ...sbHeadersFn() };
+        const init = { headers };
+        if(q.m === 'POST' || q.m === 'PATCH' || q.m === 'UPSERT'){
+          init.method = q.m === 'UPSERT' ? 'POST' : q.m;
+          init.body = JSON.stringify(q.body);
+          headers.Prefer = (q.m === 'UPSERT' ? 'resolution=merge-duplicates,' : '') + (q.rep ? 'return=representation' : 'return=minimal');
+        }else if(q.m === 'DELETE'){
+          init.method = 'DELETE';
+        }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params.length ? '?' + params.join('&') : ''}`, init);
+        if(!res.ok){
+          let msg = ''; try{ msg = (await res.json()).message || ''; }catch(e){}
+          return { data:null, error:{ message: msg || ('HTTP ' + res.status) } };
+        }
+        let data = null;
+        if(res.status !== 204){ const txt = await res.text(); data = txt ? JSON.parse(txt) : null; }
+        if(q.one) data = Array.isArray(data) ? (data[0] || null) : data;
+        return { data, error:null };
+      }catch(e){ return { data:null, error:{ message: String((e && e.message) || e) } }; }
+    }
+    return api;
+  } };
+  // id do utilizador logado (campo "sub" do token), usado em "criado_por" dos cenários
+  const currentUser = { get id(){
+    try{ return JSON.parse(atob(sbAccessToken.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub; }catch(e){ return null; }
+  } };
+
+  function showView(v){
+    document.getElementById('listView').classList.toggle('hidden', v !== 'list');
+    document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
+  }
+  async function abrirCenarios(){ await loadScenarios(); showView('list'); }
+  async function abrirComparar(){ if(cenarios.length === 0) await loadScenarios(); renderCompareCheckboxes(); }
+  function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const DIAS_CURTO = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+
+let cenarios = [];
+let editingId = null;
+let compareSelection = [];
+
+function defaultDias(){
+  return DIAS.map((d,i)=>({ dia:d, almocoAberto:true, almocoClientes:25, almocoTicket:14, jantarAberto:true, jantarClientes: i>=4?55:35, jantarTicket:22 }));
+}
+const MESES_REAIS_PADRAO = ['Mar','Abr','Mai','Jun','Jul'];
+function defaultSazonalidade(){
+  // Agosto é a referência (100%) por padrão. Julho entra com o valor real já apurado.
+  const quedaPadrao = {Jan:65,Fev:60,Mar:50,Abr:35,Mai:20,Jun:10,Jul:0,Ago:0,Set:30,Out:45,Nov:60,Dez:55};
+  return MESES.map(m=>({
+    mes:m,
+    real: MESES_REAIS_PADRAO.includes(m) || m==='Ago',
+    isRef: m==='Ago',
+    modo: (m==='Jul' || m==='Ago') ? 'eur' : 'queda',
+    valorEur: m==='Jul' ? 24649 : (m==='Ago' ? 31096 : null),
+    queda: quedaPadrao[m],
+    pctAlmoco: 10, pctDelivery: 0, pctJantar: 90
+  }));
+}
+function defaultCustos(){
+  return {
+    cmv:30, impostos:20, salarioBase:1200,
+    ticketAlmoco:24, ticketDelivery:24, ticketJantar:24,
+    pessoalCount: Array(12).fill(7),
+    admin: Array(12).fill(600),
+    financeiras: Array(12).fill(150),
+    distribuicao: Array(12).fill(1500)
+  };
+}
+// Migra cenários antigos (custos em formato plano) para o novo modelo de 12 colunas
+function migrarCustos(c){
+  if(!c) return defaultCustos();
+  if(Array.isArray(c.pessoalCount) && c.ticketAlmoco!==undefined) return c; // já está no formato mais novo
+  const salarioBase = c.salarioBase || 1200;
+  const nFunc = Array.isArray(c.pessoalCount) ? c.pessoalCount : Array(12).fill(Math.round((c.pessoalFixo || 4500) / salarioBase) || 4);
+  return {
+    cmv: c.cmv ?? 30,
+    impostos: c.impostos ?? 20,
+    salarioBase,
+    ticketAlmoco: c.ticketAlmoco ?? 24,
+    ticketDelivery: c.ticketDelivery ?? 24,
+    ticketJantar: c.ticketJantar ?? 24,
+    pessoalCount: nFunc,
+    admin: Array.isArray(c.admin) ? c.admin : Array(12).fill(c.admin ?? 600),
+    financeiras: Array.isArray(c.financeiras) ? c.financeiras : Array(12).fill(c.financeiras ?? 150),
+    distribuicao: Array.isArray(c.distribuicao) ? c.distribuicao : Array(12).fill(c.distribuicao ?? 1500)
+  };
+}
+function migrarSazonalidade(months){
+  if(!months) return defaultSazonalidade();
+  const jaTemRef = months.some(m=>m.isRef);
+  return months.map(m=>({
+    mes: m.mes,
+    real: m.real !== undefined ? m.real : MESES_REAIS_PADRAO.includes(m.mes),
+    isRef: m.isRef !== undefined ? m.isRef : (!jaTemRef && m.mes==='Ago'),
+    modo: (m.modo==='eur' || m.modo==='queda') ? m.modo : (m.modo==='pct' ? 'queda' : 'eur'),
+    valorEur: m.valorEur ?? (m.mult!==undefined ? null : 0),
+    queda: m.queda ?? (m.mult!==undefined ? (100-m.mult) : 0),
+    pctAlmoco: m.pctAlmoco ?? 10, pctDelivery: m.pctDelivery ?? 0, pctJantar: m.pctJantar ?? 90
+  }));
+}
+
+/* ================= CENÁRIOS: LISTA ================= */
+async function loadScenarios(){
+  const { data, error } = await sb.from('cenarios').select('*').order('atualizado_em', {ascending:false});
+  const statusEl = document.getElementById('listStatus');
+  if(error){ statusEl.textContent = 'Erro ao carregar cenários: ' + error.message; return; }
+  cenarios = data || [];
+  renderList();
+  statusEl.textContent = '';
+}
+function renderList(){
+  const t = document.getElementById('cenTable');
+  if(cenarios.length===0){
+    t.innerHTML = '<tr><td style="color:var(--text-soft);padding:14px 0;border:none;">Ainda não há cenários — clique em "+ Novo cenário".</td></tr>';
+    return;
+  }
+  let html = '<tr><th>Nome</th><th>Atualizado em</th><th></th></tr>';
+  cenarios.forEach(c=>{
+    const d = new Date(c.atualizado_em);
+    html += `<tr><td class="name">${c.nome}</td><td>${d.toLocaleDateString('pt-PT')}</td>
+      <td class="row"><button class="btn-ghost" onclick="FX.editScenario('${c.id}')">editar</button>
+      <button class="btn-ghost" onclick="FX.deleteScenario('${c.id}')">apagar</button></td></tr>`;
+  });
+  t.innerHTML = html;
+}
+async function deleteScenario(id){
+  const { error } = await sb.from('cenarios').delete().eq('id', id);
+  if(error){ document.getElementById('listStatus').textContent = 'Erro ao apagar: ' + error.message; return; }
+  await loadScenarios();
+}
+
+/* ================= CENÁRIOS: EDITOR ================= */
+let editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
+function newScenario(){
+  editingId = null;
+  editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
+  document.getElementById('cenNome').value = '';
+  loadCustosToForm(editState.custos);
+  renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
+  showView('editor');
+}
+function editScenario(id){
+  const c = cenarios.find(x=>x.id===id); if(!c) return;
+  editingId = id;
+  editState = {
+    days: c.dias_turnos?.days || defaultDias(),
+    months: migrarSazonalidade(c.sazonalidade),
+    custos: migrarCustos(c.custos)
+  };
+  document.getElementById('cenNome').value = c.nome;
+  loadCustosToForm(editState.custos);
+  renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
+  showView('editor');
+}
+function loadCustosToForm(c){
+  document.getElementById('cmv').value = c.cmv;
+  document.getElementById('impostos').value = c.impostos;
+  document.getElementById('salarioBase').value = c.salarioBase;
+  document.getElementById('ticketAlmoco').value = c.ticketAlmoco;
+  document.getElementById('ticketDelivery').value = c.ticketDelivery;
+  document.getElementById('ticketJantar').value = c.ticketJantar;
+}
+function readCustosFromForm(){
+  editState.custos.cmv = parseFloat(document.getElementById('cmv').value)||0;
+  editState.custos.impostos = parseFloat(document.getElementById('impostos').value)||0;
+  editState.custos.salarioBase = parseFloat(document.getElementById('salarioBase').value)||0;
+  editState.custos.ticketAlmoco = parseFloat(document.getElementById('ticketAlmoco').value)||0;
+  editState.custos.ticketDelivery = parseFloat(document.getElementById('ticketDelivery').value)||0;
+  editState.custos.ticketJantar = parseFloat(document.getElementById('ticketJantar').value)||0;
+  return editState.custos;
+}
+function renderDays(){
+  const t = document.getElementById('daysTable');
+  let html = '<tr><th style="text-align:left">Dia</th><th colspan="3">Almoço</th><th colspan="3">Jantar</th></tr>';
+  html += '<tr><th></th><th>Aberto</th><th>Clientes</th><th>Ticket €</th><th>Aberto</th><th>Clientes</th><th>Ticket €</th></tr>';
+  editState.days.forEach((d,i)=>{
+    html += `<tr><td class="dia">${d.dia}</td>
+      <td><input type="checkbox" ${d.almocoAberto?'checked':''} onchange="FX.updateDay(${i},'almocoAberto',this.checked)"></td>
+      <td><input type="number" value="${d.almocoClientes}" onchange="FX.updateDay(${i},'almocoClientes',this.value)"></td>
+      <td><input type="number" value="${d.almocoTicket}" step="0.5" onchange="FX.updateDay(${i},'almocoTicket',this.value)"></td>
+      <td><input type="checkbox" ${d.jantarAberto?'checked':''} onchange="FX.updateDay(${i},'jantarAberto',this.checked)"></td>
+      <td><input type="number" value="${d.jantarClientes}" onchange="FX.updateDay(${i},'jantarClientes',this.value)"></td>
+      <td><input type="number" value="${d.jantarTicket}" step="0.5" onchange="FX.updateDay(${i},'jantarTicket',this.value)"></td></tr>`;
+  });
+  t.innerHTML = html;
+}
+function updateDay(i, field, val){
+  editState.days[i][field] = (typeof val==='boolean')?val:parseFloat(val)||0;
+}
+function getRefRevenue(){
+  const ref = editState.months.find(m=>m.isRef);
+  return ref ? (ref.valorEur || 0) : 0;
+}
+function receitaDoMes(m, refRevenue){
+  return m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
+}
+function setReferencia(i){
+  editState.months.forEach((m,idx)=>{ m.isRef = (idx===i); if(idx===i){ m.modo='eur'; m.queda=0; if(!m.valorEur) m.valorEur=0; } });
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function toggleMonthReal(i, val){ editState.months[i].real = val; renderMonths(); }
+function toggleMonthModo(i){
+  const m = editState.months[i];
+  if(m.isRef) return; // a referência é sempre em €
+  const refRevenue = getRefRevenue();
+  if(m.modo==='queda'){
+    m.valorEur = receitaDoMes(m, refRevenue);
+    m.modo = 'eur';
+  } else {
+    m.queda = refRevenue>0 ? (1-(m.valorEur||0)/refRevenue)*100 : 0;
+    m.modo = 'queda';
+  }
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function updateMonthValue(i, val){
+  const m = editState.months[i];
+  if(m.modo==='eur') m.valorEur = parseFloat(val)||0;
+  else m.queda = parseFloat(val)||0;
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function updateMonthMix(i, campo, val){
+  editState.months[i][campo] = parseFloat(val)||0;
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function renderMonths(){
+  const t = document.getElementById('monthsTable');
+  const refRevenue = getRefRevenue();
+  const ticketA = parseFloat(document.getElementById('ticketAlmoco')?.value)||0;
+  const ticketD = parseFloat(document.getElementById('ticketDelivery')?.value)||0;
+  const ticketJ = parseFloat(document.getElementById('ticketJantar')?.value)||0;
+
+  let html = '<tr><td class="dia">Mês</td>' + editState.months.map(m=>`<td style="font-weight:700;">${m.mes}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Real?</td>' + editState.months.map((m,i)=>`<td><input type="checkbox" ${m.real?'checked':''} onchange="FX.toggleMonthReal(${i},this.checked)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Referência (100%)</td>' + editState.months.map((m,i)=>`<td><input type="radio" name="ref" ${m.isRef?'checked':''} onchange="FX.setReferencia(${i})"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Valor <span style="font-size:9px;">(clique p/ trocar)</span></td>' + editState.months.map((m,i)=>{
+    if(m.isRef) return `<td><input type="number" value="${(m.valorEur||0).toFixed(0)}" style="width:74px;" onchange="FX.updateMonthValue(${i},this.value)"><div style="font-size:9px;color:var(--text-soft);">ref. 100%</div></td>`;
+    return `<td>
+      <div class="row" style="gap:3px;justify-content:center;flex-wrap:nowrap;">
+        <input type="number" value="${(m.modo==='eur'?(m.valorEur||0):(m.queda||0)).toFixed(0)}" style="width:60px;" onchange="FX.updateMonthValue(${i},this.value)">
+        <button class="btn-ghost" style="padding:4px 6px;font-size:10px;" onclick="FX.toggleMonthModo(${i})">${m.modo==='eur'?'€':'%'}</button>
+      </div>
+      <div style="font-size:9px;color:var(--text-soft);">${m.modo==='eur'?'queda: '+(refRevenue>0?((1-(m.valorEur||0)/refRevenue)*100).toFixed(0):'—')+'%':'≈ '+fmtEUR(receitaDoMes(m,refRevenue))}</div>
+    </td>`;
+  }).join('') + '</tr>';
+  html += '<tr><td class="dia">Faturamento do mês</td>' + editState.months.map(m=>`<td style="font-weight:700;">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Mix do faturamento</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
+  html += '<tr><td class="dia">% Almoço</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctAlmoco}" onchange="FX.updateMonthMix(${i},'pctAlmoco',this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">% Delivery</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctDelivery}" onchange="FX.updateMonthMix(${i},'pctDelivery',this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">% Jantar</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctJantar}" onchange="FX.updateMonthMix(${i},'pctJantar',this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="font-size:10px;color:var(--text-soft);">Soma (deve ser 100%)</td>' + editState.months.map(m=>{
+    const soma = m.pctAlmoco+m.pctDelivery+m.pctJantar;
+    return `<td style="font-size:10px;color:${Math.round(soma)!==100?'var(--danger)':'var(--ok)'};">${soma.toFixed(0)}%</td>`;
+  }).join('') + '</tr>';
+  html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Público estimado (nº/mês)</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
+  html += '<tr><td class="dia">Público Almoço</td>' + editState.months.map(m=>{
+    const receita = receitaDoMes(m,refRevenue);
+    const publico = ticketA>0 ? (receita*m.pctAlmoco/100)/ticketA : 0;
+    return `<td>${publico.toFixed(0)}</td>`;
+  }).join('') + '</tr>';
+  html += '<tr><td class="dia">Público Delivery</td>' + editState.months.map(m=>{
+    const receita = receitaDoMes(m,refRevenue);
+    const publico = ticketD>0 ? (receita*m.pctDelivery/100)/ticketD : 0;
+    return `<td>${publico.toFixed(0)}</td>`;
+  }).join('') + '</tr>';
+  html += '<tr><td class="dia">Público Jantar</td>' + editState.months.map(m=>{
+    const receita = receitaDoMes(m,refRevenue);
+    const publico = ticketJ>0 ? (receita*m.pctJantar/100)/ticketJ : 0;
+    return `<td>${publico.toFixed(0)}</td>`;
+  }).join('') + '</tr>';
+  t.innerHTML = html;
+}
+document.getElementById('cmv').addEventListener('change', computeAndRenderCards);
+document.getElementById('impostos').addEventListener('change', computeAndRenderCards);
+document.getElementById('salarioBase').addEventListener('change', ()=>{ readCustosFromForm(); renderExpenses(); computeAndRenderCards(); });
+['ticketAlmoco','ticketDelivery','ticketJantar'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{ readCustosFromForm(); renderMonths(); });
+});
+function fmtEUR(v){ return v.toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0}); }
+
+
+/* ---- Despesas mensais (12 colunas) ---- */
+function renderExpenses(){
+  const t = document.getElementById('expensesTable');
+  const c = editState.custos;
+  const refRevenue = getRefRevenue();
+  let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Nº funcionários</td>' + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="color:var(--text-soft);font-weight:400;">→ Despesas com Pessoal</td>' + c.pessoalCount.map(n=>`<td style="color:var(--text-soft);">${fmtEUR(n*c.salarioBase)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Despesas Administrativas</td>' + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Despesas Financeiras</td>' + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (sócios)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="padding-top:12px;color:var(--text-soft);font-size:11px;">Faturamento do mês</td>' + editState.months.map(m=>`<td style="font-size:11px;color:var(--text-soft);">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="font-weight:700;">Sobra do mês <span style="font-size:9px;font-weight:400;">(fat. − despesas)</span></td>' + editState.months.map((m,i)=>{
+    const receita = receitaDoMes(m,refRevenue);
+    const cmvValor = receita*(c.cmv/100);
+    const despPessoal = (c.salarioBase||0)*(c.pessoalCount[i]||0);
+    const totalDespesas = cmvValor + despPessoal + c.admin[i] + c.financeiras[i] + c.distribuicao[i] + receita*(c.impostos/100);
+    const sobra = receita - totalDespesas;
+    return `<td style="font-weight:700;${sobra<0?'color:var(--danger);':'color:var(--ok);'}">${fmtEUR(sobra)}</td>`;
+  }).join('') + '</tr>';
+  t.innerHTML = html;
+}
+function updateExpense(campo, i, val){
+  editState.custos[campo][i] = parseFloat(val)||0;
+  renderExpenses(); computeAndRenderCards();
+}
+
+function computeCenario(months, custos){
+  const refRevenue = (months.find(m=>m.isRef)||{}).valorEur || 0;
+  let monthlyDRE = [], ivaAccumQuarter=0, cashCumulative=0, cashCumulativeBeforeDist=0;
+  MESES.forEach((mes,i)=>{
+    const m = months[i];
+    const receita = m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
+    const cmvValor = receita * (custos.cmv/100);
+    const lucroBruto = receita - cmvValor;
+    const despPessoal = (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
+    const despAdmin = custos.admin?.[i] || 0;
+    const despFinanceiras = custos.financeiras?.[i] || 0;
+    const despDistribuicao = custos.distribuicao?.[i] || 0;
+    const totalOperacionais = despPessoal + despAdmin;
+    const resultadoOperacional = lucroBruto - totalOperacionais;
+    const impostosValor = receita * (custos.impostos/100);
+    const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
+    const resultadoLiquido = resultadoAntesDistribuicao - despDistribuicao;
+    ivaAccumQuarter += impostosValor;
+    let impostosCash = 0;
+    if(i%3===2){ impostosCash = ivaAccumQuarter; ivaAccumQuarter = 0; }
+    const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despAdmin - despFinanceiras) - impostosCash;
+    cashCumulativeBeforeDist += cashFlowBeforeDist;
+    cashCumulative += cashFlowBeforeDist - despDistribuicao;
+    monthlyDRE.push({ mes, receita, cmvValor, lucroBruto, despPessoal, despAdmin, totalOperacionais, resultadoOperacional,
+      impostosValor, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
+  });
+  return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
+    cashCumulative: monthlyDRE[11].cashCumulative, cashCumulativeBeforeDist: monthlyDRE[11].cashCumulativeBeforeDist };
+}
+function computeAndRenderCards(){
+  const custos = readCustosFromForm(); editState.custos = custos;
+  const r = computeCenario(editState.months, custos);
+  document.getElementById('cards').innerHTML = `
+    <div class="fx-stat"><div class="label">Faturamento anual</div><div class="value">${fmtEUR(r.annualRevenue)}</div></div>
+    <div class="fx-stat"><div class="label">Resultado líquido anual</div><div class="value">${fmtEUR(r.annualResult)}</div></div>
+    <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
+    <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>`;
+}
+async function saveScenario(){
+  const nome = document.getElementById('cenNome').value.trim();
+  const statusEl = document.getElementById('editorStatus');
+  if(!nome){ statusEl.textContent = 'Dê um nome ao cenário antes de guardar.'; return; }
+  const payload = { nome, dias_turnos:{days:editState.days}, sazonalidade:editState.months, custos:readCustosFromForm(), atualizado_em:new Date().toISOString() };
+  let error;
+  if(editingId){ ({error} = await sb.from('cenarios').update(payload).eq('id', editingId)); }
+  else{ ({error} = await sb.from('cenarios').insert({...payload, criado_por: currentUser.id})); }
+  if(error){ statusEl.textContent = 'Erro ao guardar: ' + error.message; return; }
+  statusEl.textContent = 'Guardado.';
+  await loadScenarios();
+  setTimeout(()=>showView('list'), 500);
+}
+
+/* ================= COMPARAÇÃO ================= */
+function renderCompareCheckboxes(){
+  const box = document.getElementById('compareCheckboxes');
+  if(cenarios.length===0){ box.innerHTML = '<p class="desc">Crie pelo menos 2 cenários para comparar.</p>'; return; }
+  box.innerHTML = cenarios.map(c=>`<label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;margin-bottom:8px;">
+      <input type="checkbox" style="width:16px;height:16px;" value="${c.id}" onchange="FX.toggleCompare('${c.id}',this.checked)">${c.nome}</label>`).join('');
+}
+function toggleCompare(id, checked){
+  if(checked){ if(!compareSelection.includes(id)) compareSelection.push(id); } else { compareSelection = compareSelection.filter(x=>x!==id); }
+}
+function renderComparison(){
+  const out = document.getElementById('compareOutput');
+  if(compareSelection.length < 2){ out.innerHTML = '<p class="desc">Selecione pelo menos 2 cenários.</p>'; return; }
+  const selected = cenarios.filter(c=>compareSelection.includes(c.id));
+  const results = selected.map(c=>({ nome:c.nome, ...computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos)) }));
+  let html = '<table class="dre-table"><tr><th>Indicador</th>' + results.map(r=>`<th>${r.nome}</th>`).join('') + '</tr>';
+  [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após pró-labore)','cashCumulative']].forEach(([label,key])=>{
+    html += `<tr><td>${label}</td>` + results.map(r=>`<td class="${r[key]<0?'neg':''}">${fmtEUR(r[key])}</td>`).join('') + '</tr>';
+  });
+  out.innerHTML = html + '</table>';
+}
+
+/* ================= ESCALAS E FLUXOS ================= */
+let escLoaded = false;
+let escAreas = [], escFuncionarios = [], escDias = [], escNecessidades = [], escAssignments = [], escConfig = {duracao_almoco:5, duracao_jantar:6};
+let escCurrentDay = 0, escCurrentTurno = 'almoco';
+let escStatusTimeout;
+function escSetStatus(msg){
+  const el = document.getElementById('escStatus');
+  el.textContent = msg;
+  clearTimeout(escStatusTimeout);
+  escStatusTimeout = setTimeout(()=>{el.textContent='';}, 2000);
+}
+
+async function loadEscalaData(){
+  const [aRes, fRes, dRes, nRes, asRes, cRes] = await Promise.all([
+    sb.from('escala_areas').select('*').order('nome'),
+    sb.from('escala_funcionarios').select('*').order('nome'),
+    sb.from('escala_dias').select('*'),
+    sb.from('escala_necessidades').select('*'),
+    sb.from('escala_assignments').select('*'),
+    sb.from('escala_config').select('*').eq('id',1).maybeSingle()
+  ]);
+  const falhaCarga = [aRes, fRes, dRes, nRes, asRes, cRes].find(r => r.error);
+  if(falhaCarga){ document.getElementById('escStatus').textContent = 'Erro ao carregar a escala: ' + falhaCarga.error.message; return; }  escAreas = aRes.data || [];
+  if(escAreas.length===0){
+    const seed = [{nome:'Área de Pizza',cor:'#E63946'},{nome:'Bar',cor:'#8EB8E5'},{nome:'Cozinha',cor:'#F6D186'},{nome:'Sala',cor:'#8FB996'}];
+    const { data } = await sb.from('escala_areas').insert(seed).select();
+    escAreas = data || [];
+  }
+  escFuncionarios = (fRes.data || []).map(e=>({...e, folgas: e.folgas || [false,false,false,false,false,false,false]}));
+  escDias = dRes.data || [];
+  if(escDias.length < 7){
+    const existing = escDias.map(d=>d.dia);
+    const toInsert = [0,1,2,3,4,5,6].filter(d=>!existing.includes(d)).map(d=>({dia:d, aberto:true}));
+    if(toInsert.length){ await sb.from('escala_dias').insert(toInsert); }
+    const { data } = await sb.from('escala_dias').select('*');
+    escDias = data || [];
+  }
+  escNecessidades = nRes.data || [];
+  escAssignments = asRes.data || [];
+
+  // Limpeza: remove escalas presas de antes que já não batem com as folgas atuais do funcionário
+  const invalidas = escAssignments.filter(a=>{
+    const func = escFuncionarios.find(e=>e.id===a.funcionario_id);
+    return func && func.folgas[a.dia];
+  });
+  if(invalidas.length){
+    await sb.from('escala_assignments').delete().in('id', invalidas.map(x=>x.id));
+    const idsInvalidos = new Set(invalidas.map(x=>x.id));
+    escAssignments = escAssignments.filter(a=>!idsInvalidos.has(a.id));
+  }
+
+  if(cRes.data){ escConfig = cRes.data; }
+  else{
+    const { data } = await sb.from('escala_config').insert({id:1, duracao_almoco:5, duracao_jantar:6}).select().maybeSingle();
+    escConfig = data || escConfig;
+  }
+  document.getElementById('escDurAlmoco').value = escConfig.duracao_almoco;
+  document.getElementById('escDurJantar').value = escConfig.duracao_jantar;
+  escLoaded = true;
+  renderEscAll();
+}
+
+function renderEscAll(){
+  renderEscAreas(); renderEscEmployees(); renderEscNeeds(); renderEscDaySelector(); renderEscScheme(); renderEscSummary();
+}
+
+/* ---- Áreas ---- */
+function renderEscAreas(){
+  document.getElementById('escAreasBox').innerHTML = escAreas.map(a=>`
+    <div class="row" style="margin-bottom:8px;">
+      <input type="color" value="${a.cor}" style="width:36px;" onchange="FX.updateEscArea('${a.id}','cor',this.value)">
+      <input type="text" value="${a.nome}" style="max-width:200px;" onchange="FX.updateEscArea('${a.id}','nome',this.value)">
+      <button class="btn-ghost" onclick="FX.removeEscArea('${a.id}')">remover</button>
+    </div>`).join('');
+}
+async function updateEscArea(id, field, val){
+  const a = escAreas.find(x=>x.id===id); if(a) a[field]=val;
+  await sb.from('escala_areas').update({[field]:val}).eq('id', id);
+  renderEscAll();
+}
+async function addEscArea(){
+  const { data } = await sb.from('escala_areas').insert({nome:'Nova área', cor:'#999999'}).select().maybeSingle();
+  if(data) escAreas.push(data);
+  renderEscAll();
+}
+async function removeEscArea(id){
+  await sb.from('escala_areas').delete().eq('id', id);
+  escAreas = escAreas.filter(a=>a.id!==id);
+  await loadEscalaData();
+}
+
+/* ---- Equipa ---- */
+function renderEscEmployees(){
+  let html = '<tr><th>Nome</th><th>Área principal</th><th>Área secundária</th><th>Contrato</th><th colspan="7">Folgas</th><th></th></tr>';
+  html += '<tr><th></th><th></th><th></th><th></th>' + DIAS_CURTO.map(d=>`<th>${d}</th>`).join('') + '<th></th></tr>';
+  escFuncionarios.forEach(e=>{
+    const hibrido = e.area2 && e.area2 !== e.area_id;
+    const badge = e.area2==='all' ? '★ todas' : 'híbrido';
+    html += `<tr>
+      <td><input type="text" value="${e.nome}" style="max-width:130px;" onchange="FX.updateEscEmp('${e.id}','nome',this.value)">${hibrido?` <span class="tag hibrido">${badge}</span>`:''}</td>
+      <td><select onchange="FX.updateEscEmp('${e.id}','area_id',this.value)">
+        ${escAreas.map(a=>`<option value="${a.id}" ${e.area_id===a.id?'selected':''}>${a.nome}</option>`).join('')}
+      </select></td>
+      <td><select onchange="FX.updateEscEmp('${e.id}','area2',this.value)">
+        <option value="" ${!e.area2?'selected':''}>— nenhuma —</option>
+        <option value="all" ${e.area2==='all'?'selected':''}>★ Todas as áreas</option>
+        ${escAreas.filter(a=>a.id!==e.area_id).map(a=>`<option value="${a.id}" ${e.area2===a.id?'selected':''}>${a.nome}</option>`).join('')}
+      </select></td>
+      <td><select onchange="FX.updateEscEmp('${e.id}','tipo',this.value)">
+        <option value="full" ${e.tipo==='full'?'selected':''}>Full</option>
+        <option value="part" ${e.tipo==='part'?'selected':''}>Part</option>
+      </select></td>
+      ${e.folgas.map((f,di)=>`<td><input type="checkbox" ${f?'checked':''} onchange="FX.toggleEscFolga('${e.id}',${di},this.checked)"></td>`).join('')}
+      <td><button class="btn-ghost" onclick="FX.removeEscEmployee('${e.id}')">remover</button></td>
+    </tr>`;
+  });
+  document.getElementById('escEmpTable').innerHTML = html;
+}
+async function updateEscEmp(id, field, val){
+  const e = escFuncionarios.find(x=>x.id===id); if(!e) return;
+  e[field] = val;
+  if(field==='area_id' && e.area2===val) e.area2 = '';
+  await sb.from('escala_funcionarios').update({[field]:val, area2: e.area2}).eq('id', id);
+  renderEscAll();
+}
+async function toggleEscFolga(id, dayIdx, val){
+  const e = escFuncionarios.find(x=>x.id===id); if(!e) return;
+  e.folgas[dayIdx] = val;
+  await sb.from('escala_funcionarios').update({folgas: e.folgas}).eq('id', id);
+  if(val){
+    // Marcar folga remove automaticamente qualquer escala já feita para esse dia (almoço e jantar)
+    const presos = escAssignments.filter(a=>a.dia===dayIdx && a.funcionario_id===id);
+    if(presos.length){
+      await sb.from('escala_assignments').delete().in('id', presos.map(p=>p.id));
+      escAssignments = escAssignments.filter(a=>!(a.dia===dayIdx && a.funcionario_id===id));
+    }
+  }
+  renderEscAll();
+}
+async function addEscEmployee(){
+  const defaultArea = escAreas[escAreas.length-1]?.id;
+  const { data } = await sb.from('escala_funcionarios').insert({nome:'Novo funcionário', area_id:defaultArea, tipo:'full', folgas:[false,false,false,false,false,false,false]}).select().maybeSingle();
+  if(data) escFuncionarios.push({...data, folgas: data.folgas || [false,false,false,false,false,false,false]});
+  renderEscAll();
+}
+async function removeEscEmployee(id){
+  await sb.from('escala_funcionarios').delete().eq('id', id);
+  escFuncionarios = escFuncionarios.filter(e=>e.id!==id);
+  escAssignments = escAssignments.filter(a=>a.funcionario_id!==id);
+  renderEscAll();
+}
+
+/* ---- Necessidades / dias abertos ---- */
+function getNeed(dia, turno, areaId){
+  const row = escNecessidades.find(n=>n.dia===dia && n.turno===turno && n.area_id===areaId);
+  return row ? row.minimo : 0;
+}
+function isEscDayOpen(dia){
+  const row = escDias.find(d=>d.dia===dia);
+  return row ? row.aberto : true;
+}
+function renderEscNeeds(){
+  let html = '<tr><th>Área</th>' + DIAS_CURTO.map(d=>`<th>${d}</th>`).join('') + '</tr>';
+  html += '<tr><td>Aberto</td>' + [0,1,2,3,4,5,6].map(d=>`<td><input type="checkbox" ${isEscDayOpen(d)?'checked':''} onchange="FX.toggleEscOpen(${d},this.checked)"></td>`).join('') + '</tr>';
+  escAreas.forEach(a=>{
+    html += `<tr><td style="border-left:4px solid ${a.cor};padding-left:6px;">${a.nome}</td>` +
+      [0,1,2,3,4,5,6].map(d=>`<td>
+        <div class="row" style="gap:3px;justify-content:center;">
+          <input type="number" min="0" value="${getNeed(d,'almoco',a.id)}" style="width:32px;" onchange="FX.updateEscNeed(${d},'almoco','${a.id}',this.value)">
+          <input type="number" min="0" value="${getNeed(d,'jantar',a.id)}" style="width:32px;" onchange="FX.updateEscNeed(${d},'jantar','${a.id}',this.value)">
+        </div></td>`).join('') + '</tr>';
+  });
+  document.getElementById('escNeedsTable').innerHTML = html;
+}
+async function updateEscNeed(dia, turno, areaId, val){
+  const minimo = parseInt(val)||0;
+  const idx = escNecessidades.findIndex(n=>n.dia===dia && n.turno===turno && n.area_id===areaId);
+  if(idx>=0) escNecessidades[idx].minimo = minimo;
+  else escNecessidades.push({dia,turno,area_id:areaId,minimo});
+  await sb.from('escala_necessidades').upsert({dia,turno,area_id:areaId,minimo}, {onConflict:'dia,turno,area_id'});
+  renderEscScheme();
+}
+async function toggleEscOpen(dia, val){
+  const idx = escDias.findIndex(d=>d.dia===dia);
+  if(idx>=0) escDias[idx].aberto = val;
+  await sb.from('escala_dias').update({aberto:val}).eq('dia', dia);
+  renderEscAll();
+}
+document.getElementById('escDurAlmoco').addEventListener('change', async function(){
+  escConfig.duracao_almoco = parseFloat(this.value)||0;
+  await sb.from('escala_config').update({duracao_almoco:escConfig.duracao_almoco}).eq('id',1);
+  renderEscSummary();
+});
+document.getElementById('escDurJantar').addEventListener('change', async function(){
+  escConfig.duracao_jantar = parseFloat(this.value)||0;
+  await sb.from('escala_config').update({duracao_jantar:escConfig.duracao_jantar}).eq('id',1);
+  renderEscSummary();
+});
+
+/* ---- Escala visual ---- */
+function isEscAssigned(dia, turno, areaId, empId){
+  return escAssignments.some(a=>a.dia===dia && a.turno===turno && a.area_id===areaId && a.funcionario_id===empId);
+}
+function escAssignedList(dia, turno, areaId){
+  return escAssignments.filter(a=>a.dia===dia && a.turno===turno && a.area_id===areaId).map(a=>a.funcionario_id);
+}
+function isEscBusyElsewhere(dia, turno, empId, excludeAreaId){
+  return escAssignments.some(a=>a.dia===dia && a.turno===turno && a.area_id!==excludeAreaId && a.funcionario_id===empId);
+}
+function isEscSecondary(e, areaId){ return e.area2===areaId || e.area2==='all'; }
+
+function renderEscDaySelector(){
+  const box = document.getElementById('escDaySelector');
+  let html = DIAS.map((d,i)=>`<button class="day-btn ${i===escCurrentDay?'active':''}" onclick="FX.setEscDay(${i})">${d}${!isEscDayOpen(i)?' (fechado)':''}</button>`).join('');
+  html += `<div class="turno-toggle">
+    <button class="turno-btn ${escCurrentTurno==='almoco'?'active':''}" onclick="FX.setEscTurno('almoco')">Almoço</button>
+    <button class="turno-btn ${escCurrentTurno==='jantar'?'active':''}" onclick="FX.setEscTurno('jantar')">Jantar</button></div>`;
+  box.innerHTML = html;
+}
+function setEscDay(i){ escCurrentDay=i; renderEscDaySelector(); renderEscScheme(); }
+function setEscTurno(t){ escCurrentTurno=t; renderEscDaySelector(); renderEscScheme(); }
+
+function renderEscScheme(){
+  const box = document.getElementById('escSchemeBox');
+  const eligBox = document.getElementById('escEligiblePanel');
+  const dia = escCurrentDay, turno = escCurrentTurno;
+  if(!isEscDayOpen(dia)){
+    box.innerHTML = `<p style="text-align:center;color:var(--text-soft);font-size:13px;">Dia fechado — sem escala para ${DIAS[dia]}.</p>`;
+    eligBox.innerHTML = ''; return;
+  }
+  const mainAreas = escAreas.filter(a=>a.nome.toLowerCase()!=='sala');
+  const salaArea = escAreas.find(a=>a.nome.toLowerCase()==='sala');
+  function boxHtml(a){
+    if(!a) return '';
+    const need = getNeed(dia,turno,a.id);
+    const assignedIds = escAssignedList(dia,turno,a.id);
+    const names = assignedIds.map(id=>escFuncionarios.find(e=>e.id===id)?.nome || '?');
+    const pct = need>0 ? Math.min(100,(assignedIds.length/need)*100) : (assignedIds.length>0?100:0);
+    const short = assignedIds.length < need;
+    return `<div class="scheme-box ${short?'short':''}" style="background:${a.cor}33;border:1px solid ${a.cor};">
+      <div class="box-name">${a.nome}</div>
+      <div class="chip-list">${names.map(n=>`<span class="chip">${n}</span>`).join('') || '<span style="font-size:11px;color:var(--text-soft);position:relative;z-index:2;">— vazio —</span>'}</div>
+      <div class="count-tag ${short?'short':'ok'}">${assignedIds.length} / ${need} escalados</div>
+      <div class="fill-bar"><div class="fill" style="width:${pct}%;"></div></div>
+    </div>`;
+  }
+  box.innerHTML = `<div class="scheme-boxes">${mainAreas.map(boxHtml).join('')}</div>${salaArea?`<div class="sala-strip">${boxHtml(salaArea)}</div>`:''}`;
+
+  eligBox.innerHTML = '<p class="desc" style="margin-top:2px;">Clique num nome para escalar/desescalar.</p>' + escAreas.map(a=>{
+    const eligible = [...escFuncionarios.filter(e=>e.area_id===a.id), ...escFuncionarios.filter(e=>e.area_id!==a.id && isEscSecondary(e,a.id))];
+    return `<div class="eligible-area">
+      <div class="label"><span style="width:10px;height:10px;border-radius:3px;display:inline-block;background:${a.cor};"></span>${a.nome}</div>
+      <div class="eligible-chips">${eligible.map(e=>{
+        const isSec = isEscSecondary(e,a.id);
+        const onFolga = e.folgas[dia];
+        const busy = isEscBusyElsewhere(dia,turno,e.id,a.id);
+        const isOn = isEscAssigned(dia,turno,a.id,e.id);
+        const disabled = onFolga || busy;
+        return `<button class="elig-chip ${isOn?'on':''} ${disabled?'disabled':''}" ${disabled?'disabled':''}
+          onclick="FX.toggleEscAssign(${dia},'${turno}','${a.id}','${e.id}')">${e.nome}${isSec?' ↔':''}${onFolga?' (folga)':''}${busy?' (noutra área)':''}</button>`;
+      }).join('') || '<span style="font-size:11px;color:var(--text-soft);">sem funcionários</span>'}</div></div>`;
+  }).join('');
+}
+
+async function toggleEscAssign(dia, turno, areaId, empId){
+  const existing = escAssignments.find(a=>a.dia===dia && a.turno===turno && a.area_id===areaId && a.funcionario_id===empId);
+  if(existing){
+    await sb.from('escala_assignments').delete().eq('id', existing.id);
+    escAssignments = escAssignments.filter(a=>a.id!==existing.id);
+  } else {
+    const { data } = await sb.from('escala_assignments').insert({dia,turno,area_id:areaId,funcionario_id:empId}).select().maybeSingle();
+    if(data) escAssignments.push(data);
+  }
+  renderEscScheme(); renderEscSummary();
+}
+
+async function autofillEscWeek(){
+  for(let d=0; d<7; d++){
+    if(!isEscDayOpen(d)) continue;
+    for(const turno of ['almoco','jantar']){
+      for(const a of escAreas){
+        const need = getNeed(d,turno,a.id);
+        let current = escAssignedList(d,turno,a.id);
+        const canWork = e => !e.folgas[d] && !isEscBusyElsewhere(d,turno,e.id,a.id) && !current.includes(e.id);
+        const primary = escFuncionarios.filter(e=>e.area_id===a.id && canWork(e));
+        const secondary = escFuncionarios.filter(e=>e.area_id!==a.id && isEscSecondary(e,a.id) && canWork(e));
+        const pool = [...primary, ...secondary];
+        let i=0;
+        while(current.length < need && i < pool.length){
+          const { data } = await sb.from('escala_assignments').insert({dia:d,turno,area_id:a.id,funcionario_id:pool[i].id}).select().maybeSingle();
+          if(data) escAssignments.push(data);
+          current.push(pool[i].id); i++;
+        }
+      }
+    }
+  }
+  renderEscScheme(); renderEscSummary();
+  escSetStatus('Escala preenchida automaticamente — reveja e ajuste manualmente se precisar.');
+}
+
+/* ---- Resumo + sidebar + export ---- */
+function escWeeklyHours(empId){
+  let total = 0;
+  for(let d=0; d<7; d++){
+    if(!isEscDayOpen(d)) continue;
+    if(escAssignments.some(a=>a.dia===d && a.turno==='almoco' && a.funcionario_id===empId)) total += escConfig.duracao_almoco;
+    if(escAssignments.some(a=>a.dia===d && a.turno==='jantar' && a.funcionario_id===empId)) total += escConfig.duracao_jantar;
+  }
+  return total;
+}
+function renderEscSummary(){
+  let html = '<tr><th>Funcionário</th>' + DIAS_CURTO.map(d=>`<th>${d}</th>`).join('') + '</tr>';
+  escFuncionarios.forEach(e=>{
+    html += `<tr><td class="name">${e.nome}</td>`;
+    for(let d=0; d<7; d++){
+      if(!isEscDayOpen(d) || e.folgas[d]){ html += `<td><span class="tag estimado">F</span></td>`; continue; }
+      const inA = escAssignments.some(a=>a.dia===d && a.turno==='almoco' && a.funcionario_id===e.id);
+      const inJ = escAssignments.some(a=>a.dia===d && a.turno==='jantar' && a.funcionario_id===e.id);
+      let code = inA&&inJ ? 'AJ' : inA ? 'A' : inJ ? 'J' : '—';
+      html += `<td>${code!=='—'?`<span class="tag real">${code}</span>`:'<span style="color:var(--text-soft);">—</span>'}</td>`;
+    }
+    html += '</tr>';
+  });
+  document.getElementById('escSummaryTable').innerHTML = html;
+  renderEscSidebar();
+}
+function renderEscSidebar(){
+  const list = document.getElementById('escSidebarList');
+  const totalEl = document.getElementById('escSidebarTotal');
+  let grand = 0;
+  list.innerHTML = escFuncionarios.map(e=>{
+    const a = escAreas.find(x=>x.id===e.area_id);
+    const hrs = escWeeklyHours(e.id); grand += hrs;
+    return `<div class="sidebar-emp" style="background:${a?a.cor+'22':'transparent'};">
+      <span class="who"><span class="dot" style="background:${a?a.cor:'#ccc'};"></span><span>${e.nome}</span></span>
+      <span class="hrs">${hrs.toFixed(1)}h</span></div>`;
+  }).join('');
+  totalEl.innerHTML = `<span>Total equipa</span><span>${grand.toFixed(1)}h</span>`;
+}
+function exportEscSchedule(){
+  const header = ['Nome','Área principal','Área secundária','Contrato', ...DIAS, 'Total horas/semana'];
+  const rows = [header];
+  escFuncionarios.forEach(e=>{
+    const areaNome = escAreas.find(a=>a.id===e.area_id)?.nome || '';
+    const area2Nome = e.area2==='all' ? 'Todas as áreas' : (e.area2 ? (escAreas.find(a=>a.id===e.area2)?.nome||'') : '—');
+    let total = 0;
+    const diaCols = [];
+    for(let d=0; d<7; d++){
+      if(!isEscDayOpen(d)){ diaCols.push('Fechado'); continue; }
+      if(e.folgas[d]){ diaCols.push('Folga'); continue; }
+      const inA = escAssignments.some(a=>a.dia===d && a.turno==='almoco' && a.funcionario_id===e.id);
+      const inJ = escAssignments.some(a=>a.dia===d && a.turno==='jantar' && a.funcionario_id===e.id);
+      let label = [];
+      if(inA){ label.push('Almoço'); total += escConfig.duracao_almoco; }
+      if(inJ){ label.push('Jantar'); total += escConfig.duracao_jantar; }
+      diaCols.push(label.length?label.join(' + '):'—');
+    }
+    rows.push([e.nome, areaNome, area2Nome, e.tipo==='full'?'Full-time':'Part-time', ...diaCols, total.toFixed(1)]);
+  });
+  const csv = rows.map(r=>r.map(c=>{ const s=String(c).replace(/"/g,'""'); return /[",;\n]/.test(s)?`"${s}"`:s; }).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'escala-il-fortunato.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  escSetStatus('Ficheiro descarregado.');
+}
+
+
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, renderComparison, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleCompare, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, abrirCenarios, abrirComparar, abrirEscalas };
+})();
+
 // ---------- BACKUP ----------
 async function fazerBackupDados(){
   const btn = document.getElementById('btnBackup');
   const out = document.getElementById('backupResultado');
-  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins'];
+  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config'];
   btn.disabled = true;
   out.textContent = 'A exportar...';
   const resultado = { exportadoEm: new Date().toISOString() };
@@ -2938,10 +3930,14 @@ async function fazerBackupDados(){
 // fluxos) entra só como mais uma área ou aba aqui, sem mexer nas views existentes.
 const NAV_AREAS = {
   administrativo: { label: 'Administrativo', tabs: [
+    { view: 'escalas', label: 'Escalas' },
     { view: 'utilizadores', label: 'Utilizadores' },
     { view: 'backup', label: 'Backup' },
   ]},
-  financeiro: { label: 'Financeiro', tabs: [] },
+  financeiro: { label: 'Financeiro', tabs: [
+    { view: 'cenarios', label: 'Cenários' },
+    { view: 'cenarios-comparar', label: 'Comparar cenários' },
+  ]},
   operacional: { label: 'Operacional', grupos: [
     { key: 'estoque', label: 'Estoque', tabs: [
       { view: 'produtos', label: 'Produtos' },
@@ -2985,6 +3981,9 @@ function ativarView(view){
   if(view === 'estoque') renderEstoque();
   if(view === 'bebidas') renderBebidas();
   if(view === 'retorno') renderRetorno();
+  if(view === 'escalas') FX.abrirEscalas();
+  if(view === 'cenarios') FX.abrirCenarios();
+  if(view === 'cenarios-comparar') FX.abrirComparar();
 }
 
 function renderNav(){
