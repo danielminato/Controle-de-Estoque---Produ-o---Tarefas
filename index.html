@@ -298,6 +298,10 @@
   .fx .elig-chip.on{background:var(--text);color:#fff;border-color:var(--text);}
   .fx .elig-chip.disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed;}
   .fx tr.total{background:#F0F2F5;font-weight:700;}
+  .fx .linha-custo{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+  .fx .linha-custo input[type=text]{flex:1;min-width:0;}
+  .fx .linha-custo input[type=number]{width:110px;text-align:right;}
+  .fx .total-linha{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;font-weight:700;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
 </head>
@@ -768,6 +772,48 @@
   </div>
 
   
+  </div>
+
+  <!-- CONTROLE DE IVA -->
+  <div class="view fx" id="view-iva">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+        <div>
+          <h2>Controle de IVA</h2>
+          <p class="desc" style="margin:0;">Todo mês, lança o faturado no sistema, o que faturaste fora dele e o IVA cobrado pelo sistema de faturação. O crédito de IVA a deduzir é aproximado. O "a separar" mostra quanto guardar por mês para pagar o trimestre.</p>
+        </div>
+        <div style="width:110px;"><label>Ano</label><select id="ivaAno" onchange="FINANCAS.IVA.mudarAno(this.value)"></select></div>
+      </div>
+      <div class="cards" id="ivaResumo"></div>
+    </section>
+    <div id="ivaTrimestres"></div>
+    <p class="status" id="ivaStatus"></p>
+  </div>
+
+  <!-- PONTO DE EQUILÍBRIO -->
+  <div class="view fx" id="view-equilibrio">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+        <div>
+          <h2>Ponto de equilíbrio</h2>
+          <p class="desc" style="margin:0;">Quanto é preciso faturar no mês, no mínimo, para pagar as contas. Cada mês tem os seus próprios custos. Para começar um mês a partir de outro, usa "Puxar dados de"; se não escolheres nada, o mês começa zerado.</p>
+        </div>
+        <div class="row" style="gap:10px;">
+          <div style="width:210px;"><label>Puxar dados de</label><select id="peOrigem" onchange="FINANCAS.PE.puxar(this.value)"></select></div>
+          <div style="width:140px;"><label>Mês</label><select id="peMes" onchange="FINANCAS.PE.mudar()"></select></div>
+          <div style="width:100px;"><label>Ano</label><select id="peAno" onchange="FINANCAS.PE.mudar()"></select></div>
+        </div>
+      </div>
+      <div class="cards" id="peResumo"></div>
+      <p class="desc" id="peExplica" style="margin:12px 0 0;"></p>
+    </section>
+    <div class="params-grid" id="peListas" style="align-items:start;"></div>
+    <section class="panel" style="margin-top:16px;">
+      <h2>Parâmetros do cálculo</h2>
+      <p class="desc">Valem para todos os meses. O IVA médio vem do Controle de IVA, mas podes ajustar.</p>
+      <div class="params-grid" id="peParams"></div>
+    </section>
+    <p class="status" id="peStatus"></p>
   </div>
 
   <!-- BACKUP -->
@@ -3884,11 +3930,228 @@ function exportEscSchedule(){
   return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, renderComparison, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleCompare, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, abrirCenarios, abrirComparar, abrirEscalas };
 })();
 
+// ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
+const FINANCAS = (function(){
+  const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const MESES_LONGO = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const num = v => Number(v) || 0;
+  const euro = v => num(v).toLocaleString('pt-PT', { style:'currency', currency:'EUR' });
+  const pct = v => (num(v) * 100).toFixed(1).replace('.', ',') + '%';
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const REST = `${SUPABASE_URL}/rest/v1/`;
+  async function ler(q){
+    const r = await fetch(REST + q, { headers: sbHeadersFn() });
+    if(!r.ok) throw new Error('ler ' + q.split('?')[0] + ' (' + r.status + ')');
+    return r.json();
+  }
+  async function enviar(metodo, q, corpo, prefer){
+    const r = await fetch(REST + q, { method: metodo, headers: { ...sbHeadersFn(), Prefer: prefer || 'return=minimal' }, body: corpo ? JSON.stringify(corpo) : undefined });
+    if(!r.ok) throw new Error(metodo + ' ' + q.split('?')[0] + ' (' + r.status + ')');
+  }
+  const hoje = new Date();
+  const anosOpcoes = sel => { let h = ''; for(let a = hoje.getFullYear() - 2; a <= hoje.getFullYear() + 1; a++) h += `<option value="${a}" ${a === sel ? 'selected' : ''}>${a}</option>`; return h; };
+
+  /* ================= CONTROLE DE IVA ================= */
+  const IVA = (function(){
+    let ano = hoje.getFullYear(), dados = {}, erroTabela = false;
+    const st = m => { const el = document.getElementById('ivaStatus'); if(el) el.textContent = m; };
+    async function carregar(){
+      erroTabela = false; dados = {};
+      try{ (await ler(`controle_iva?select=*&ano=eq.${ano}`)).forEach(r => { dados[r.mes] = r; }); }
+      catch(e){ erroTabela = true; }
+    }
+    async function abrir(){ document.getElementById('ivaAno').innerHTML = anosOpcoes(ano); st(''); await carregar(); render(); }
+    async function mudarAno(v){ ano = parseInt(v); await carregar(); render(); }
+    async function editar(mes, campo, valor){
+      if(!dados[mes]) dados[mes] = { faturado_sistema:0, faturado_fora:0, iva:0, credito:0 };
+      dados[mes][campo] = num(valor);
+      render(); st('A guardar…');
+      const r = dados[mes];
+      try{
+        await enviar('POST', 'controle_iva?on_conflict=ano,mes', { ano, mes, faturado_sistema: num(r.faturado_sistema), faturado_fora: num(r.faturado_fora), iva: num(r.iva), credito: num(r.credito), atualizado_em: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
+        st('Guardado ✓');
+      }catch(e){ st(''); avisarErroGravar(); }
+    }
+    function render(){
+      const box = document.getElementById('ivaTrimestres'), resumo = document.getElementById('ivaResumo');
+      if(erroTabela){
+        resumo.innerHTML = '';
+        box.innerHTML = '<section class="panel"><p class="desc">⚠️ Não consegui ler os dados do IVA. Confirma que as tabelas foram criadas no Supabase e recarrega a página.</p></section>';
+        return;
+      }
+      const g = (m, c) => num(dados[m] && dados[m][c]);
+      const prazo = ['15 de maio', '15 de agosto', '15 de novembro', '15 de fevereiro de ' + (ano + 1)];
+      const qAtual = hoje.getFullYear() === ano ? Math.floor(hoje.getMonth() / 3) : -1;
+      const campo = (ms, c) => ms.map(m => `<td><input type="number" step="0.01" value="${g(m, c) ? g(m, c) : ''}" onchange="FINANCAS.IVA.editar(${m},'${c}',this.value)"></td>`).join('');
+      let totFat = 0, totIva = 0, totPag = 0, html = '';
+      for(let q = 0; q < 4; q++){
+        const ms = [q*3+1, q*3+2, q*3+3];
+        const soma = c => ms.reduce((s, m) => s + g(m, c), 0);
+        const fat = ms.map(m => g(m, 'faturado_sistema') + g(m, 'faturado_fora'));
+        const fatT = fat.reduce((a, b) => a + b, 0), ivaT = soma('iva'), credT = soma('credito');
+        const pagar = ivaT - credT, taxa = fatT > 0 ? ivaT / fatT : 0;
+        totFat += fatT; totIva += ivaT; totPag += pagar;
+        html += `<section class="panel"${q === qAtual ? ' style="border-color:var(--terracotta-dark);"' : ''}>
+          <h2>${q+1}.º trimestre (${MESES[q*3]}–${MESES[q*3+2]})${q === qAtual ? ' · atual' : ''}</h2>
+          <p class="desc">Pagamento do IVA até ${prazo[q]}.</p>
+          <table class="grid-table">
+            <tr><td class="dia"></td>${ms.map(m => `<td style="font-weight:700;">${MESES[m-1]}</td>`).join('')}<td style="font-weight:700;">Total</td></tr>
+            <tr><td class="dia">Faturado no sistema (c/ IVA)</td>${campo(ms,'faturado_sistema')}<td>${euro(soma('faturado_sistema'))}</td></tr>
+            <tr><td class="dia">Faturado fora do sistema</td>${campo(ms,'faturado_fora')}<td>${euro(soma('faturado_fora'))}</td></tr>
+            <tr><td class="dia" style="font-weight:700;">Faturado total</td>${fat.map(v => `<td style="font-weight:700;">${euro(v)}</td>`).join('')}<td style="font-weight:700;">${euro(fatT)}</td></tr>
+            <tr><td class="dia">IVA cobrado (sistema de faturação)</td>${campo(ms,'iva')}<td>${euro(ivaT)}</td></tr>
+            <tr><td class="dia">% IVA ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct(g(m,'iva') / fat[i]) : '—'}</td>`).join('')}<td>${fatT > 0 ? pct(taxa) : '—'}</td></tr>
+            <tr><td class="dia">Crédito de IVA a deduzir (aprox.)</td>${campo(ms,'credito')}<td>${euro(credT)}</td></tr>
+            <tr><td class="dia" style="font-weight:700;">A separar no mês (IVA − crédito)</td>${ms.map(m => { const v = g(m,'iva') - g(m,'credito'); return `<td style="font-weight:700;${v < 0 ? 'color:var(--ok);' : ''}">${euro(v)}</td>`; }).join('')}<td style="font-weight:700;">${euro(pagar)}</td></tr>
+          </table>
+          <div class="cards" style="margin-top:14px;">
+            <div class="fx-stat highlight"><div class="label">${pagar < 0 ? 'Crédito a transportar' : 'Pagamento estimado'}</div><div class="value">${euro(Math.abs(pagar))}</div></div>
+            <div class="fx-stat"><div class="label">Taxa média de IVA</div><div class="value">${fatT > 0 ? pct(taxa) : '—'}</div></div>
+            <div class="fx-stat"><div class="label">Média mensal a separar</div><div class="value">${euro(Math.max(pagar, 0) / 3)}</div></div>
+          </div></section>`;
+      }
+      box.innerHTML = html;
+      resumo.innerHTML = `
+        <div class="fx-stat"><div class="label">Faturado em ${ano}</div><div class="value">${euro(totFat)}</div></div>
+        <div class="fx-stat"><div class="label">IVA cobrado em ${ano}</div><div class="value">${euro(totIva)}</div></div>
+        <div class="fx-stat"><div class="label">Taxa média no ano</div><div class="value">${totFat > 0 ? pct(totIva / totFat) : '—'}</div></div>
+        <div class="fx-stat highlight"><div class="label">A pagar no ano (após créditos)</div><div class="value">${euro(totPag)}</div></div>`;
+    }
+    return { abrir, mudarAno, editar };
+  })();
+
+  /* ================= PONTO DE EQUILÍBRIO ================= */
+  const PE = (function(){
+    let ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
+    let itens = [], origens = [], cfg = { cmv_pct: 30, outros_pct: 0, iva_pct: null }, ivaAuto = null, fatReal = 0;
+    const st = m => { const el = document.getElementById('peStatus'); if(el) el.textContent = m; };
+
+    async function abrir(){
+      document.getElementById('peMes').innerHTML = MESES_LONGO.map((n, i) => `<option value="${i+1}" ${i+1 === mes ? 'selected' : ''}>${n}</option>`).join('');
+      document.getElementById('peAno').innerHTML = anosOpcoes(ano);
+      await carregar();
+    }
+    async function mudar(){
+      mes = parseInt(document.getElementById('peMes').value); ano = parseInt(document.getElementById('peAno').value);
+      await carregar();
+    }
+    // Começa o mês a partir dos custos de outro mês (escolhido em "Puxar dados de").
+    // Se este mês já tem itens, pergunta antes de substituir. Sem escolher nada, o mês fica zerado.
+    async function puxar(v){
+      const sel = document.getElementById('peOrigem');
+      if(!v) return;
+      const [oa, om] = v.split('-').map(Number);
+      if(itens.length && !(await showConfirm(`Substituir os custos de ${MESES_LONGO[mes-1]} de ${ano} pelos de ${MESES_LONGO[om-1]} de ${oa}?`))){ sel.value = ''; return; }
+      st('A copiar…');
+      try{
+        const base = await ler(`custos_fixos?select=*&ano=eq.${oa}&mes=eq.${om}&order=ordem.asc`);
+        const novos = base.map((b, i) => ({ id: uid(), ano, mes, grupo: b.grupo, nome: b.nome, valor: b.valor, ordem: i }));
+        const antigos = itens.map(i => i.id);
+        if(novos.length) await enviar('POST', 'custos_fixos', novos);
+        if(antigos.length) await enviar('DELETE', `custos_fixos?id=in.(${antigos.map(encodeURIComponent).join(',')})`);
+        itens = novos; await carregar(); st('Copiado de ' + MESES_LONGO[om-1] + ' de ' + oa + ' ✓');
+      }catch(e){ st(''); await carregar(); avisarErroGravar(); }
+    }
+    async function carregar(){
+      st('');
+      try{
+        (await ler('config_financeiro?select=*')).forEach(r => { cfg[r.chave] = num(r.valor); });
+        itens = await ler(`custos_fixos?select=*&ano=eq.${ano}&mes=eq.${mes}&order=ordem.asc`);
+        const todos = await ler('custos_fixos?select=ano,mes');
+        const vistos = new Set(); origens = [];
+        todos.forEach(r => { const k = r.ano + '-' + r.mes; if(!vistos.has(k)){ vistos.add(k); origens.push({ ano: r.ano, mes: r.mes }); } });
+        origens.sort((a, b) => b.ano - a.ano || b.mes - a.mes);
+        const iv = await ler(`controle_iva?select=*&ano=eq.${ano}`);
+        const fat = iv.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
+        const ivaT = iv.reduce((s, r) => s + num(r.iva), 0);
+        ivaAuto = fat > 0 ? (ivaT / fat) * 100 : null;
+        const rm = iv.find(r => r.mes === mes);
+        fatReal = rm ? num(rm.faturado_sistema) + num(rm.faturado_fora) : 0;
+        render();
+      }catch(e){
+        document.getElementById('peListas').innerHTML = '<section class="panel"><p class="desc">⚠️ Não consegui carregar os custos. Confirma que as tabelas foram criadas no Supabase e recarrega a página.</p></section>';
+        document.getElementById('peResumo').innerHTML = ''; document.getElementById('peParams').innerHTML = '';
+      }
+    }
+    const linhas = grupo => itens.filter(i => i.grupo === grupo).map(i => `
+      <div class="linha-custo">
+        <input type="text" value="${esc(i.nome)}" placeholder="Nome" onchange="FINANCAS.PE.editar('${i.id}','nome',this.value)">
+        <input type="number" step="0.01" value="${num(i.valor) ? i.valor : ''}" placeholder="0" onchange="FINANCAS.PE.editar('${i.id}','valor',this.value)">
+        <button class="btn-ghost" onclick="FINANCAS.PE.remover('${i.id}')">remover</button>
+      </div>`).join('');
+    const total = grupo => itens.filter(i => i.grupo === grupo).reduce((s, i) => s + num(i.valor), 0);
+    function render(){
+      const ivaPct = cfg.iva_pct != null ? cfg.iva_pct : (ivaAuto != null ? ivaAuto : 0);
+      const varPct = num(cfg.cmv_pct) + num(cfg.outros_pct);
+      const fixos = total('fixo') + total('equipa');
+      const margem = (1 - ivaPct / 100) * (1 - varPct / 100);
+      const dias = new Date(ano, mes, 0).getDate();
+      let resumo;
+      if(margem <= 0){
+        resumo = '<div class="fx-stat" style="background:var(--danger-text);"><div class="label">Atenção</div><div class="value" style="font-size:14px;">CMV + outros + IVA somam 100% ou mais — revê os parâmetros.</div></div>';
+      }else{
+        const minimo = fixos / margem;
+        resumo = `
+          <div class="fx-stat"><div class="label">Despesas fixas do mês</div><div class="value">${euro(fixos)}</div></div>
+          <div class="fx-stat highlight"><div class="label">Faturamento mínimo (c/ IVA)</div><div class="value">${euro(minimo)}</div></div>
+          <div class="fx-stat"><div class="label">Por dia (${dias} dias)</div><div class="value">${euro(minimo / dias)}</div></div>
+          <div class="fx-stat"><div class="label">Sem IVA</div><div class="value">${euro(minimo * (1 - ivaPct / 100))}</div></div>
+          ${fatReal > 0 ? `<div class="fx-stat" style="background:${fatReal >= minimo ? 'var(--ok-text)' : 'var(--danger-text)'};"><div class="label">Faturado no mês (Controle de IVA)</div><div class="value">${euro(fatReal)} · ${(fatReal / minimo * 100).toFixed(0)}%</div></div>` : ''}`;
+        document.getElementById('peExplica').textContent =
+          `Cálculo: de cada 1 € faturado (com IVA) ficam ${(margem * 100).toFixed(1).replace('.', ',')} ¢ para pagar as despesas fixas, depois de tirar o IVA (${String(ivaPct.toFixed(1)).replace('.', ',')}%), o CMV e outros custos variáveis (${String(varPct.toFixed(1)).replace('.', ',')}%). Faturamento mínimo = despesas fixas ÷ ${(margem * 100).toFixed(1).replace('.', ',')}%.`;
+      }
+      document.getElementById('peResumo').innerHTML = resumo;
+      if(margem <= 0) document.getElementById('peExplica').textContent = '';
+      const opcoesOrigem = origens.filter(o => !(o.ano === ano && o.mes === mes)).map(o => `<option value="${o.ano}-${o.mes}">${MESES_LONGO[o.mes-1]} de ${o.ano}</option>`).join('');
+      document.getElementById('peOrigem').innerHTML = '<option value="">— nenhum (começar zerado) —</option>' + opcoesOrigem;
+      document.getElementById('peListas').innerHTML = (itens.length === 0 ? '<p class="desc" style="grid-column:1/-1;margin:0;">Este mês ainda não tem custos, então começa zerado. Escolhe um mês em "Puxar dados de" para partir dele, ou adiciona os itens abaixo.</p>' : '') + `
+        <section class="panel"><h2>Custos fixos</h2>${linhas('fixo')}
+          <button class="btn-ghost" style="margin-top:6px;" onclick="FINANCAS.PE.adicionar('fixo')">+ Adicionar custo</button>
+          <div class="total-linha"><span>Total custos fixos</span><span>${euro(total('fixo'))}</span></div></section>
+        <section class="panel"><h2>Equipa</h2>${linhas('equipa')}
+          <button class="btn-ghost" style="margin-top:6px;" onclick="FINANCAS.PE.adicionar('equipa')">+ Adicionar pessoa</button>
+          <div class="total-linha"><span>Total equipa</span><span>${euro(total('equipa'))}</span></div></section>`;
+      document.getElementById('peParams').innerHTML = `
+        <div><label>CMV (% do faturamento sem IVA)</label><input type="number" step="0.5" value="${cfg.cmv_pct}" onchange="FINANCAS.PE.config('cmv_pct',this.value)"></div>
+        <div><label>Outros custos variáveis (%)</label><input type="number" step="0.5" value="${cfg.outros_pct}" onchange="FINANCAS.PE.config('outros_pct',this.value)"></div>
+        <div><label>IVA médio (% do faturado)</label><input type="number" step="0.1" value="${Number(ivaPct).toFixed(1)}" onchange="FINANCAS.PE.config('iva_pct',this.value)">
+          <div class="desc" style="margin:4px 0 0;">${ivaAuto != null ? 'Do Controle de IVA de ' + ano + ': ' + ivaAuto.toFixed(1).replace('.', ',') + '%' : 'Sem dados no Controle de IVA deste ano.'}</div></div>`;
+    }
+    async function editar(id, campo, valor){
+      const it = itens.find(i => i.id === id); if(!it) return;
+      it[campo] = campo === 'valor' ? num(valor) : String(valor).trim();
+      render(); st('A guardar…');
+      try{ await enviar('PATCH', `custos_fixos?id=eq.${encodeURIComponent(id)}`, { [campo]: it[campo] }); st('Guardado ✓'); }
+      catch(e){ st(''); avisarErroGravar(); }
+    }
+    async function adicionar(grupo){
+      const novo = { id: uid(), ano, mes, grupo, nome: '', valor: 0, ordem: itens.reduce((m, i) => Math.max(m, num(i.ordem)), -1) + 1 };
+      itens.push(novo); render();
+      try{ await enviar('POST', 'custos_fixos', novo); st('Guardado ✓'); }
+      catch(e){ itens = itens.filter(i => i.id !== novo.id); render(); avisarErroGravar(); }
+    }
+    async function remover(id){
+      const it = itens.find(i => i.id === id); if(!it) return;
+      if(!(await showConfirm(`Remover "${it.nome || 'este item'}" de ${MESES_LONGO[mes-1]} de ${ano}? Os outros meses não são afetados.`))) return;
+      try{ await enviar('DELETE', `custos_fixos?id=eq.${encodeURIComponent(id)}`); itens = itens.filter(i => i.id !== id); render(); st('Guardado ✓'); }
+      catch(e){ avisarErroGravar(); }
+    }
+    async function config(chave, valor){
+      cfg[chave] = num(valor); render(); st('A guardar…');
+      try{ await enviar('POST', 'config_financeiro?on_conflict=chave', { chave, valor: num(valor) }, 'resolution=merge-duplicates,return=minimal'); st('Guardado ✓'); }
+      catch(e){ st(''); avisarErroGravar(); }
+    }
+    return { abrir, mudar, puxar, editar, adicionar, remover, config };
+  })();
+
+  return { IVA, PE };
+})();
+
 // ---------- BACKUP ----------
 async function fazerBackupDados(){
   const btn = document.getElementById('btnBackup');
   const out = document.getElementById('backupResultado');
-  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config'];
+  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro'];
   btn.disabled = true;
   out.textContent = 'A exportar...';
   const resultado = { exportadoEm: new Date().toISOString() };
@@ -3935,6 +4198,8 @@ const NAV_AREAS = {
     { view: 'backup', label: 'Backup' },
   ]},
   financeiro: { label: 'Financeiro', tabs: [
+    { view: 'iva', label: 'Controle de IVA' },
+    { view: 'equilibrio', label: 'Ponto de equilíbrio' },
     { view: 'cenarios', label: 'Cenários' },
     { view: 'cenarios-comparar', label: 'Comparar cenários' },
   ]},
@@ -3981,6 +4246,8 @@ function ativarView(view){
   if(view === 'estoque') renderEstoque();
   if(view === 'bebidas') renderBebidas();
   if(view === 'retorno') renderRetorno();
+  if(view === 'iva') FINANCAS.IVA.abrir();
+  if(view === 'equilibrio') FINANCAS.PE.abrir();
   if(view === 'escalas') FX.abrirEscalas();
   if(view === 'cenarios') FX.abrirCenarios();
   if(view === 'cenarios-comparar') FX.abrirComparar();
