@@ -301,6 +301,7 @@
   .fx .linha-custo{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
   .fx .linha-custo input[type=text]{flex:1;min-width:0;}
   .fx .linha-custo input[type=number]{width:110px;text-align:right;}
+  .fx .linha-custo.pago input[type=text],.fx .linha-custo.pago input[type=number]{opacity:.4;text-decoration:line-through;}
   .fx .total-linha{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;font-weight:700;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
@@ -4074,7 +4075,8 @@ const FINANCAS = (function(){
       }
     }
     const linhas = grupo => itens.filter(i => i.grupo === grupo).map(i => `
-      <div class="linha-custo">
+      <div class="linha-custo${i.pago ? ' pago' : ''}">
+        <input type="checkbox" ${i.pago ? 'checked' : ''} title="Marcar como pago" onchange="FINANCAS.PE.pagar('${i.id}',this.checked)">
         <input type="text" value="${esc(i.nome)}" placeholder="Nome" onchange="FINANCAS.PE.editar('${i.id}','nome',this.value)">
         <input type="number" step="0.01" value="${num(i.valor) ? i.valor : ''}" placeholder="0" onchange="FINANCAS.PE.editar('${i.id}','valor',this.value)">
         <button class="btn-ghost" onclick="FINANCAS.PE.remover('${i.id}')">remover</button>
@@ -4084,6 +4086,7 @@ const FINANCAS = (function(){
       const ivaPct = cfg.iva_pct != null ? cfg.iva_pct : (ivaAuto != null ? ivaAuto : 0);
       const varPct = num(cfg.cmv_pct) + num(cfg.outros_pct);
       const fixos = total('fixo') + total('equipa');
+      const pagoTotal = itens.filter(i => i.pago).reduce((s, i) => s + num(i.valor), 0);
       const margem = (1 - ivaPct / 100) * (1 - varPct / 100);
       const dias = new Date(ano, mes, 0).getDate();
       let resumo;
@@ -4096,6 +4099,8 @@ const FINANCAS = (function(){
           <div class="fx-stat highlight"><div class="label">Faturamento mínimo (c/ IVA)</div><div class="value">${euro(minimo)}</div></div>
           <div class="fx-stat"><div class="label">Por dia (${dias} dias)</div><div class="value">${euro(minimo / dias)}</div></div>
           <div class="fx-stat"><div class="label">Sem IVA</div><div class="value">${euro(minimo * (1 - ivaPct / 100))}</div></div>
+          <div class="fx-stat" style="background:var(--ok-text);"><div class="label">Já pago no mês</div><div class="value">${euro(pagoTotal)}</div></div>
+          <div class="fx-stat" style="background:var(--warn-text);"><div class="label">Falta pagar</div><div class="value">${euro(fixos - pagoTotal)}</div></div>
           ${fatReal > 0 ? `<div class="fx-stat" style="background:${fatReal >= minimo ? 'var(--ok-text)' : 'var(--danger-text)'};"><div class="label">Faturado no mês (Controle de IVA)</div><div class="value">${euro(fatReal)} · ${(fatReal / minimo * 100).toFixed(0)}%</div></div>` : ''}`;
         document.getElementById('peExplica').textContent =
           `Cálculo: de cada 1 € faturado (com IVA) ficam ${(margem * 100).toFixed(1).replace('.', ',')} ¢ para pagar as despesas fixas, depois de tirar o IVA (${String(ivaPct.toFixed(1)).replace('.', ',')}%), o CMV e outros custos variáveis (${String(varPct.toFixed(1)).replace('.', ',')}%). Faturamento mínimo = despesas fixas ÷ ${(margem * 100).toFixed(1).replace('.', ',')}%.`;
@@ -4124,6 +4129,12 @@ const FINANCAS = (function(){
       try{ await enviar('PATCH', `custos_fixos?id=eq.${encodeURIComponent(id)}`, { [campo]: it[campo] }); st('Guardado ✓'); }
       catch(e){ st(''); avisarErroGravar(); }
     }
+    async function pagar(id, valor){
+      const it = itens.find(i => i.id === id); if(!it) return;
+      it.pago = !!valor; render(); st('A guardar…');
+      try{ await enviar('PATCH', `custos_fixos?id=eq.${encodeURIComponent(id)}`, { pago: it.pago }); st('Guardado ✓'); }
+      catch(e){ it.pago = !valor; render(); st(''); avisarErroGravar(); }
+    }
     async function adicionar(grupo){
       const novo = { id: uid(), ano, mes, grupo, nome: '', valor: 0, ordem: itens.reduce((m, i) => Math.max(m, num(i.ordem)), -1) + 1 };
       itens.push(novo); render();
@@ -4141,7 +4152,7 @@ const FINANCAS = (function(){
       try{ await enviar('POST', 'config_financeiro?on_conflict=chave', { chave, valor: num(valor) }, 'resolution=merge-duplicates,return=minimal'); st('Guardado ✓'); }
       catch(e){ st(''); avisarErroGravar(); }
     }
-    return { abrir, mudar, puxar, editar, adicionar, remover, config };
+    return { abrir, mudar, puxar, editar, pagar, adicionar, remover, config };
   })();
 
   return { IVA, PE };
