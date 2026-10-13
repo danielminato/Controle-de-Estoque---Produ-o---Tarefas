@@ -712,6 +712,11 @@
       <table id="cenTable"></table>
       <p class="status" id="listStatus"></p>
     </section>
+    <section class="panel">
+      <h2>Comparação entre cenários</h2>
+      <p class="desc">Quando a operação se paga em cada cenário, usando a equipa e os custos fixos reais do Ponto de equilíbrio (se estiver ligado em cada cenário).</p>
+      <div id="comparacaoLista"></div>
+    </section>
   </div>
 
   <!-- EDITOR DE CENÁRIO -->
@@ -819,6 +824,27 @@
       <div class="params-grid" id="peParams"></div>
     </section>
     <p class="status" id="peStatus"></p>
+  </div>
+
+  <!-- DRE -->
+  <div class="view fx" id="view-dre">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+        <div>
+          <h2>DRE — resultado real do restaurante</h2>
+          <p class="desc" style="margin:0;">Demonstração do resultado calculada sozinha com o que está lançado: faturado (Controle de IVA), equipa e custos (Ponto de equilíbrio). Só os meses com faturado <b>e</b> custos lançados aparecem completos.</p>
+        </div>
+        <div style="width:110px;"><label>Ano</label><select id="dreAno" onchange="FINANCAS.DRE.mudar()"></select></div>
+      </div>
+      <div id="dreTabela" style="overflow-x:auto;"></div>
+      <p class="desc" id="dreNotas" style="margin-top:10px;"></p>
+    </section>
+    <section class="panel">
+      <h2>Parâmetros da DRE</h2>
+      <p class="desc">Valem para todos os meses e ficam guardados. O IVA não entra aqui: a receita já é o faturado sem IVA, e o IVA tem relatório próprio (Controle de IVA).</p>
+      <div class="params-grid" id="dreParams"></div>
+    </section>
+    <p class="status" id="dreStatus"></p>
   </div>
 
   <!-- CUSTO DA HORA -->
@@ -3266,7 +3292,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais()]); showView('list'); }
+  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
@@ -3359,6 +3385,7 @@ function renderList(){
       <button class="btn-ghost" onclick="FX.deleteScenario('${c.id}')">apagar</button></td></tr>`;
   });
   t.innerHTML = html;
+  renderComparacaoLista();
 }
 async function deleteScenario(id){
   const { error } = await sb.from('cenarios').delete().eq('id', id);
@@ -3701,6 +3728,21 @@ function renderComparacao(rAtual){
   const itens = [{ nome: nomeAtual, r: rAtual, atual: true }].concat(outros.map(c=>({
     nome: c.nome, r: computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos), custosReais)
   })));
+  box.innerHTML = htmlComparacao(itens);
+}
+// Comparação na lista de cenários: todos os cenários guardados, lado a lado.
+function renderComparacaoLista(){
+  const box = document.getElementById('comparacaoLista');
+  if(!box) return;
+  if(cenarios.length < 2){
+    box.innerHTML = '<p class="desc" style="margin:0;">Com 2 ou mais cenários guardados, a comparação aparece aqui automaticamente: mostra em que meses cada cenário se paga e em quais não.</p>';
+    return;
+  }
+  box.innerHTML = htmlComparacao(cenarios.map(c=>({
+    nome: c.nome, r: computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos), custosReais)
+  })));
+}
+function htmlComparacao(itens){
   itens.forEach(it=>{ it.s = resumoSePaga(it.r.monthlyDRE); it.semFat = it.r.annualRevenue <= 0; });
   const tira = it => it.semFat
     ? '<span style="font-size:11px;color:var(--text-soft);">sem faturamento definido</span>'
@@ -3713,7 +3755,7 @@ function renderComparacao(rAtual){
   [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após pró-labore)','cashCumulative']].forEach(([label,key])=>{
     html += `<tr><td>${label}</td>` + itens.map(it=>`<td class="${it.r[key]<0?'neg':''}">${fmtEUR(it.r[key])}</td>`).join('') + '</tr>';
   });
-  box.innerHTML = html + '</table></div><p class="desc" style="margin:10px 0 0;">Quadrado verde: o mês cobre equipa e custos fixos. Vermelho: faltaria. Passa o rato por cima para ver o valor.</p>';
+  return html + '</table></div><p class="desc" style="margin:10px 0 0;">Quadrado verde: o mês cobre equipa e custos fixos. Vermelho: faltaria. Passa o rato por cima para ver o valor.</p>';
 }
 async function saveScenario(){
   const nome = document.getElementById('cenNome').value.trim();
@@ -4338,7 +4380,18 @@ const FINANCAS = (function(){
     const st = m => { const el = document.getElementById('chStatus'); if(el) el.textContent = m; };
     const el = id => document.getElementById(id);
 
+    let primeira = true;
     async function abrir(){
+      if(primeira){
+        // na primeira vez abre no último mês que já tem faturado e custos lançados (e não num mês ainda vazio)
+        primeira = false;
+        try{
+          const [iv, cf] = await Promise.all([ler(`controle_iva?select=mes,faturado_sistema,faturado_fora&ano=eq.${ano}`), ler(`custos_fixos?select=mes&ano=eq.${ano}`)]);
+          const comCustos = new Set(cf.map(r => r.mes));
+          const ok = iv.filter(r => num(r.faturado_sistema) + num(r.faturado_fora) > 0 && comCustos.has(r.mes)).map(r => r.mes);
+          if(ok.length) mes = Math.max(...ok);
+        }catch(e){}
+      }
       el('chMes').innerHTML = MESES_LONGO.map((n, i) => `<option value="${i+1}" ${i+1 === mes ? 'selected' : ''}>${n}</option>`).join('');
       el('chAno').innerHTML = anosOpcoes(ano);
       await carregar();
@@ -4574,7 +4627,100 @@ const FINANCAS = (function(){
     return { abrir, mudar, simular, limite, copiar, instantaneo };
   })();
 
-  return { IVA, PE, CH };
+  /* ================= DRE REAL ================= */
+  const DRE = (function(){
+    let ano = hoje.getFullYear(), D = null;
+    const FIN = /empr[eé]stimo|juros|financ|banco|leasing/i;
+    const par = { cmv_pct: 30, dre_impostos_pct: 0, dre_prolabore: 0 };
+    const el = id => document.getElementById(id);
+    const st = m => { const e = el('dreStatus'); if(e) e.textContent = m; };
+    const eur0 = v => num(v).toLocaleString('pt-PT', { style:'currency', currency:'EUR', maximumFractionDigits:0 });
+
+    async function abrir(){ el('dreAno').innerHTML = anosOpcoes(ano); await carregar(); }
+    async function mudar(){ ano = parseInt(el('dreAno').value); await carregar(); }
+    async function carregar(){
+      st('');
+      try{
+        const [iva, custos, cfg] = await Promise.all([ler(`controle_iva?select=*&ano=eq.${ano}`), ler(`custos_fixos?select=mes,grupo,nome,valor&ano=eq.${ano}`), ler('config_financeiro?select=*')]);
+        cfg.forEach(r => { if(r.chave in par) par[r.chave] = num(r.valor); });
+        D = { iva, custos };
+        render();
+      }catch(e){ el('dreTabela').innerHTML = '<p class="desc">⚠️ Não consegui carregar os dados. Recarrega a página e tenta de novo.</p>'; }
+    }
+    function mes(m){
+      const r = D.iva.find(x => x.mes === m);
+      const fat = r ? num(r.faturado_sistema) + num(r.faturado_fora) : 0;
+      const temFat = fat > 0;
+      const cs = D.custos.filter(c => c.mes === m);
+      const temCustos = cs.length > 0;
+      const receita = temFat ? fat - num(r.iva) : 0;
+      const cmv = receita * par.cmv_pct / 100;
+      const pessoal = cs.filter(c => c.grupo === 'equipa').reduce((s, c) => s + num(c.valor), 0);
+      const fixosT = cs.filter(c => c.grupo !== 'equipa').reduce((s, c) => s + num(c.valor), 0);
+      const financeiras = cs.filter(c => c.grupo !== 'equipa' && FIN.test(c.nome)).reduce((s, c) => s + num(c.valor), 0);
+      const admin = fixosT - financeiras;
+      const completo = temFat && temCustos;
+      const lucroBruto = receita - cmv, operacionais = pessoal + admin, resOp = lucroBruto - operacionais;
+      const impostos = receita * par.dre_impostos_pct / 100;
+      const antes = resOp - impostos - financeiras, prolabore = par.dre_prolabore, liquido = antes - prolabore;
+      return { temFat, temCustos, completo, receita, cmv, lucroBruto, pessoal, admin, operacionais, resOp, impostos, financeiras, antes, prolabore, liquido };
+    }
+    function render(){
+      const ms = Array.from({ length: 12 }, (_, i) => mes(i + 1));
+      const completos = ms.filter(m => m.completo);
+      const tot = k => completos.reduce((s, m) => s + m[k], 0);
+      const totalM = { receita: tot('receita'), cmv: tot('cmv'), lucroBruto: tot('lucroBruto'), pessoal: tot('pessoal'), admin: tot('admin'), operacionais: tot('operacionais'), resOp: tot('resOp'), impostos: tot('impostos'), financeiras: tot('financeiras'), antes: tot('antes'), prolabore: tot('prolabore'), liquido: tot('liquido'), temFat: completos.length > 0, completo: completos.length > 0 };
+      const linhas = [
+        ['Receita de vendas', 'receita', 'forte', 'temFat'],
+        ['(−) CMV — Custo de Mercadoria Vendida', 'cmv', '', 'temFat'],
+        ['= Lucro bruto', 'lucroBruto', 'sub verde', 'temFat'],
+        ['(−) DESPESAS OPERACIONAIS', null, 'cab'],
+        ['Despesas com pessoal', 'pessoal', 'rec', 'completo'],
+        ['Despesas administrativas', 'admin', 'rec', 'completo'],
+        ['Total operacionais', 'operacionais', '', 'completo'],
+        ['= Resultado operacional', 'resOp', 'sub', 'completo'],
+        ['(−) Impostos e taxas', 'impostos', '', 'completo'],
+        ['(−) Despesas financeiras', 'financeiras', '', 'completo'],
+        ['= Resultado antes da distribuição', 'antes', 'sub', 'completo'],
+        ['(−) Distribuição de lucros / pró-labore', 'prolabore', '', 'completo'],
+        ['= Resultado líquido', 'liquido', 'sub', 'completo']
+      ];
+      const estilo = c => c.includes('sub') ? 'background:#EAF0FA;font-weight:700;border-top:1px solid #9DB3DB;' : c.includes('forte') ? 'font-weight:700;' : c.includes('cab') ? 'background:#EAF0FA;color:var(--terracotta-dark);font-weight:700;font-size:11px;' : '';
+      let h = '<table class="dre-table"><tr><th style="text-align:left;">Conta</th>' + MESES.map(n => `<th style="text-align:right;">${n}</th>`).join('') + '<th style="text-align:right;">Total (meses completos)</th></tr>';
+      linhas.forEach(([rot, k, c, need]) => {
+        const cel = m => {
+          if(!k) return '<td></td>';
+          if(!m[need]) return '<td style="color:var(--ink-soft);">—</td>';
+          const v = m[k], neg = (k === 'resOp' || k === 'antes' || k === 'liquido') && v < 0;
+          return `<td style="${neg ? 'color:var(--danger-text);' : (c.includes('verde') ? 'color:var(--ok-text);' : '')}">${eur0(v)}</td>`;
+        };
+        h += `<tr style="${estilo(c)}"><td style="text-align:left;${c.includes('rec') ? 'padding-left:18px;' : ''}${c.includes('verde') ? 'color:var(--ok-text);' : ''}">${rot}</td>${ms.map(cel).join('')}${cel(totalM)}</tr>`;
+      });
+      const pc = (a, b) => m => m.completo && m.receita > 0 ? ((m[a] / m.receita) * 100).toFixed(1).replace('.', ',') + '%' : '—';
+      h += `<tr><td style="text-align:left;color:var(--ink-soft);font-size:11px;">Pessoal ÷ receita</td>${ms.map(m => `<td style="color:var(--ink-soft);font-size:11px;">${pc('pessoal')(m)}</td>`).join('')}<td style="color:var(--ink-soft);font-size:11px;">${pc('pessoal')(totalM)}</td></tr>`;
+      h += `<tr><td style="text-align:left;color:var(--ink-soft);font-size:11px;">Resultado antes da distribuição ÷ receita</td>${ms.map(m => `<td style="color:var(--ink-soft);font-size:11px;">${pc('antes')(m)}</td>`).join('')}<td style="color:var(--ink-soft);font-size:11px;">${pc('antes')(totalM)}</td></tr>`;
+      el('dreTabela').innerHTML = h + '</table>';
+      const semCustos = ms.map((m, i) => m.temFat && !m.temCustos ? MESES[i] : null).filter(Boolean);
+      el('dreNotas').innerHTML = [
+        'Receita = faturado sem IVA (faturado no sistema + fora do sistema − IVA cobrado). O IVA tem relatório próprio.',
+        `CMV estimado em ${String(par.cmv_pct).replace('.', ',')}% da receita; quando houver compras lançadas, passa a ser o CMV real.`,
+        'Despesas financeiras = itens dos custos fixos com nome de empréstimo, juros, banco ou leasing; os outros custos fixos ficam em administrativas.',
+        semCustos.length ? `Meses com faturado mas sem custos lançados (${semCustos.join(', ')}) aparecem só até o lucro bruto: lança ou puxa os custos desses meses no Ponto de equilíbrio para completar.` : ''
+      ].filter(Boolean).join('<br>');
+      el('dreParams').innerHTML = `
+        <div><label>CMV (% da receita sem IVA)</label><input type="number" step="0.5" value="${par.cmv_pct}" onchange="FINANCAS.DRE.param('cmv_pct',this.value)"></div>
+        <div><label>Impostos e taxas (% da receita, além do IVA)</label><input type="number" step="0.5" value="${par.dre_impostos_pct}" onchange="FINANCAS.DRE.param('dre_impostos_pct',this.value)"></div>
+        <div><label>Pró-labore / distribuição por mês (€)</label><input type="number" step="50" value="${par.dre_prolabore}" onchange="FINANCAS.DRE.param('dre_prolabore',this.value)"></div>`;
+    }
+    async function param(chave, valor){
+      par[chave] = num(valor); render(); st('A guardar…');
+      try{ await enviar('POST', 'config_financeiro?on_conflict=chave', { chave, valor: num(valor) }, 'resolution=merge-duplicates,return=minimal'); st('Guardado ✓'); }
+      catch(e){ st(''); avisarErroGravar(); }
+    }
+    return { abrir, mudar, param };
+  })();
+
+  return { IVA, PE, CH, DRE };
 })();
 
 // ---------- BACKUP ----------
@@ -4631,6 +4777,7 @@ const NAV_AREAS = {
     { view: 'iva', label: 'Controle de IVA' },
     { view: 'equilibrio', label: 'Ponto de equilíbrio' },
     { view: 'custohora', label: 'Custo da hora' },
+    { view: 'dre', label: 'DRE' },
     { view: 'cenarios', label: 'Cenários' },
   ]},
   operacional: { label: 'Operacional', grupos: [
@@ -4679,6 +4826,7 @@ function ativarView(view){
   if(view === 'iva') FINANCAS.IVA.abrir();
   if(view === 'equilibrio') FINANCAS.PE.abrir();
   if(view === 'custohora') FINANCAS.CH.abrir();
+  if(view === 'dre') FINANCAS.DRE.abrir();
   if(view === 'escalas') FX.abrirEscalas();
   if(view === 'cenarios') FX.abrirCenarios();
 }
