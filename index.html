@@ -743,6 +743,12 @@
       </div>
     </section>
     <section class="panel">
+      <h2>Custos reais (da aba Ponto de equilíbrio)</h2>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="cenUsarReais" onchange="FX.alternarReais()"> Usar a equipa e os custos fixos reais no lugar das despesas estimadas abaixo</label>
+      <p class="desc" id="reaisDesc"></p>
+      <div style="overflow-x:auto;"><table class="grid-table" id="reaisTable"></table></div>
+    </section>
+    <section class="panel">
       <h2>Despesas mensais</h2>
       <p class="desc">Nº de funcionários × salário base = despesa com pessoal daquele mês. As restantes linhas são editáveis diretamente. A última linha mostra o que sobra depois de todas as despesas.</p>
       <div style="overflow-x:auto;"><table class="grid-table" id="expensesTable"></table></div>
@@ -751,25 +757,23 @@
       <h2>Resultado projetado</h2>
       <div class="cards" id="cards"></div>
     </section>
+    <section class="panel">
+      <h2>A operação se paga?</h2>
+      <p class="desc">Em cada mês, o que sobra do faturamento depois do CMV e dos impostos (a linha) tem de cobrir a equipa e os custos fixos (as colunas). Verde: cobre. Vermelho: faltaria.</p>
+      <p class="desc" id="projecaoResumo" style="font-size:13px;color:var(--ink);"></p>
+      <div id="projecaoGrafico"></div>
+      <div class="desc" style="margin-top:6px;"><span style="display:inline-block;width:10px;height:10px;background:var(--olive-dark);border-radius:2px;"></span> Equipa &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--terracotta);border-radius:2px;"></span> Custos fixos (adm.) &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--ok-text);border-radius:50%;"></span> Margem disponível (faturamento − CMV − impostos)</div>
+      <div style="overflow-x:auto;margin-top:10px;"><table class="grid-table" id="projecaoTabela"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Comparação com os outros cenários</h2>
+      <div id="comparacaoBox"></div>
+    </section>
     <div class="row">
       <button class="btn-primary" onclick="FX.saveScenario()">Guardar cenário</button>
       <button class="btn-ghost" onclick="FX.showView('list')">Cancelar</button>
       <p class="status" id="editorStatus"></p>
     </div>
-  </div>
-
-  
-  </div>
-
-  <div class="view fx" id="view-cenarios-comparar">
-<!-- COMPARAÇÃO -->
-  <div id="compareView">
-    <section class="panel">
-      <h2>Selecione 2 ou 3 cenários</h2>
-      <div id="compareCheckboxes"></div>
-      <button class="btn-dark" style="margin-top:14px;" onclick="FX.renderComparison()">Comparar</button>
-    </section>
-    <section class="panel"><div id="compareOutput"></div></section>
   </div>
 
   
@@ -815,6 +819,60 @@
       <div class="params-grid" id="peParams"></div>
     </section>
     <p class="status" id="peStatus"></p>
+  </div>
+
+  <!-- CUSTO DA HORA -->
+  <div class="view fx" id="view-custohora">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
+        <div>
+          <h2>Custo da hora aberta</h2>
+          <p class="desc" style="margin:0;">Quanto custa o restaurante estar aberto, hora a hora, e quanto precisa faturar por hora para não perder dinheiro.</p>
+        </div>
+        <div class="row" style="gap:10px;">
+          <div style="width:140px;"><label>Mês</label><select id="chMes" onchange="FINANCAS.CH.mudar()"></select></div>
+          <div style="width:100px;"><label>Ano</label><select id="chAno" onchange="FINANCAS.CH.mudar()"></select></div>
+        </div>
+      </div>
+      <details style="margin-bottom:12px;">
+        <summary style="cursor:pointer;font-weight:600;font-size:13px;">Como ler esta página (resumo para quem não conhece o sistema)</summary>
+        <div class="desc" style="margin-top:8px;line-height:1.6;">
+          <b>De onde vêm os números?</b> Tudo é calculado sozinho a partir do que já está lançado no sistema, e muda quando algo muda:
+          <b>Escala</b> (dias abertos, turnos de almoço e jantar, horas e quem trabalha) · <b>Ponto de equilíbrio</b> (salários da equipa e custos fixos do mês) · <b>Controle de IVA</b> (quanto foi faturado no mês).<br>
+          <b>Custo da hora aberta</b> = (equipa + custos fixos do mês) ÷ horas em que o restaurante esteve aberto.<br>
+          <b>Faturamento mínimo por hora</b> = quanto cada hora aberta tem de faturar (com IVA) para cobrir o seu custo, depois de tirar IVA e CMV.<br>
+          <b>Simulador</b>: mostra o custo extra de abrir mais um turno (ex.: manhã). Os custos fixos (renda etc.) não aumentam, só a equipa e os extras.<br>
+          <b>Diagnóstico automático</b>: compara os números com referências comuns do setor; os limites podem ser alterados. <b>Parecer do Claude</b>: opinião escrita pelo Claude num dia específico; a página avisa quando os números mudaram desde então.
+        </div>
+      </details>
+      <div class="cards" id="chResumo"></div>
+    </section>
+    <section class="panel">
+      <h2>Por turno</h2>
+      <p class="desc">O faturado do mês é dividido entre almoço e jantar pela percentagem definida mais abaixo (é uma estimativa, o sistema ainda não separa por turno).</p>
+      <div id="chTurnos" style="overflow-x:auto;"></div>
+      <p class="desc" id="chNotas" style="margin-top:10px;"></p>
+    </section>
+    <section class="panel">
+      <h2>Simulador: abrir mais um turno (ex.: de manhã)</h2>
+      <p class="desc">Começa com os valores do turno do almoço da Escala. Muda para testar. Só a equipa e os extras aumentam; renda e demais custos fixos continuam iguais.</p>
+      <div class="params-grid" id="chSimInputs"></div>
+      <div class="cards" id="chSimResultado" style="margin-top:14px;"></div>
+      <p class="desc" id="chSimTexto" style="margin-top:10px;font-size:13px;color:var(--ink);"></p>
+    </section>
+    <section class="panel">
+      <h2>Diagnóstico automático</h2>
+      <p class="desc">Recalculado a cada alteração. As referências são regras comuns em restaurantes (editáveis): servem de guia, não de verdade absoluta.</p>
+      <div id="chDiag"></div>
+      <div class="params-grid" id="chLimites" style="margin-top:14px;"></div>
+    </section>
+    <section class="panel">
+      <h2>Parecer do Claude</h2>
+      <div id="chParecer"></div>
+      <button class="btn-ghost" style="margin-top:10px;" onclick="FINANCAS.CH.copiar()">Copiar resumo para debater com o Claude</button>
+      <p class="desc" style="margin-top:6px;">Para debater: copia o resumo, cola no chat com o Claude e discutam. Quando houver conclusões novas, ele atualiza o parecer aqui.</p>
+    </section>
+    <p class="status" id="chStatus"></p>
   </div>
 
   <!-- BACKUP -->
@@ -3208,8 +3266,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await loadScenarios(); showView('list'); }
-  async function abrirComparar(){ if(cenarios.length === 0) await loadScenarios(); renderCompareCheckboxes(); }
+  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais()]); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
@@ -3218,7 +3275,6 @@ const DIAS_CURTO = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 
 let cenarios = [];
 let editingId = null;
-let compareSelection = [];
 
 function defaultDias(){
   return DIAS.map((d,i)=>({ dia:d, almocoAberto:true, almocoClientes:25, almocoTicket:14, jantarAberto:true, jantarClientes: i>=4?55:35, jantarTicket:22 }));
@@ -3239,7 +3295,7 @@ function defaultSazonalidade(){
 }
 function defaultCustos(){
   return {
-    cmv:30, impostos:20, salarioBase:1200,
+    cmv:30, impostos:20, salarioBase:1200, usarReais:true,
     ticketAlmoco:24, ticketDelivery:24, ticketJantar:24,
     pessoalCount: Array(12).fill(7),
     admin: Array(12).fill(600),
@@ -3340,8 +3396,10 @@ function loadCustosToForm(c){
   document.getElementById('ticketAlmoco').value = c.ticketAlmoco;
   document.getElementById('ticketDelivery').value = c.ticketDelivery;
   document.getElementById('ticketJantar').value = c.ticketJantar;
+  document.getElementById('cenUsarReais').checked = c.usarReais !== false;
 }
 function readCustosFromForm(){
+  editState.custos.usarReais = document.getElementById('cenUsarReais').checked;
   editState.custos.cmv = parseFloat(document.getElementById('cmv').value)||0;
   editState.custos.impostos = parseFloat(document.getElementById('impostos').value)||0;
   editState.custos.salarioBase = parseFloat(document.getElementById('salarioBase').value)||0;
@@ -3465,18 +3523,17 @@ function renderExpenses(){
   const c = editState.custos;
   const refRevenue = getRefRevenue();
   let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Nº funcionários</td>' + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia" style="color:var(--text-soft);font-weight:400;">→ Despesas com Pessoal</td>' + c.pessoalCount.map(n=>`<td style="color:var(--text-soft);">${fmtEUR(n*c.salarioBase)}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Despesas Administrativas</td>' + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Despesas Financeiras</td>' + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
+  const usandoReais = c.usarReais !== false && custosReais.disponivel;
+  const ig = usandoReais ? ' style="opacity:.4;"' : '';
+  html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia" style="color:var(--text-soft);font-weight:400;">→ Despesas com Pessoal</td>` + c.pessoalCount.map(n=>`<td style="color:var(--text-soft);">${fmtEUR(n*c.salarioBase)}</td>`).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia">Despesas Administrativas</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia">Despesas Financeiras</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (sócios)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia" style="padding-top:12px;color:var(--text-soft);font-size:11px;">Faturamento do mês</td>' + editState.months.map(m=>`<td style="font-size:11px;color:var(--text-soft);">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia" style="font-weight:700;">Sobra do mês <span style="font-size:9px;font-weight:400;">(fat. − despesas)</span></td>' + editState.months.map((m,i)=>{
-    const receita = receitaDoMes(m,refRevenue);
-    const cmvValor = receita*(c.cmv/100);
-    const despPessoal = (c.salarioBase||0)*(c.pessoalCount[i]||0);
-    const totalDespesas = cmvValor + despPessoal + c.admin[i] + c.financeiras[i] + c.distribuicao[i] + receita*(c.impostos/100);
-    const sobra = receita - totalDespesas;
+  const dreAtual = computeCenario(editState.months, c, custosReais).monthlyDRE;
+  html += '<tr><td class="dia" style="font-weight:700;">Sobra do mês <span style="font-size:9px;font-weight:400;">(fat. − despesas)</span></td>' + dreAtual.map(d=>{
+    const sobra = d.resultadoLiquido;
     return `<td style="font-weight:700;${sobra<0?'color:var(--danger);':'color:var(--ok);'}">${fmtEUR(sobra)}</td>`;
   }).join('') + '</tr>';
   t.innerHTML = html;
@@ -3486,7 +3543,8 @@ function updateExpense(campo, i, val){
   renderExpenses(); computeAndRenderCards();
 }
 
-function computeCenario(months, custos){
+function computeCenario(months, custos, reais){
+  const usar = custos.usarReais !== false && !!reais && reais.disponivel;
   const refRevenue = (months.find(m=>m.isRef)||{}).valorEur || 0;
   let monthlyDRE = [], ivaAccumQuarter=0, cashCumulative=0, cashCumulativeBeforeDist=0;
   MESES.forEach((mes,i)=>{
@@ -3494,9 +3552,10 @@ function computeCenario(months, custos){
     const receita = m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
     const cmvValor = receita * (custos.cmv/100);
     const lucroBruto = receita - cmvValor;
-    const despPessoal = (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
-    const despAdmin = custos.admin?.[i] || 0;
-    const despFinanceiras = custos.financeiras?.[i] || 0;
+    // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
+    const despPessoal = usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
+    const despAdmin = usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
+    const despFinanceiras = usar ? 0 : (custos.financeiras?.[i] || 0);
     const despDistribuicao = custos.distribuicao?.[i] || 0;
     const totalOperacionais = despPessoal + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
@@ -3517,12 +3576,144 @@ function computeCenario(months, custos){
 }
 function computeAndRenderCards(){
   const custos = readCustosFromForm(); editState.custos = custos;
-  const r = computeCenario(editState.months, custos);
+  const r = computeCenario(editState.months, custos, custosReais);
+  const s = resumoSePaga(r.monthlyDRE);
   document.getElementById('cards').innerHTML = `
     <div class="fx-stat"><div class="label">Faturamento anual</div><div class="value">${fmtEUR(r.annualRevenue)}</div></div>
     <div class="fx-stat"><div class="label">Resultado líquido anual</div><div class="value">${fmtEUR(r.annualResult)}</div></div>
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
-    <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>`;
+    <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
+    <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
+  renderReais(); renderProjecao(r); renderComparacao(r);
+}
+
+/* ---- Custos reais (Ponto de equilíbrio) ---- */
+let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
+async function carregarCustosReais(){
+  const vazio = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/custos_fixos?select=ano,mes,grupo,valor`, { headers: sbHeadersFn() });
+    if(!res.ok){ custosReais = vazio; return; }
+    const por = {};
+    (await res.json()).forEach(r=>{
+      const k = r.ano*12 + (r.mes-1);
+      const o = por[k] = por[k] || { pessoal:0, fixos:0 };
+      if(r.grupo==='equipa') o.pessoal += Number(r.valor)||0; else o.fixos += Number(r.valor)||0;
+    });
+    const chaves = Object.keys(por).map(Number).sort((a,b)=>a-b);
+    if(!chaves.length){ custosReais = vazio; return; }
+    const ano = new Date().getFullYear();
+    const out = { disponivel:true, pessoal:[], fixos:[], origem:[] };
+    for(let i=0;i<12;i++){
+      const alvo = ano*12 + i;
+      let k = null; chaves.forEach(c=>{ if(c<=alvo) k = c; });   // o último mês lançado até esse mês
+      const real = (k === alvo);
+      if(k === null) k = chaves[0];
+      out.pessoal.push(por[k].pessoal); out.fixos.push(por[k].fixos); out.origem.push(real ? 'real' : 'projetado');
+    }
+    custosReais = out;
+  }catch(e){ custosReais = vazio; }
+}
+function alternarReais(){ readCustosFromForm(); renderExpenses(); computeAndRenderCards(); }
+function renderReais(){
+  const desc = document.getElementById('reaisDesc'), t = document.getElementById('reaisTable');
+  if(!custosReais.disponivel){
+    desc.textContent = 'Ainda não há custos lançados na aba Ponto de equilíbrio, então o cenário usa as despesas estimadas abaixo.';
+    t.innerHTML = ''; return;
+  }
+  const usa = editState.custos.usarReais !== false;
+  desc.textContent = usa
+    ? 'Cada mês usa a equipa e os custos fixos que lançaste no Ponto de equilíbrio ("real"). Os meses sem lançamento repetem o último mês lançado ("projetado"). Se mudares o Ponto de equilíbrio, este cenário acompanha.'
+    : 'Desligado: o cenário usa as despesas estimadas abaixo. Os valores reais estão aqui só para referência.';
+  let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Equipa</td>' + custosReais.pessoal.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Custos fixos (adm.)</td>' + custosReais.fixos.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia" style="font-size:10px;color:var(--text-soft);">Origem</td>' + custosReais.origem.map(o=>`<td style="font-size:10px;color:${o==='real'?'var(--ok)':'var(--text-soft)'};">${o}</td>`).join('') + '</tr>';
+  t.innerHTML = html;
+}
+
+/* ---- "A operação se paga?" ---- */
+function resumoSePaga(dre){
+  const meses = dre.map(d=>d.resultadoAntesDistribuicao >= 0);
+  const n = meses.filter(Boolean).length;
+  let pior = dre[0], piorI = 0;
+  dre.forEach((d,i)=>{ if(d.resultadoAntesDistribuicao < pior.resultadoAntesDistribuicao){ pior = d; piorI = i; } });
+  return { n, meses, pior, piorI };
+}
+function svgProjecao(dre){
+  const W = 760, H = 270, ml = 46, mr = 10, mt = 12, mb = 24;
+  const custos = dre.map(d=>d.despPessoal + d.despAdmin + d.despFinanceiras);
+  const margem = dre.map(d=>d.receita - d.cmvValor - d.impostosValor);
+  const max = Math.max(1, ...custos, ...margem) * 1.12;
+  const slot = (W-ml-mr)/12, bw = slot*0.55;
+  const y = v => mt + (H-mt-mb) * (1 - v/max);
+  const x = i => ml + slot*i + slot/2;
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">`;
+  for(let k=0; k<=4; k++){
+    const v = max*k/4;
+    s += `<line x1="${ml}" x2="${W-mr}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line);"/><text x="${ml-6}" y="${y(v)+3}" text-anchor="end" style="font-size:10px;fill:var(--ink-soft);">${(v/1000).toFixed(0)}k</text>`;
+  }
+  dre.forEach((d,i)=>{
+    s += `<rect x="${x(i)-bw/2}" y="${y(d.despPessoal)}" width="${bw}" height="${y(0)-y(d.despPessoal)}" style="fill:var(--olive-dark);"><title>${MESES[i]} · equipa ${fmtEUR(d.despPessoal)}</title></rect>`;
+    const fixos = d.despAdmin + d.despFinanceiras;
+    s += `<rect x="${x(i)-bw/2}" y="${y(d.despPessoal + fixos)}" width="${bw}" height="${y(0)-y(fixos)}" style="fill:var(--terracotta);"><title>${MESES[i]} · custos fixos ${fmtEUR(fixos)}</title></rect>`;
+    s += `<text x="${x(i)}" y="${H-7}" text-anchor="middle" style="font-size:10px;fill:var(--ink-soft);">${MESES[i]}</text>`;
+  });
+  s += `<polyline points="${margem.map((v,i)=>x(i)+','+y(Math.max(v,0))).join(' ')}" style="fill:none;stroke:var(--ok-text);stroke-width:2.5;"/>`;
+  margem.forEach((v,i)=>{
+    const ok = v >= custos[i];
+    s += `<circle cx="${x(i)}" cy="${y(Math.max(v,0))}" r="4.5" style="fill:${ok?'var(--ok-text)':'var(--danger-text)'};stroke:#fff;stroke-width:1.5;"><title>${MESES[i]} · margem ${fmtEUR(v)} · ${ok?'cobre':'não cobre'} os custos (${fmtEUR(custos[i])})</title></circle>`;
+  });
+  return s + '</svg>';
+}
+function renderProjecao(r){
+  const dre = r.monthlyDRE, s = resumoSePaga(dre);
+  const resumo = document.getElementById('projecaoResumo');
+  if(r.annualRevenue <= 0){
+    resumo.innerHTML = '⚠️ Este cenário ainda não tem faturamento — define o mês de referência na "Sazonalidade mensal" para ver o resultado.';
+  }else{
+    const nao = dre.map((d,i)=>s.meses[i] ? null : MESES[i]).filter(Boolean);
+    resumo.innerHTML = s.n === 12
+      ? `<b>A operação se paga em todos os meses.</b> Pior mês: ${MESES[s.piorI]} (sobra ${fmtEUR(s.pior.resultadoAntesDistribuicao)}).`
+      : `<b>Se paga em ${s.n} de 12 meses.</b> Não se paga em: ${nao.join(', ')}. Pior mês: ${MESES[s.piorI]} (${fmtEUR(s.pior.resultadoAntesDistribuicao)}).`;
+  }
+  document.getElementById('projecaoGrafico').innerHTML = svgProjecao(dre);
+  const den = 1 - (editState.custos.cmv + editState.custos.impostos)/100;
+  const linha = (rotulo, f, extra) => `<tr><td class="dia"${extra||''}>${rotulo}</td>` + dre.map((d,i)=>f(d,i)).join('') + '</tr>';
+  let html = '<tr><td class="dia"></td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
+  html += linha('Faturamento do cenário', d=>`<td>${fmtEUR(d.receita)}</td>`);
+  html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${den>0 ? fmtEUR((d.despPessoal+d.despAdmin+d.despFinanceiras)/den) : '—'}</td>`);
+  html += linha('Sobra / falta', d=>`<td style="font-weight:700;color:${d.resultadoAntesDistribuicao<0?'var(--danger)':'var(--ok)'};">${fmtEUR(d.resultadoAntesDistribuicao)}</td>`, ' style="font-weight:700;"');
+  html += linha('Se paga?', (d,i)=>`<td style="font-weight:700;color:${s.meses[i]?'var(--ok)':'var(--danger)'};">${r.annualRevenue>0 ? (s.meses[i]?'✔':'✖') : '—'}</td>`);
+  html += linha('Depois do pró-labore', d=>`<td style="color:${d.resultadoLiquido<0?'var(--danger)':'var(--text-soft)'};">${fmtEUR(d.resultadoLiquido)}</td>`);
+  document.getElementById('projecaoTabela').innerHTML = html;
+}
+
+/* ---- Comparação com os outros cenários guardados ---- */
+function renderComparacao(rAtual){
+  const box = document.getElementById('comparacaoBox');
+  const outros = cenarios.filter(c=>c.id !== editingId);
+  if(outros.length === 0){
+    box.innerHTML = '<p class="desc" style="margin:0;">Quando houver outros cenários guardados, aparecem aqui comparados com este, para ver quando cada um se paga.</p>';
+    return;
+  }
+  const nomeAtual = (document.getElementById('cenNome').value.trim() || 'Este cenário') + ' (em edição)';
+  const itens = [{ nome: nomeAtual, r: rAtual, atual: true }].concat(outros.map(c=>({
+    nome: c.nome, r: computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos), custosReais)
+  })));
+  itens.forEach(it=>{ it.s = resumoSePaga(it.r.monthlyDRE); it.semFat = it.r.annualRevenue <= 0; });
+  const tira = it => it.semFat
+    ? '<span style="font-size:11px;color:var(--text-soft);">sem faturamento definido</span>'
+    : it.r.monthlyDRE.map((d,i)=>`<span title="${MESES[i]}: ${fmtEUR(d.resultadoAntesDistribuicao)}" style="display:inline-block;width:15px;height:15px;margin-right:2px;border-radius:3px;background:${it.s.meses[i]?'var(--ok-text)':'var(--danger-text)'};"></span>`).join('');
+  let html = '<div style="overflow-x:auto;"><table class="dre-table"><tr><th>Indicador</th>' + itens.map(it=>`<th${it.atual?' style="color:var(--primary);"':''}>${it.nome}</th>`).join('') + '</tr>';
+  html += '<tr><td>Meses (Jan → Dez)</td>' + itens.map(it=>`<td style="text-align:left;">${it.semFat ? '' : MESES.map(m=>`<span style="display:inline-block;width:15px;margin-right:2px;font-size:8px;text-align:center;color:var(--text-soft);">${m[0]}</span>`).join('')}</td>`).join('') + '</tr>';
+  html += '<tr><td>Quando se paga</td>' + itens.map(it=>`<td style="text-align:left;">${tira(it)}</td>`).join('') + '</tr>';
+  html += '<tr><td>Meses em que se paga</td>' + itens.map(it=>`<td>${it.semFat ? '—' : it.s.n + ' de 12'}</td>`).join('') + '</tr>';
+  html += '<tr><td>Pior mês</td>' + itens.map(it=>`<td class="${!it.semFat && it.s.pior.resultadoAntesDistribuicao<0?'neg':''}">${it.semFat ? '—' : MESES[it.s.piorI] + ': ' + fmtEUR(it.s.pior.resultadoAntesDistribuicao)}</td>`).join('') + '</tr>';
+  [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após pró-labore)','cashCumulative']].forEach(([label,key])=>{
+    html += `<tr><td>${label}</td>` + itens.map(it=>`<td class="${it.r[key]<0?'neg':''}">${fmtEUR(it.r[key])}</td>`).join('') + '</tr>';
+  });
+  box.innerHTML = html + '</table></div><p class="desc" style="margin:10px 0 0;">Quadrado verde: o mês cobre equipa e custos fixos. Vermelho: faltaria. Passa o rato por cima para ver o valor.</p>';
 }
 async function saveScenario(){
   const nome = document.getElementById('cenNome').value.trim();
@@ -3536,28 +3727,6 @@ async function saveScenario(){
   statusEl.textContent = 'Guardado.';
   await loadScenarios();
   setTimeout(()=>showView('list'), 500);
-}
-
-/* ================= COMPARAÇÃO ================= */
-function renderCompareCheckboxes(){
-  const box = document.getElementById('compareCheckboxes');
-  if(cenarios.length===0){ box.innerHTML = '<p class="desc">Crie pelo menos 2 cenários para comparar.</p>'; return; }
-  box.innerHTML = cenarios.map(c=>`<label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;margin-bottom:8px;">
-      <input type="checkbox" style="width:16px;height:16px;" value="${c.id}" onchange="FX.toggleCompare('${c.id}',this.checked)">${c.nome}</label>`).join('');
-}
-function toggleCompare(id, checked){
-  if(checked){ if(!compareSelection.includes(id)) compareSelection.push(id); } else { compareSelection = compareSelection.filter(x=>x!==id); }
-}
-function renderComparison(){
-  const out = document.getElementById('compareOutput');
-  if(compareSelection.length < 2){ out.innerHTML = '<p class="desc">Selecione pelo menos 2 cenários.</p>'; return; }
-  const selected = cenarios.filter(c=>compareSelection.includes(c.id));
-  const results = selected.map(c=>({ nome:c.nome, ...computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos)) }));
-  let html = '<table class="dre-table"><tr><th>Indicador</th>' + results.map(r=>`<th>${r.nome}</th>`).join('') + '</tr>';
-  [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após pró-labore)','cashCumulative']].forEach(([label,key])=>{
-    html += `<tr><td>${label}</td>` + results.map(r=>`<td class="${r[key]<0?'neg':''}">${fmtEUR(r[key])}</td>`).join('') + '</tr>';
-  });
-  out.innerHTML = html + '</table>';
 }
 
 /* ================= ESCALAS E FLUXOS ================= */
@@ -3928,7 +4097,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, renderComparison, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleCompare, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, abrirCenarios, abrirComparar, abrirEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
@@ -4155,14 +4324,264 @@ const FINANCAS = (function(){
     return { abrir, mudar, puxar, editar, pagar, adicionar, remover, config };
   })();
 
-  return { IVA, PE };
+  /* ================= CUSTO DA HORA ================= */
+  // Lê a Escala (dias abertos, turnos, horas, quem trabalha), os custos do Ponto de equilíbrio e o
+  // faturado do Controle de IVA, e recalcula tudo sempre que a aba abre — por isso acompanha qualquer
+  // mudança feita nessas abas. Só o "Parecer do Claude" é texto escrito num dia (e avisa quando envelhece).
+  const CH = (function(){
+    let ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
+    let D = null, M = null, sim = null, diagTexto = [];
+    let lim = { lim_folha: 35, lim_prime: 65, lim_renda: 10, mix_almoco: 10 };
+    const TURNOS = [['almoco', 'Almoço'], ['jantar', 'Jantar']];
+    const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const dec = (v, d) => num(v).toFixed(d == null ? 1 : d).replace('.', ',');
+    const st = m => { const el = document.getElementById('chStatus'); if(el) el.textContent = m; };
+    const el = id => document.getElementById(id);
+
+    async function abrir(){
+      el('chMes').innerHTML = MESES_LONGO.map((n, i) => `<option value="${i+1}" ${i+1 === mes ? 'selected' : ''}>${n}</option>`).join('');
+      el('chAno').innerHTML = anosOpcoes(ano);
+      await carregar();
+    }
+    async function mudar(){ mes = parseInt(el('chMes').value); ano = parseInt(el('chAno').value); await carregar(); }
+    async function carregar(){
+      st('');
+      try{
+        const [funcs, dias, asg, ce, custos, ivaAno, cfg] = await Promise.all([
+          ler('escala_funcionarios?select=*'), ler('escala_dias?select=*'), ler('escala_assignments?select=*'),
+          ler('escala_config?select=*&id=eq.1'), ler(`custos_fixos?select=*&ano=eq.${ano}&mes=eq.${mes}`),
+          ler(`controle_iva?select=*&ano=eq.${ano}`), ler('config_financeiro?select=*')
+        ]);
+        let parecer = null;
+        try{ parecer = (await ler('parecer_claude?select=*&id=eq.custo_hora'))[0] || null; }catch(e){}
+        const c = {}; cfg.forEach(r => { c[r.chave] = num(r.valor); });
+        Object.keys(lim).forEach(k => { if(c[k] != null) lim[k] = c[k]; });
+        D = { funcs, dias, asg, ce: ce[0] || {}, custos, ivaAno, parecer, cfg: c };
+        sim = null; calcular(); render();
+      }catch(e){
+        el('chResumo').innerHTML = '<p class="desc">⚠️ Não consegui carregar os dados. Recarrega a página e tenta de novo.</p>';
+      }
+    }
+
+    function calcular(){
+      const dur = { almoco: num(D.ce.duracao_almoco) || 5, jantar: num(D.ce.duracao_jantar) || 6 };
+      const aberto = w => { const r = D.dias.find(x => x.dia === w); return r ? !!r.aberto : true; };
+      const nDias = new Date(ano, mes, 0).getDate();
+      const eq = {};
+      D.asg.forEach(a => { const k = a.dia + '|' + a.turno; (eq[k] = eq[k] || new Set()).add(a.funcionario_id); });
+      const T = { almoco: { horas:0, dias:0, pessoasHoras:0, custoEquipa:0 }, jantar: { horas:0, dias:0, pessoasHoras:0, custoEquipa:0 } };
+      const horasEmp = {}, semanaAtiva = { almoco: new Set(), jantar: new Set() }, calendario = [];
+      for(let d = 1; d <= nDias; d++){
+        const w = (new Date(ano, mes - 1, d).getDay() + 6) % 7;     // 0 = segunda, como na Escala
+        if(!aberto(w)) continue;
+        TURNOS.forEach(([t]) => {
+          const s = eq[w + '|' + t]; if(!s || !s.size) return;
+          T[t].horas += dur[t]; T[t].dias++; T[t].pessoasHoras += s.size * dur[t]; semanaAtiva[t].add(w);
+          s.forEach(id => { horasEmp[id] = (horasEmp[id] || 0) + dur[t]; });
+          calendario.push({ t, ids: [...s] });
+        });
+      }
+      const equipaItens = D.custos.filter(i => i.grupo === 'equipa'), fixoItens = D.custos.filter(i => i.grupo === 'fixo');
+      const taxa = {}, ligados = [], semSalario = [];
+      D.funcs.forEach(f => {
+        const h = horasEmp[f.id] || 0; if(h <= 0) return;
+        const it = equipaItens.find(i => norm(i.nome) === norm(f.nome));
+        if(it && num(it.valor) > 0){ taxa[f.id] = num(it.valor) / h; ligados.push({ nome: f.nome, valor: num(it.valor), horas: h }); }
+        else semSalario.push(f.nome);
+      });
+      calendario.forEach(c => c.ids.forEach(id => { T[c.t].custoEquipa += dur[c.t] * (taxa[id] || 0); }));
+      const totalEquipa = equipaItens.reduce((s, i) => s + num(i.valor), 0);
+      const totalFixos = fixoItens.reduce((s, i) => s + num(i.valor), 0);
+      const nomesLigados = new Set(ligados.map(l => norm(l.nome)));
+      const foraEscalaItens = equipaItens.filter(i => num(i.valor) > 0 && !nomesLigados.has(norm(i.nome)));
+      const foraEscala = foraEscalaItens.reduce((s, i) => s + num(i.valor), 0);
+      const horasTotais = T.almoco.horas + T.jantar.horas;
+      const estrutura = totalFixos + foraEscala;
+      const estruturaHora = horasTotais > 0 ? estrutura / horasTotais : 0;
+      const fatAno = D.ivaAno.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
+      const ivaAnoT = D.ivaAno.reduce((s, r) => s + num(r.iva), 0);
+      const ivaAuto = fatAno > 0 ? (ivaAnoT / fatAno) * 100 : null;
+      const ivaPct = D.cfg.iva_pct != null ? D.cfg.iva_pct : (ivaAuto != null ? ivaAuto : 0);
+      const cmvPct = D.cfg.cmv_pct != null ? D.cfg.cmv_pct : 30, outrosPct = num(D.cfg.outros_pct);
+      const margem = (1 - ivaPct / 100) * (1 - (cmvPct + outrosPct) / 100);   // mesma conta do Ponto de equilíbrio
+      const rm = D.ivaAno.find(r => r.mes === mes);
+      const fat = rm ? num(rm.faturado_sistema) + num(rm.faturado_fora) : 0;
+      const mix = lim.mix_almoco / 100;
+      TURNOS.forEach(([t]) => {
+        const x = T[t];
+        x.pessoasMedia = x.horas > 0 ? x.pessoasHoras / x.horas : 0;
+        x.custoEstrutura = estruturaHora * x.horas;
+        x.custoTotal = x.custoEquipa + x.custoEstrutura;
+        x.custoHora = x.horas > 0 ? x.custoTotal / x.horas : 0;
+        x.fatMinHora = margem > 0 ? x.custoHora / margem : null;
+        x.fat = fat * (t === 'almoco' ? mix : 1 - mix);
+        x.fatHora = x.horas > 0 ? x.fat / x.horas : 0;
+        x.resultado = x.fat * margem - x.custoTotal;
+        x.custoPessoaHora = x.pessoasHoras > 0 ? x.custoEquipa / x.pessoasHoras : 0;
+      });
+      const custoTotal = totalEquipa + totalFixos;
+      M = { dur, nDias, T, totalEquipa, totalFixos, foraEscala, foraEscalaItens, estrutura, estruturaHora, horasTotais, ivaPct, cmvPct, outrosPct, margem, fat,
+        ligados, semSalario, custoTotal, fixoItens,
+        custoHora: horasTotais > 0 ? custoTotal / horasTotais : 0,
+        fatMinHora: (horasTotais > 0 && margem > 0) ? (custoTotal / horasTotais) / margem : null,
+        fatHora: horasTotais > 0 ? fat / horasTotais : 0,
+        diasSemana: { almoco: semanaAtiva.almoco.size, jantar: semanaAtiva.jantar.size } };
+    }
+
+    function render(){ renderResumo(); renderTurnos(); renderSim(); renderDiag(); renderParecer(); }
+    const semEscala = () => !M || M.horasTotais <= 0;
+    const AVISO_ESCALA = '<p class="desc">⚠️ Não há ninguém escalado neste mês na aba <b>Escalas</b> (dias abertos com almoço ou jantar preenchidos). Preenche a Escala para ver o custo por hora.</p>';
+
+    function renderResumo(){
+      if(semEscala()){ el('chResumo').innerHTML = AVISO_ESCALA; return; }
+      const corFat = M.fat <= 0 ? 'var(--ink-soft)' : (M.fatMinHora != null && M.fatHora >= M.fatMinHora ? 'var(--ok-text)' : 'var(--danger-text)');
+      el('chResumo').innerHTML = `
+        <div class="fx-stat"><div class="label">Custo do mês (equipa + fixos)</div><div class="value">${euro(M.custoTotal)}</div></div>
+        <div class="fx-stat"><div class="label">Horas abertas no mês</div><div class="value">${dec(M.horasTotais, 0)} h</div></div>
+        <div class="fx-stat highlight"><div class="label">Custo por hora aberta</div><div class="value">${euro(M.custoHora)}</div></div>
+        <div class="fx-stat"><div class="label">Faturamento mínimo por hora (c/ IVA)</div><div class="value">${M.fatMinHora != null ? euro(M.fatMinHora) : '—'}</div></div>
+        <div class="fx-stat" style="background:${corFat};"><div class="label">Faturado por hora aberta (${MESES[mes-1]})</div><div class="value">${M.fat > 0 ? euro(M.fatHora) : '—'}</div></div>`;
+    }
+    function renderTurnos(){
+      const box = el('chTurnos'), notas = el('chNotas');
+      if(semEscala()){ box.innerHTML = ''; notas.innerHTML = ''; return; }
+      const linha = (nome, x) => `<tr><td>${nome}</td><td>${x.dias}</td><td>${dec(x.horas, 0)} h</td><td>${dec(x.pessoasMedia)}</td><td>${euro(x.custoEquipa)}</td><td>${euro(x.custoEstrutura)}</td><td style="font-weight:700;">${euro(x.custoTotal)}</td><td style="font-weight:700;">${x.horas > 0 ? euro(x.custoHora) : '—'}</td><td>${x.fatMinHora != null && x.horas > 0 ? euro(x.fatMinHora) : '—'}</td><td style="color:${M.fat <= 0 ? 'var(--ink-soft)' : (x.fatMinHora != null && x.fatHora >= x.fatMinHora ? 'var(--ok)' : 'var(--danger)')};">${M.fat > 0 && x.horas > 0 ? euro(x.fatHora) : '—'}</td></tr>`;
+      box.innerHTML = '<table class="dre-table"><tr><th>Turno</th><th>Dias</th><th>Horas</th><th>Pessoas (média)</th><th>Equipa</th><th>Custos fixos</th><th>Custo total</th><th>Custo/hora</th><th>Fat. mínimo/hora</th><th>Fatura/hora (est.)</th></tr>'
+        + TURNOS.map(([t, nome]) => linha(nome, M.T[t])).join('') + '</table>';
+      const partes = [];
+      partes.push(M.fat > 0 ? `Faturado em ${MESES_LONGO[mes-1]}: ${euro(M.fat)} (Controle de IVA), dividido ${lim.mix_almoco}% almoço / ${100 - lim.mix_almoco}% jantar.` : `Sem faturado lançado em ${MESES_LONGO[mes-1]} no Controle de IVA — lança lá para ver quanto cada hora fatura.`);
+      if(M.foraEscalaItens.length) partes.push(`Pessoas do Ponto de equilíbrio que não aparecem na Escala (${M.foraEscalaItens.map(i => esc(i.nome)).join(', ')}: ${euro(M.foraEscala)}) entram como custo fixo, repartido por todas as horas abertas.`);
+      if(M.semSalario.length) partes.push(`⚠️ Escalados mas sem salário no Ponto de equilíbrio deste mês (custo não contado): ${M.semSalario.map(esc).join(', ')}.`);
+      partes.push('Custo do turno = (salário mensal ÷ horas escaladas no mês) × horas de cada pessoa + parte dos custos fixos proporcional às horas.');
+      notas.innerHTML = partes.join('<br>');
+    }
+
+    function renderSim(){
+      const inp = el('chSimInputs'), out = el('chSimResultado'), txt = el('chSimTexto');
+      if(semEscala()){ inp.innerHTML = ''; out.innerHTML = ''; txt.textContent = ''; return; }
+      if(!sim){
+        const k = M.T.almoco.horas > 0 ? 'almoco' : 'jantar', ref = M.T[k];
+        sim = { horasDia: M.dur[k], diasSemana: M.diasSemana[k] || 6, pessoas: +ref.pessoasMedia.toFixed(1) || 2, custoPessoaHora: +ref.custoPessoaHora.toFixed(2) || 8, outrosHora: 0, fatHora: 0 };
+      }
+      const campo = (rot, k, passo) => `<div><label>${rot}</label><input type="number" step="${passo}" value="${sim[k] || ''}" placeholder="0" onchange="FINANCAS.CH.simular('${k}',this.value)"></div>`;
+      inp.innerHTML = campo('Horas do turno por dia', 'horasDia', 0.5) + campo('Dias por semana', 'diasSemana', 1) + campo('Pessoas no turno', 'pessoas', 0.5)
+        + campo('Custo por pessoa-hora (€)', 'custoPessoaHora', 0.1) + campo('Outros custos por hora (luz, gás…) (€)', 'outrosHora', 0.5) + campo('Faturamento esperado por hora, c/ IVA (€) — opcional', 'fatHora', 1);
+      const diasMes = sim.diasSemana * M.nDias / 7, horasMes = sim.horasDia * diasMes;
+      const custoExtra = horasMes * (sim.pessoas * sim.custoPessoaHora + sim.outrosHora);
+      const fatNec = M.margem > 0 ? custoExtra / M.margem : null;
+      out.innerHTML = `
+        <div class="fx-stat"><div class="label">Horas extra por mês</div><div class="value">${dec(horasMes, 0)} h</div></div>
+        <div class="fx-stat"><div class="label">Custo extra por mês</div><div class="value">${euro(custoExtra)}</div></div>
+        <div class="fx-stat highlight"><div class="label">Faturamento extra necessário/mês</div><div class="value">${fatNec != null ? euro(fatNec) : '—'}</div></div>
+        <div class="fx-stat"><div class="label">Por dia aberto</div><div class="value">${fatNec != null && diasMes > 0 ? euro(fatNec / diasMes) : '—'}</div></div>
+        <div class="fx-stat"><div class="label">Por hora do turno</div><div class="value">${fatNec != null && horasMes > 0 ? euro(fatNec / horasMes) : '—'}</div></div>`;
+      if(fatNec == null || horasMes <= 0){ txt.textContent = 'Preenche os dados do turno para ver a conta.'; return; }
+      const porHora = fatNec / horasMes;
+      let t = `Para compensar, o turno teria de faturar pelo menos ${euro(porHora)} por hora (${euro(fatNec / diasMes)} por dia aberto)` + (M.fatHora > 0 ? `, o que é ${Math.round(porHora / M.fatHora * 100)}% do que o restaurante fatura hoje por hora aberta (${euro(M.fatHora)}).` : '.');
+      if(sim.fatHora > 0){
+        const res = sim.fatHora * horasMes * M.margem - custoExtra;
+        t += ` Com ${euro(sim.fatHora)} por hora, o turno ${res >= 0 ? 'sobra' : 'perde'} ${euro(Math.abs(res))} por mês.`;
+      }
+      txt.textContent = t;
+    }
+    function simular(campo, valor){ if(!sim) return; sim[campo] = num(valor); renderSim(); }
+
+    function renderDiag(){
+      const box = el('chDiag'), lims = el('chLimites');
+      diagTexto = [];
+      lims.innerHTML = [['lim_folha', 'Limite equipa (% do fat. sem IVA)'], ['lim_prime', 'Limite CMV + equipa (%)'], ['lim_renda', 'Limite renda (% do fat. sem IVA)'], ['mix_almoco', '% do faturado que vem do almoço']]
+        .map(([k, rot]) => `<div><label>${rot}</label><input type="number" step="1" value="${lim[k]}" onchange="FINANCAS.CH.limite('${k}',this.value)"></div>`).join('');
+      if(semEscala()){ box.innerHTML = AVISO_ESCALA; return; }
+      const itens = [];
+      const add = (nivel, texto) => { itens.push([nivel, texto]); diagTexto.push(({ ok: '✔ ', aviso: '⚠ ', mau: '✖ ' }[nivel]) + texto); };
+      if(M.fat <= 0){
+        add('aviso', `Sem faturado lançado em ${MESES_LONGO[mes-1]} no Controle de IVA, então não dá para comparar custos com faturamento. O custo por hora (${euro(M.custoHora)}) já é válido.`);
+      }else if(M.margem <= 0){
+        add('mau', 'CMV + outros custos + IVA somam 100% ou mais — revê os parâmetros no Ponto de equilíbrio.');
+      }else{
+        const fatSem = M.fat * (1 - M.ivaPct / 100);
+        const folha = M.totalEquipa / fatSem * 100, prime = M.cmvPct + folha;
+        add(folha <= lim.lim_folha ? 'ok' : 'aviso', `Equipa = ${dec(folha)}% do faturamento sem IVA (referência: até ${lim.lim_folha}%).`);
+        add(prime <= lim.lim_prime ? 'ok' : 'aviso', `CMV + equipa (prime cost) = ${dec(prime)}% (referência: até ${lim.lim_prime}%). CMV usado: ${dec(M.cmvPct)}%.`);
+        const rendaItens = M.fixoItens.filter(i => /renda|alug/i.test(i.nome));
+        if(rendaItens.length){
+          const renda = rendaItens.reduce((s, i) => s + num(i.valor), 0) / fatSem * 100;
+          add(renda <= lim.lim_renda ? 'ok' : 'aviso', `Renda = ${dec(renda)}% do faturamento sem IVA (referência: até ${lim.lim_renda}%).`);
+        }
+        const sobraMargem = M.fat * M.margem, res = sobraMargem - M.custoTotal, minimo = M.custoTotal / M.margem;
+        add(res >= 0 ? 'ok' : 'mau', `Em ${MESES_LONGO[mes-1]} faturou ${euro(M.fat)}; depois de IVA e CMV ficam ${euro(sobraMargem)} para pagar ${euro(M.custoTotal)} de equipa e custos fixos → ${res >= 0 ? 'sobra' : 'faltam'} ${euro(Math.abs(res))}. O faturamento mínimo do mês era ${euro(minimo)} (faturou ${Math.round(M.fat / minimo * 100)}%).`);
+        TURNOS.forEach(([t, nome]) => {
+          const x = M.T[t]; if(x.horas <= 0 || x.fatMinHora == null) return;
+          const cobre = x.fatHora >= x.fatMinHora;
+          add(cobre ? 'ok' : 'aviso', `${nome}: custa ${euro(x.custoHora)} por hora e fatura (estimado) ${euro(x.fatHora)}; precisa de ${euro(x.fatMinHora)} → ${x.resultado >= 0 ? 'sobra' : 'perde'} ${euro(Math.abs(x.resultado))} por mês.`);
+        });
+        add('aviso', 'A divisão almoço/jantar do faturado é estimada pela percentagem acima; ajusta-a para refletir a realidade.');
+      }
+      box.innerHTML = itens.map(([n, t]) => `<div class="desc" style="font-size:13px;color:${n === 'ok' ? 'var(--ok)' : n === 'mau' ? 'var(--danger)' : 'var(--ink)'};margin:0 0 6px;">${n === 'ok' ? '✔' : n === 'mau' ? '✖' : '⚠️'} ${esc(t)}</div>`).join('');
+    }
+    async function limite(chave, valor){
+      lim[chave] = num(valor); st('A guardar…');
+      if(chave === 'mix_almoco') calcular();
+      render();
+      try{ await enviar('POST', 'config_financeiro?on_conflict=chave', { chave, valor: num(valor) }, 'resolution=merge-duplicates,return=minimal'); st('Guardado ✓'); }
+      catch(e){ st(''); avisarErroGravar(); }
+    }
+
+    function instantaneo(){
+      if(!M) return null;
+      const folha = M.fat > 0 ? M.totalEquipa / (M.fat * (1 - M.ivaPct / 100)) * 100 : null;
+      return { ano, mes, fat: Math.round(M.fat), equipa: Math.round(M.totalEquipa), fixos: Math.round(M.totalFixos), horas: Math.round(M.horasTotais),
+        custoHora: +M.custoHora.toFixed(2), fatMinHora: M.fatMinHora != null ? +M.fatMinHora.toFixed(2) : null, folhaPct: folha != null ? +folha.toFixed(1) : null };
+    }
+    function renderParecer(){
+      const box = el('chParecer'), p = D && D.parecer;
+      if(!p || !p.texto){ box.innerHTML = '<p class="desc">Ainda não há parecer. Pede no chat: "Claude, escreve o parecer do custo da hora".</p>'; return; }
+      const snap = p.snapshot || {}, atual = instantaneo();
+      let aviso;
+      if(!atual || semEscala()){ aviso = ''; }
+      else if(snap.ano !== atual.ano || snap.mes !== atual.mes){
+        aviso = `<div class="desc" style="color:var(--warn);">⚠️ Este parecer foi escrito para ${MESES_LONGO[(snap.mes || 1) - 1]} de ${snap.ano}; estás a ver outro mês.</div>`;
+      }else{
+        const campos = [['custoHora', 'custo por hora', '€'], ['fatMinHora', 'faturamento mínimo por hora', '€'], ['fat', 'faturado', '€'], ['equipa', 'equipa', '€'], ['fixos', 'custos fixos', '€'], ['horas', 'horas abertas', ' h']];
+        const difs = campos.filter(([k]) => snap[k] != null && atual[k] != null && Math.abs(atual[k] - snap[k]) > Math.max(Math.abs(snap[k]) * 0.03, 0.5))
+          .map(([k, n, u]) => `${n} ${dec(snap[k], k === 'custoHora' || k === 'fatMinHora' ? 2 : 0)} → ${dec(atual[k], k === 'custoHora' || k === 'fatMinHora' ? 2 : 0)}${u}`);
+        aviso = difs.length
+          ? `<div class="desc" style="border:1px solid var(--warn);border-radius:6px;padding:8px 10px;color:var(--warn);">⚠️ Os números mudaram desde este parecer (${difs.join('; ')}). Pede ao Claude para rever.</div>`
+          : '<div class="desc" style="color:var(--ok);">✔ Os números atuais coincidem com os do parecer.</div>';
+      }
+      const data = p.atualizado_em ? new Date(p.atualizado_em).toLocaleDateString('pt-PT') : '';
+      box.innerHTML = `${aviso}<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin-top:8px;">${esc(p.texto)}</div><p class="desc" style="margin-top:8px;">Escrito pelo Claude em ${data}, com base nos números daquele dia.</p>`;
+    }
+    async function copiar(){
+      if(semEscala() || !M){ st('Sem dados de Escala neste mês.'); return; }
+      const T = M.T;
+      const linhas = [
+        `RESUMO PARA DEBATE — Custo da hora aberta — ${MESES_LONGO[mes-1]} de ${ano}`,
+        `Faturado: ${euro(M.fat)} | Equipa: ${euro(M.totalEquipa)} | Custos fixos: ${euro(M.totalFixos)} | Horas abertas: ${dec(M.horasTotais, 0)} h`,
+        `Custo por hora aberta: ${euro(M.custoHora)} | Faturamento mínimo por hora: ${M.fatMinHora != null ? euro(M.fatMinHora) : '—'} | Faturado por hora: ${euro(M.fatHora)}`,
+        `Parâmetros: IVA ${dec(M.ivaPct)}% | CMV ${dec(M.cmvPct)}% | outros ${dec(M.outrosPct)}% | almoço ${lim.mix_almoco}% do faturado`,
+        ...TURNOS.map(([t, n]) => `${n}: ${T[t].dias} dias, ${dec(T[t].horas, 0)} h, ${dec(T[t].pessoasMedia)} pessoas, custo/hora ${euro(T[t].custoHora)}, mínimo/hora ${T[t].fatMinHora != null ? euro(T[t].fatMinHora) : '—'}, fatura/hora (est.) ${euro(T[t].fatHora)}`),
+        'Diagnóstico automático:', ...diagTexto.map(t => '- ' + t),
+        'Quero debater isto contigo: o que farias e porquê? Contesta o que não fizer sentido.'
+      ].join('\n');
+      try{ await navigator.clipboard.writeText(linhas); st('Copiado ✓ — cola no chat com o Claude.'); }
+      catch(e){
+        const ta = document.createElement('textarea'); ta.value = linhas; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); st('Copiado ✓ — cola no chat com o Claude.'); }catch(e2){ st('Não consegui copiar automaticamente.'); }
+        ta.remove();
+      }
+    }
+    return { abrir, mudar, simular, limite, copiar, instantaneo };
+  })();
+
+  return { IVA, PE, CH };
 })();
 
 // ---------- BACKUP ----------
 async function fazerBackupDados(){
   const btn = document.getElementById('btnBackup');
   const out = document.getElementById('backupResultado');
-  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro'];
+  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro','parecer_claude'];
   btn.disabled = true;
   out.textContent = 'A exportar...';
   const resultado = { exportadoEm: new Date().toISOString() };
@@ -4211,8 +4630,8 @@ const NAV_AREAS = {
   financeiro: { label: 'Financeiro', tabs: [
     { view: 'iva', label: 'Controle de IVA' },
     { view: 'equilibrio', label: 'Ponto de equilíbrio' },
+    { view: 'custohora', label: 'Custo da hora' },
     { view: 'cenarios', label: 'Cenários' },
-    { view: 'cenarios-comparar', label: 'Comparar cenários' },
   ]},
   operacional: { label: 'Operacional', grupos: [
     { key: 'estoque', label: 'Estoque', tabs: [
@@ -4259,9 +4678,9 @@ function ativarView(view){
   if(view === 'retorno') renderRetorno();
   if(view === 'iva') FINANCAS.IVA.abrir();
   if(view === 'equilibrio') FINANCAS.PE.abrir();
+  if(view === 'custohora') FINANCAS.CH.abrir();
   if(view === 'escalas') FX.abrirEscalas();
   if(view === 'cenarios') FX.abrirCenarios();
-  if(view === 'cenarios-comparar') FX.abrirComparar();
 }
 
 function renderNav(){
