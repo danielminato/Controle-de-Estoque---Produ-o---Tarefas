@@ -874,6 +874,11 @@
       <div class="cards" id="chResumo"></div>
     </section>
     <section class="panel">
+      <h2>Horário de funcionamento</h2>
+      <p class="desc">Edita a hora de abertura e de fecho de cada turno: a duração em horas passa a valer na Escala também. Os <b>dias abertos</b> e as <b>pessoas por turno</b> editam-se em Administrativo → Escalas; os <b>salários e custos</b> em Financeiro → Ponto de equilíbrio.</p>
+      <div class="params-grid" id="chHorario"></div>
+    </section>
+    <section class="panel">
       <h2>Por turno</h2>
       <p class="desc">O faturado do mês é dividido entre almoço e jantar pela percentagem definida mais abaixo (é uma estimativa, o sistema ainda não separa por turno).</p>
       <div id="chTurnos" style="overflow-x:auto;"></div>
@@ -3294,6 +3299,7 @@ const FX = (function(){
   }
   async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
+  function invalidarEscalas(){ escLoaded = false; }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 const DIAS_CURTO = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
@@ -4139,7 +4145,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
@@ -4405,11 +4411,14 @@ const FINANCAS = (function(){
           ler('escala_config?select=*&id=eq.1'), ler(`custos_fixos?select=*&ano=eq.${ano}&mes=eq.${mes}`),
           ler(`controle_iva?select=*&ano=eq.${ano}`), ler('config_financeiro?select=*')
         ]);
-        let parecer = null;
-        try{ parecer = (await ler('parecer_claude?select=*&id=eq.custo_hora'))[0] || null; }catch(e){}
+        let parecer = null, notas = null;
+        try{
+          const pr = await ler('parecer_claude?select=*&id=in.(custo_hora,custo_hora_notas)');
+          parecer = pr.find(r => r.id === 'custo_hora') || null; notas = pr.find(r => r.id === 'custo_hora_notas') || null;
+        }catch(e){}
         const c = {}; cfg.forEach(r => { c[r.chave] = num(r.valor); });
         Object.keys(lim).forEach(k => { if(c[k] != null) lim[k] = c[k]; });
-        D = { funcs, dias, asg, ce: ce[0] || {}, custos, ivaAno, parecer, cfg: c };
+        D = { funcs, dias, asg, ce: ce[0] || {}, custos, ivaAno, parecer, notas, cfg: c };
         sim = null; calcular(); render();
       }catch(e){
         el('chResumo').innerHTML = '<p class="desc">⚠️ Não consegui carregar os dados. Recarrega a página e tenta de novo.</p>';
@@ -4481,7 +4490,50 @@ const FINANCAS = (function(){
         diasSemana: { almoco: semanaAtiva.almoco.size, jantar: semanaAtiva.jantar.size } };
     }
 
-    function render(){ renderResumo(); renderTurnos(); renderSim(); renderDiag(); renderParecer(); }
+    function render(){ renderHorario(); renderResumo(); renderTurnos(); renderSim(); renderDiag(); renderParecer(); }
+
+    // Horário: a abertura fica guardada aqui; a duração é a da Escala (uma só fonte de verdade).
+    const hhmm = min => { const m = ((Math.round(min) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+    const minutos = s => { const p = String(s || '').split(':'); return p.length === 2 ? parseInt(p[0], 10) * 60 + parseInt(p[1], 10) : null; };
+    const iniTurno = t => { const v = D.cfg['hor_' + t + '_ini']; return v != null ? v : (t === 'almoco' ? 690 : 1110); };
+    const durTurno = t => num(D.ce['duracao_' + t]) || (t === 'almoco' ? 5 : 6);
+    function renderHorario(){
+      const box = el('chHorario'); if(!D){ box.innerHTML = ''; return; }
+      box.innerHTML = TURNOS.map(([t, nome]) => {
+        const ini = iniTurno(t), dur = durTurno(t);
+        return `<div><label>${nome} abre</label><input type="time" value="${hhmm(ini)}" onchange="FINANCAS.CH.horario('${t}','ini',this.value)"></div>
+          <div><label>${nome} fecha</label><input type="time" value="${hhmm(ini + dur * 60)}" onchange="FINANCAS.CH.horario('${t}','fim',this.value)"><div class="desc" style="margin:4px 0 0;">${dec(dur)} h de turno</div></div>`;
+      }).join('');
+    }
+    async function horario(t, qual, valor){
+      const m = minutos(valor); if(m == null || isNaN(m)) return;
+      st('A guardar…');
+      try{
+        if(qual === 'ini'){
+          D.cfg['hor_' + t + '_ini'] = m;
+          await enviar('POST', 'config_financeiro?on_conflict=chave', { chave: 'hor_' + t + '_ini', valor: m }, 'resolution=merge-duplicates,return=minimal');
+        }else{
+          const dur = ((((m - iniTurno(t)) % 1440) + 1440) % 1440) / 60;
+          if(dur <= 0){ st(''); await showAlert('A hora de fecho tem de ser diferente da de abertura.'); renderHorario(); return; }
+          D.ce['duracao_' + t] = dur;
+          await enviar('PATCH', 'escala_config?id=eq.1', { ['duracao_' + t]: dur });
+          await enviar('POST', 'config_financeiro?on_conflict=chave', { chave: 'hor_' + t + '_ini', valor: iniTurno(t) }, 'resolution=merge-duplicates,return=minimal');
+          FX.invalidarEscalas();
+        }
+        calcular(); render(); st('Guardado ✓');
+      }catch(e){ st(''); avisarErroGravar(); }
+    }
+    async function guardarNota(){
+      const texto = el('chNota').value;
+      st('A guardar…');
+      try{
+        await enviar('POST', 'parecer_claude?on_conflict=id', { id: 'custo_hora_notas', texto, atualizado_em: new Date().toISOString() }, 'resolution=merge-duplicates,return=minimal');
+        D.notas = { texto }; st('Guardado ✓');
+      }catch(e){ st(''); avisarErroGravar(); }
+    }
+    const notasHtml = () => `<h3 style="font-size:13px;margin:16px 0 6px;">As tuas notas (editáveis)</h3>
+      <textarea id="chNota" rows="4" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:13px;" placeholder="Escreve aqui o que discordas, decisões tomadas ou dúvidas para debater com o Claude.">${esc((D.notas && D.notas.texto) || '')}</textarea>
+      <button class="btn-ghost" style="margin-top:6px;" onclick="FINANCAS.CH.guardarNota()">Guardar nota</button>`;
     const semEscala = () => !M || M.horasTotais <= 0;
     const AVISO_ESCALA = '<p class="desc">⚠️ Não há ninguém escalado neste mês na aba <b>Escalas</b> (dias abertos com almoço ou jantar preenchidos). Preenche a Escala para ver o custo por hora.</p>';
 
@@ -4588,7 +4640,7 @@ const FINANCAS = (function(){
     }
     function renderParecer(){
       const box = el('chParecer'), p = D && D.parecer;
-      if(!p || !p.texto){ box.innerHTML = '<p class="desc">Ainda não há parecer. Pede no chat: "Claude, escreve o parecer do custo da hora".</p>'; return; }
+      if(!p || !p.texto){ box.innerHTML = '<p class="desc">Ainda não há parecer. Pede no chat: "Claude, escreve o parecer do custo da hora".</p>' + notasHtml(); return; }
       const snap = p.snapshot || {}, atual = instantaneo();
       let aviso;
       if(!atual || semEscala()){ aviso = ''; }
@@ -4603,7 +4655,7 @@ const FINANCAS = (function(){
           : '<div class="desc" style="color:var(--ok);">✔ Os números atuais coincidem com os do parecer.</div>';
       }
       const data = p.atualizado_em ? new Date(p.atualizado_em).toLocaleDateString('pt-PT') : '';
-      box.innerHTML = `${aviso}<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin-top:8px;">${esc(p.texto)}</div><p class="desc" style="margin-top:8px;">Escrito pelo Claude em ${data}, com base nos números daquele dia.</p>`;
+      box.innerHTML = `${aviso}<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin-top:8px;">${esc(p.texto)}</div><p class="desc" style="margin-top:8px;">Escrito pelo Claude em ${data}, com base nos números daquele dia.</p>` + notasHtml();
     }
     async function copiar(){
       if(semEscala() || !M){ st('Sem dados de Escala neste mês.'); return; }
@@ -4615,6 +4667,7 @@ const FINANCAS = (function(){
         `Parâmetros: IVA ${dec(M.ivaPct)}% | CMV ${dec(M.cmvPct)}% | outros ${dec(M.outrosPct)}% | almoço ${lim.mix_almoco}% do faturado`,
         ...TURNOS.map(([t, n]) => `${n}: ${T[t].dias} dias, ${dec(T[t].horas, 0)} h, ${dec(T[t].pessoasMedia)} pessoas, custo/hora ${euro(T[t].custoHora)}, mínimo/hora ${T[t].fatMinHora != null ? euro(T[t].fatMinHora) : '—'}, fatura/hora (est.) ${euro(T[t].fatHora)}`),
         'Diagnóstico automático:', ...diagTexto.map(t => '- ' + t),
+        ...(D.notas && D.notas.texto ? ['Notas do Daniel:', D.notas.texto] : []),
         'Quero debater isto contigo: o que farias e porquê? Contesta o que não fizer sentido.'
       ].join('\n');
       try{ await navigator.clipboard.writeText(linhas); st('Copiado ✓ — cola no chat com o Claude.'); }
@@ -4624,7 +4677,7 @@ const FINANCAS = (function(){
         ta.remove();
       }
     }
-    return { abrir, mudar, simular, limite, copiar, instantaneo };
+    return { abrir, mudar, simular, limite, copiar, instantaneo, horario, guardarNota };
   })();
 
   /* ================= DRE REAL ================= */
