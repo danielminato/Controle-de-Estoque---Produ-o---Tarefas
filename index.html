@@ -327,6 +327,9 @@
       <label class="field">Password
         <input type="password" id="gateSenha" autocomplete="current-password" style="width:100%;">
       </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin:2px 0 14px;cursor:pointer;">
+        <input type="checkbox" id="gateManter" style="width:18px;height:18px;" checked> Manter-me ligado neste aparelho
+      </label>
       <button class="btn" style="width:100%;" onclick="fazerLoginGate()">Entrar</button>
       <div class="save-note" id="gateErro" style="color:var(--danger-text);margin-top:8px;min-height:16px;"></div>
       <div class="save-note" style="margin-top:10px;">Esqueceste a password? Fala com o teu patrão para a repor.</div>
@@ -1481,6 +1484,25 @@ let sbRefreshToken = null;
 let sbReauthPromise = null;
 const _fetchOriginal = window.fetch.bind(window);
 
+// ---- Sessão guardada no aparelho ("Manter-me ligado") ----
+// O token de renovação fica no próprio aparelho e é trocado por um novo a cada entrada. Quem
+// carregar em "sair" apaga-o. Em aparelhos partilhados, desmarcar a caixa no ecrã de entrada.
+const CHAVE_SESSAO = 'ilf_sessao', CHAVE_MANTER = 'ilf_manter';
+function manterLigado(){ try{ return localStorage.getItem(CHAVE_MANTER) !== '0'; }catch(e){ return false; } }
+function persistirSessao(){
+  try{
+    if(localStorage.getItem(CHAVE_MANTER) === '1' && sbRefreshToken) localStorage.setItem(CHAVE_SESSAO, JSON.stringify({ r: sbRefreshToken, e: usuarioAtualEmail }));
+  }catch(e){}
+}
+function limparSessaoGuardada(){
+  try{ localStorage.removeItem(CHAVE_SESSAO); }catch(e){}
+}
+async function encerrarSessaoNoServidor(){
+  const token = sbAccessToken;
+  if(!token) return;
+  try{ await _fetchOriginal(`${SUPABASE_URL}/auth/v1/logout?scope=local`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } }); }catch(e){}
+}
+
 function sbRenovarSessao(){
   if(sbReauthPromise) return sbReauthPromise;
   sbReauthPromise = (async () => {
@@ -1495,6 +1517,7 @@ function sbRenovarSessao(){
           const d = await r.json();
           sbAccessToken = d.access_token;
           sbRefreshToken = d.refresh_token || sbRefreshToken;
+          persistirSessao();
           return true;
         }
       }catch(e){}
@@ -1525,6 +1548,7 @@ async function reautenticar(){
     if(!res.ok){ erroEl.textContent = 'Password incorreta.'; return; }
     sbAccessToken = data.access_token;
     sbRefreshToken = data.refresh_token || null;
+    persistirSessao();
     document.getElementById('modalReauth').classList.remove('open');
     if(window.__reauthResolve){ window.__reauthResolve(true); window.__reauthResolve = null; }
   }catch(e){
@@ -4964,6 +4988,11 @@ async function fazerLoginGate(){
     sbAccessToken = data.access_token;
     sbRefreshToken = data.refresh_token || null;
     usuarioAtualEmail = data.user?.email || email;
+    try{
+      const manter = document.getElementById('gateManter').checked;
+      localStorage.setItem(CHAVE_MANTER, manter ? '1' : '0');
+      if(manter) persistirSessao(); else limparSessaoGuardada();
+    }catch(e){}
 
     if(senha === '123456'){
       document.getElementById('trocarSenhaTitulo').textContent = 'Define a tua password';
@@ -5056,8 +5085,11 @@ async function continuarAposLogin(){
 
 async function sairOperacional(){
   await liberarLocksNovos();
+  limparSessaoGuardada();
+  await encerrarSessaoNoServidor();
   usuarioAtualEmail = null;
   sbAccessToken = null;
+  sbRefreshToken = null;
   document.getElementById('operRoot').style.display = 'none';
   document.getElementById('gateEmail').value = '';
   document.getElementById('gateSenha').value = '';
@@ -5065,8 +5097,11 @@ async function sairOperacional(){
 }
 
 function sairAdmin(){
+  limparSessaoGuardada();
+  encerrarSessaoNoServidor();
   usuarioAtualEmail = null;
   sbAccessToken = null;
+  sbRefreshToken = null;
   document.getElementById('appRoot').style.display = 'none';
   document.getElementById('gateEmail').value = '';
   document.getElementById('gateSenha').value = '';
@@ -7258,7 +7293,43 @@ async function confirmarEnvioOperacional(){
   document.getElementById('oper-screen-sucesso').classList.add('active');
 }
 document.getElementById('gateSenha')?.addEventListener('keydown', e => { if(e.key === 'Enter') fazerLoginGate(); });
+
+// Entra sozinho se o aparelho tiver uma sessão guardada ("Manter-me ligado").
+async function tentarLoginAutomatico(){
+  const manter = document.getElementById('gateManter');
+  if(manter) manter.checked = manterLigado();
+  let guardada = null;
+  try{ guardada = JSON.parse(localStorage.getItem(CHAVE_SESSAO) || 'null'); }catch(e){}
+  if(!guardada || !guardada.r) return;
+  if(window.location.hash && window.location.hash.includes('type=recovery')) return;
+  const erroEl = document.getElementById('gateErro');
+  erroEl.style.color = 'var(--ink-soft)';
+  erroEl.textContent = 'A entrar automaticamente…';
+  try{
+    const r = await _fetchOriginal(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: guardada.r })
+    });
+    if(!r.ok){
+      if(r.status === 400 || r.status === 401 || r.status === 403) limparSessaoGuardada();   // sessão expirada ou terminada noutro lado
+      erroEl.style.color = 'var(--danger-text)';
+      erroEl.textContent = (r.status >= 500) ? 'Sem resposta do servidor. Tenta de novo.' : '';
+      return;
+    }
+    const d = await r.json();
+    sbAccessToken = d.access_token;
+    sbRefreshToken = d.refresh_token || guardada.r;
+    usuarioAtualEmail = (d.user && d.user.email) || guardada.e;
+    persistirSessao();
+    erroEl.textContent = '';
+    await continuarAposLogin();
+  }catch(e){
+    erroEl.style.color = 'var(--danger-text)';
+    erroEl.textContent = 'Sem ligação à internet. Liga-te e recarrega, ou entra com a password.';
+  }
+}
+const _emRecuperacao = !!(window.location.hash && window.location.hash.includes('type=recovery'));
 verificarRecuperacaoSenha();
+if(!_emRecuperacao) tentarLoginAutomatico();
 </script>
 </body>
 </html>
