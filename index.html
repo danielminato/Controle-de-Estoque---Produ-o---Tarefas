@@ -4267,9 +4267,9 @@ const IMPASTO = (function(){
     const alm = Math.round(t * C.pctAlmoco / 100);
     return slot === 0 ? alm : t - alm;
   };
-  // janela para bolear: 17 a 21 h depois de a biga ir para o frio
+  // janela para bolear: 17 a 22 h depois de a biga ir para o frio
   const janelaBolear = desde => {
-    const a = new Date(desde.getTime() + 17 * 3600000), b = new Date(desde.getTime() + 21 * 3600000);
+    const a = new Date(desde.getTime() + 17 * 3600000), b = new Date(desde.getTime() + 22 * 3600000);
     return { ini: a, fim: b, txt: hora(a) + ' e ' + hora(b) + (iso(a) !== iso(desde) ? ' de ' + dLabel(a) : '') };
   };
   const bigaPlaneada = d => { const [h, m] = (C.bigaH || '19:00').split(':').map(Number); const x = new Date(d); x.setHours(h || 19, m || 0, 0, 0); return x; };
@@ -4410,7 +4410,7 @@ const IMPASTO = (function(){
     el('impastoAdmin').innerHTML = `
       <div class="card" style="margin-bottom:14px;">
         <h3 style="font-size:16px;margin-bottom:6px;">Como funciona o Impasto (resumo)</h3>
-        <div class="save-note" style="line-height:1.6;">A equipa produz a massa de pizza com biga: a biga faz-se hoje (por volta das ${esc(C.bigaH)}), descansa 17 a 21 h no frio e a massa final bate-se amanhã (por volta das ${esc(C.kneadH)}). Antes de fazer a biga, o colaborador diz quantas bolas vão sobrar e quantas quer reaproveitar; a app calcula quantas bolas a massa nova tem de render e quanto pesar de cada ingrediente, usando a <b>previsão de vendas</b> abaixo. Cada passo do checklist fica registado com quem fez e quando. Só o dono altera as regras e a previsão.</div>
+        <div class="save-note" style="line-height:1.6;">A equipa produz a massa de pizza com biga: a biga faz-se hoje (por volta das ${esc(C.bigaH)}), descansa 17 a 22 h no frio e a massa final bate-se amanhã (por volta das ${esc(C.kneadH)}). Antes de fazer a biga, o colaborador diz quantas bolas vão sobrar e quantas quer reaproveitar; a app calcula quantas bolas a massa nova tem de render e quanto pesar de cada ingrediente, usando a <b>previsão de vendas</b> abaixo. Cada passo do checklist fica registado com quem fez e quando. Só o dono altera as regras e a previsão.</div>
       </div>
       <div class="card" style="margin-bottom:14px;">
         <h3 style="font-size:16px;margin-bottom:10px;">Regras</h3>
@@ -4508,7 +4508,7 @@ const IMPASTO = (function(){
     el('impPlanoEntradas').innerHTML = `
       <details style="margin-bottom:12px;"><summary style="cursor:pointer;font-weight:600;">Receita e passos</summary>
         <div class="save-note" style="line-height:1.7;margin-top:8px;">
-          <b>Biga</b> (por 500 g de farinha): farinha tipo 0 forte (W 320–340) 500 g · fermento fresco 2 g (0,4%) · água 220 g (44%). Misturar só até ficar em grumos, tapar, etiquetar e levar ao frio: repousa 17 a 21 h.<br>
+          <b>Biga</b> (por 500 g de farinha): farinha tipo 0 forte (W 320–340) 500 g · fermento fresco 2 g (0,4%) · água 220 g (44%). Misturar só até ficar em grumos, tapar, etiquetar e levar ao frio: repousa 17 a 22 h.<br>
           <b>Massa final</b>: toda a biga + fermento ${fmtN(C.yeast, C.yeast % 1 ? 1 : 0)} g · água 140 g (28%) · sal 15 g (3%). As bolas para reaproveitar entram na fase final. Dividir em bolas de ${fmtN(C.ball)} g, caixas tapadas e etiquetadas, frigorífico.<br>
           <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. A massa batida num dia vai ao forno a partir do jantar desse dia e até ao jantar do dia seguinte.</div></details>
       <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
@@ -4547,7 +4547,7 @@ const IMPASTO = (function(){
       h += `<div class="save-note">Previsão a cobrir: ${fmtN(P.need)} bolas + ${fmtN(C.margin)}% de margem = ${fmtN(P.target)}.${reuse > 0 ? ` Com ${fmtN(reuse)} bola(s) reaproveitada(s) (${fmtN(q.reuseMass)} g), a massa nova só precisa de render o resto.` : ''}</div>`;
       h += `<div class="imp-when"><b>${esc(dLabel(B))} ${esc(C.bigaH)}</b> — biga: ${g(q.flour)} farinha, ${g(q.bWater)} água, ${gy(q.bYeast)} fermento.<br>
         <b>${esc(dLabel(addDays(B, 1)))} ${esc(C.kneadH)}</b> — massa: ${gy(q.mYeast)} fermento, ${g(q.mWater)} água, ${g(q.salt)} sal${reuse > 0 ? ', ' + fmtN(reuse) + ' bola(s) para reaproveitar' : ''}.<br>
-        <b>Bolear</b> entre ${esc(janelaBolear(bigaPlaneada(B)).txt)} (17 a 21 h depois de a biga ir para o frio; se for às ${esc(C.bigaH)}).<br>
+        <b>Bolear</b> entre ${esc(janelaBolear(bigaPlaneada(B)).txt)} (17 a 22 h depois de a biga ir para o frio; se for às ${esc(C.bigaH)}).<br>
         <b>Serve</b> de ${esc(sLabel(B, P.newReady))} até ${esc(sLabel(B, P.newUntil))}.</div>`;
       if(q.batches > 1) h += `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais de ${g(Math.round(q.flour / q.batches))} de farinha (limite da masseira: ${fmtN(C.maxFlour)} kg). As quantidades acima são o total.</div>`;
       if(q.reusePct > C.maxReuse) h += `<div class="imp-alert warn">O reaproveitamento é ${fmtN(q.reusePct)}% da massa, acima do limite de ${fmtN(C.maxReuse)}%. Usa no máximo ${fmtN(Math.floor(P.target * C.maxReuse / 100))} bola(s); as restantes não entram nesta massa.</div>`;
@@ -4611,10 +4611,10 @@ const IMPASTO = (function(){
     ['b-yeast', 'Fermento fresco pesado e dissolvido na água', gy(q.bYeast)],
     ['b-mix', 'Misturado só até ficar em grumos, sem farinha seca', ''],
     ['b-label', 'Recipiente tapado e etiquetado com data e hora', ''],
-    ['b-cold', 'Biga no frio (repousa entre 17 e 21 h)', '']
+    ['b-cold', 'Biga no frio (repousa entre 17 e 22 h)', '']
   ]; }
   function itensMassa(q){
-    const it = [['m-biga', 'Biga na masseira (confirmar 17 a 21 h de repouso)', ''], ['m-yeast', 'Fermento fresco', gy(q.mYeast)], ['m-water', 'Água, juntada aos poucos', g(q.mWater)], ['m-salt', 'Sal, quando a massa começa a ligar', g(q.salt)]];
+    const it = [['m-biga', 'Biga na masseira (confirmar 17 a 22 h de repouso)', ''], ['m-yeast', 'Fermento fresco', gy(q.mYeast)], ['m-water', 'Água, juntada aos poucos', g(q.mWater)], ['m-salt', 'Sal, quando a massa começa a ligar', g(q.salt)]];
     if(q.reuse > 0) it.push(['m-reuse', 'Bolas para reaproveitar, cortadas, na parte final', fmtN(q.reuse) + ' bolas']);
     it.push(['m-knead', 'Massa lisa e elástica, a soltar-se da cuba', ''], ['m-div', `Dividida em bolas de ${q.ball || C.ball} g`, '≈ ' + fmtN(q.balls) + ' bolas'], ['m-box', 'Caixas tapadas e etiquetadas com data e hora da batida', ''], ['m-cold', 'Bolas no frigorífico', '']);
     return it;
@@ -4642,7 +4642,7 @@ const IMPASTO = (function(){
     el('impBigaConteudo').innerHTML = `
       <div class="save-note" style="margin-bottom:6px;">Marca cada passo quando o fizeres: fica marcado para todos. ${q.batches > 1 ? `<b>Dividir em ${q.batches} batidas iguais</b> de ${g(Math.round(q.flour / q.batches))} de farinha.` : ''}</div>
       ${listaChecklist(p, itensBiga(q), 'biga')}
-      ${bigaFeita ? `<div class="imp-alert ok">Biga no frio desde ${esc(hora(p.biga_feita_em))}. <b>Bolear entre ${esc(janelaBolear(new Date(p.biga_feita_em)).txt)}</b> (repouso de 17 a 21 h).</div>
+      ${bigaFeita ? `<div class="imp-alert ok">Biga no frio desde ${esc(hora(p.biga_feita_em))}. <b>Bolear entre ${esc(janelaBolear(new Date(p.biga_feita_em)).txt)}</b> (repouso de 17 a 22 h).</div>
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>` : ''}`;
   }
   async function abrirMassa(id){
@@ -4658,13 +4658,13 @@ const IMPASTO = (function(){
     const p = PRODS.find(x => x.id === ATUAL); if(!p) return;
     const q = { ...(p.quantidades || {}) };
     el('impMassaTitulo').textContent = 'Massa final · biga de ' + dLabel(parse(p.data_biga));
-    const rep = repousoHoras(p), ok = rep >= 17 && rep <= 21;
+    const rep = repousoHoras(p), ok = rep >= 17 && rep <= 22;
     const itens = itensMassa(q), ch = p.checklist || {};
     const tudo = itens.every(([id]) => ch[id] && ch[id].feito);
     const jan = janelaBolear(p.biga_feita_em ? new Date(p.biga_feita_em) : bigaPlaneada(parse(p.data_biga)));
     el('impMassaConteudo').innerHTML = `
       <div class="imp-alert ok">Janela para bolear: <b>${esc(jan.txt)}</b>.</div>
-      <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 21 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 21 h).' : '(passou das 21 h: confirma com o dono antes de continuar).'}</div>
+      <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 22 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 22 h).' : '(passou das 22 h: confirma com o dono antes de continuar).'}</div>
       ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}
       ${listaChecklist(p, itens, 'massa')}
       ${p.bolas_rendidas == null ? `<h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
@@ -4676,8 +4676,8 @@ const IMPASTO = (function(){
     const id = ATUAL; if(!id) return;
     if(fase === 'massa' && itemId === 'm-biga' && marcado){
       const p = PRODS.find(x => x.id === id), rep = repousoHoras(p);
-      if(rep < 17 || rep > 21){
-        if(!(await showConfirm(`A biga repousou ${fmtN(rep, 1)} h (o ideal é entre 17 e 21 h). Continuar mesmo assim?`))){ fase === 'massa' ? renderMassa() : renderBiga(); return; }
+      if(rep < 17 || rep > 22){
+        if(!(await showConfirm(`A biga repousou ${fmtN(rep, 1)} h (o ideal é entre 17 e 22 h). Continuar mesmo assim?`))){ fase === 'massa' ? renderMassa() : renderBiga(); return; }
       }
     }
     try{
