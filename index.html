@@ -120,6 +120,8 @@
     color:var(--terracotta-dark);
   }
   button.btn.small{padding:5px 10px;font-size:12px;}
+  button.btn:disabled{opacity:.45;cursor:not-allowed;}
+  .oper-screen[id^="oper-screen-impasto"] button.btn{padding:12px 18px;font-size:14px;}
   button.icon-btn{
     border:none;background:none;cursor:pointer;color:var(--ink-soft);font-size:13px;
     text-decoration:underline;padding:2px;
@@ -298,6 +300,28 @@
   .fx .elig-chip.on{background:var(--text);color:#fff;border-color:var(--text);}
   .fx .elig-chip.disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed;}
   .fx tr.total{background:#F0F2F5;font-weight:700;}
+  /* ===== Impasto (massa de biga) ===== */
+  .imp-check{display:flex;align-items:center;gap:12px;padding:14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;}
+  .imp-check input[type=checkbox]{width:24px;height:24px;flex-shrink:0;}
+  .imp-check.done{background:var(--cream);opacity:.6;}
+  .imp-check .imp-txt{flex:1;font-weight:500;}
+  .imp-check .imp-q{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .imp-who{display:block;font-size:11px;font-weight:400;color:var(--ink-soft);}
+  .imp-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0;}
+  .imp-kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;}
+  .imp-kpi span{display:block;font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .imp-kpi b{display:block;font-size:24px;font-variant-numeric:tabular-nums;}
+  .imp-alert{border-radius:10px;padding:12px 14px;margin:10px 0;font-size:14px;}
+  .imp-alert.ok{background:var(--ok-bg);color:var(--ok-text);}
+  .imp-alert.warn{background:var(--warn-bg);color:var(--warn-text);}
+  .imp-alert.bad{background:var(--danger-bg);color:var(--danger-text);}
+  .imp-barra{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0 14px;}
+  .imp-barra div{height:100%;background:var(--ok-text);transition:width .25s;}
+  .imp-input{width:100%;font-size:18px;padding:12px;text-align:center;}
+  .imp-when{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;font-size:14px;line-height:1.7;}
+  .imp-lote{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;}
+  .imp-lote label{flex:1;font-size:12px;color:var(--ink-soft);}
+  .imp-lote input{width:100%;margin-top:3px;font-size:16px;padding:10px;}
   .fx .linha-custo{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
   .fx .linha-custo input[type=text]{flex:1;min-width:0;}
   .fx .linha-custo input[type=number]{width:110px;text-align:right;}
@@ -567,6 +591,7 @@
       <button id="tgProducaoImpasto" onclick="setProducaoCategoria('impasto')">Impasto</button>
     </div>
 
+    <div id="producaoInsumosWrap">
     <div class="row between" style="margin-bottom:10px;">
       <select id="producaoFiltroArea" onchange="renderProducaoItens()"><option value="">Todas as áreas</option></select>
       <button class="btn" onclick="openProducaoItemModal()">+ Novo item</button>
@@ -582,6 +607,10 @@
         <tbody id="producaoItensBody"></tbody>
       </table>
     </div>
+    </div>
+
+    <!-- IMPASTO (massa de biga): regras, previsão e histórico -->
+    <div id="impastoAdmin" style="display:none;"></div>
   </div>
 
   <!-- RECEITAS -->
@@ -1305,6 +1334,26 @@
     <div class="footer-bar">
       <button class="btn" onclick="iniciarProducaoItens()">Continuar</button>
     </div>
+  </div>
+
+  <!-- IMPASTO (massa de biga) -->
+  <div class="oper-screen" id="oper-screen-impasto-home">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">🍞 Impasto — massa de biga</h3>
+    <div id="impHomeConteudo"></div>
+  </div>
+  <div class="oper-screen" id="oper-screen-impasto-plano">
+    <div class="top-actions"><h3>Planear a biga</h3><button class="link-btn" onclick="IMPASTO.voltarHome()">← voltar</button></div>
+    <div id="impPlanoEntradas"></div>
+    <div id="impPlanoResultado"></div>
+  </div>
+  <div class="oper-screen" id="oper-screen-impasto-biga">
+    <div class="top-actions"><h3 id="impBigaTitulo">Biga</h3><button class="link-btn" onclick="IMPASTO.voltarHome()">← voltar</button></div>
+    <div id="impBigaConteudo"></div>
+  </div>
+  <div class="oper-screen" id="oper-screen-impasto-massa">
+    <div class="top-actions"><h3 id="impMassaTitulo">Massa final</h3><button class="link-btn" onclick="IMPASTO.voltarHome()">← voltar</button></div>
+    <div id="impMassaConteudo"></div>
   </div>
 
   <!-- PRODUÇÃO: lista de itens -->
@@ -4172,6 +4221,468 @@ function exportEscSchedule(){
   return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
+// ---------- IMPASTO (massa de biga) ----------
+// Planeador + checklists da biga e da massa final + histórico. Os dados ficam em impasto_config
+// (regras e previsão, só o admin altera), impasto_producoes (checklist e resultados) e impasto_lotes
+// (bolas em stock). O cálculo é o do protótipo massa-biga/prototipo.html, com as regras do dono.
+const IMPASTO = (function(){
+  const REST = `${SUPABASE_URL}/rest/v1/`;
+  const DIAS = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  const DIAS_L = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  const fmtN = (n, d) => Number(n).toLocaleString('pt-PT', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  const num = (v, def) => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : (def == null ? 0 : def); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const z2 = n => String(n).padStart(2, '0');
+  const iso = d => d.getFullYear() + '-' + z2(d.getMonth() + 1) + '-' + z2(d.getDate());
+  const parse = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const diff = (a, b) => Math.round((parse(iso(a)) - parse(iso(b))) / 86400000);
+  const wd = d => (d.getDay() + 6) % 7;
+  const dLabel = d => DIAS[wd(d)] + ' ' + z2(d.getDate()) + '/' + z2(d.getMonth() + 1);
+  const el = id => document.getElementById(id);
+  const g = n => fmtN(n) + ' g';
+  const gy = n => fmtN(n, Math.abs(n - Math.round(n)) > 0.05 ? 1 : 0) + ' g';
+  const hora = s => { const d = new Date(s); return z2(d.getHours()) + ':' + z2(d.getMinutes()); };
+  const novoId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+
+  async function ler(q){
+    const r = await fetch(REST + q, { headers: sbHeadersFn() });
+    if(!r.ok) throw new Error('ler ' + q.split('?')[0] + ' (' + r.status + ')');
+    return r.json();
+  }
+  async function enviar(metodo, q, corpo){
+    const r = await fetch(REST + q, { method: metodo, headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, body: corpo ? JSON.stringify(corpo) : undefined });
+    if(!r.ok) throw new Error(metodo + ' ' + q.split('?')[0] + ' (' + r.status + ')');
+  }
+
+  /* ---------- estado ---------- */
+  const PADRAO = { ball: 290, margin: 3, yeast: 1, maxReuse: 20, maxFlour: 10, bigaH: '19:00', kneadH: '11:00', readyOff: 1, validDays: 1, interval: 1 };
+  let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
+  function vazioDem(){ return Array.from({ length: 7 }, () => [null, null]); }
+  const previsaoVazia = () => DEM.every(x => x[0] == null && x[1] == null);
+
+  async function carregarBase(){
+    const [cfg, lotes, prods] = await Promise.all([
+      ler('impasto_config?select=*&id=eq.principal'),
+      ler('impasto_lotes?select=*&order=data_batida.desc&limit=60'),
+      ler('impasto_producoes?select=*&order=data_biga.desc&limit=60')
+    ]);
+    const r = cfg[0];
+    if(r){
+      C = { ...PADRAO, ball: num(r.peso_bola, 290), margin: num(r.margem_pct, 3), yeast: num(r.fermento_massa_g, 1), maxReuse: num(r.reaprov_max_pct, 20),
+            maxFlour: num(r.farinha_max_kg, 10), bigaH: r.hora_biga || '19:00', kneadH: r.hora_massa || '11:00' };
+      DEM = vazioDem();
+      (Array.isArray(r.previsao) ? r.previsao : []).forEach(p => {
+        if(p && p.dia >= 0 && p.dia <= 6) DEM[p.dia] = [ (p.almoco == null || p.almoco === '') ? null : num(p.almoco), (p.jantar == null || p.jantar === '') ? null : num(p.jantar) ];
+      });
+    }
+    LOTES = lotes; PRODS = prods;
+  }
+
+  /* ---------- cálculo ---------- */
+  const factor = () => (500 + 220 + 2 + C.yeast + 140 + 15) / 500;
+  function quantities(target, reuse){
+    const ball = C.ball, reuseMass = reuse * ball, freshNeed = Math.max(0, target * ball - reuseMass);
+    const F = freshNeed > 0 ? Math.ceil(freshNeed / factor() / 10) * 10 : 0;
+    const q = { flour: F, bWater: Math.round(F * 0.44), bYeast: F * 0.004, mWater: Math.round(F * 0.28), mYeast: F * C.yeast / 500, salt: Math.round(F * 0.03), reuse, reuseMass };
+    q.fresh = F * factor(); q.total = q.fresh + reuseMass;
+    q.balls = Math.floor(q.total / ball + 1e-9);
+    q.reusePct = q.total > 0 ? reuseMass / q.total * 100 : 0;
+    q.batches = F > 0 ? Math.ceil(F / (Math.max(1, C.maxFlour) * 1000)) : 0;
+    return q;
+  }
+  const serviceDate = (B, s) => addDays(B, Math.floor(s / 2));
+  const serviceName = s => s % 2 === 0 ? 'almoço' : 'jantar';
+  const relDay = n => n === 0 ? 'hoje' : n === 1 ? 'amanhã' : n === -1 ? 'ontem' : null;
+  function sLabel(B, s){
+    const n = Math.floor(s / 2), r = relDay(n), d = serviceDate(B, s);
+    return (r ? r[0].toUpperCase() + r.slice(1) + ' (' + dLabel(d) + ')' : dLabel(d)) + ' · ' + serviceName(s);
+  }
+  function plan(B, lotsIn){
+    const ro = C.readyOff, vd = C.validDays;
+    const lots = lotsIn.filter(l => l.d && num(l.q) > 0).map((l, i) => {
+      const k = diff(parse(l.d), B);
+      return { i, d: l.d, k, q: Math.floor(num(l.q)), rem: Math.floor(num(l.q)), ready: 2 * k + ro, until: 2 * (k + vd) + 1, used: 0 };
+    }).sort((a, b) => a.k - b.k);
+    const expired = lots.filter(l => l.until < 2), active = lots.filter(l => l.until >= 2);
+    const newReady = 2 + ro, newUntil = 2 * (1 + vd) + 1, nextReady = 2 * (C.interval + 1) + ro;
+    let coverEnd = Math.min(newUntil, nextReady - 1);
+    if(coverEnd < newReady) coverEnd = newReady;
+    const rows = []; let need = 0, short = 0;
+    for(let s = 2; s <= coverEnd; s++){
+      const d = serviceDate(B, s);
+      const dem = Math.max(0, Math.floor(num(DEM[wd(d)][s % 2])));
+      let left = dem; const src = [];
+      for(const l of active){
+        if(left <= 0) break;
+        if(l.ready <= s && s <= l.until && l.rem > 0){ const t = Math.min(left, l.rem); l.rem -= t; l.used += t; left -= t; src.push({ type: 'stock', n: t, d: l.d }); }
+      }
+      if(left > 0){
+        if(s >= newReady){ need += left; src.push({ type: 'new', n: left }); }
+        else { short += left; src.push({ type: 'short', n: left }); }
+      }
+      rows.push({ s, dem, src });
+    }
+    const leftovers = active.filter(l => l.rem > 0 && l.until <= coverEnd).reduce((a, l) => a + l.rem, 0);
+    const target = Math.ceil(need * (1 + C.margin / 100));
+    return { B, lots, expired, active, rows, need, short, target, newReady, newUntil, coverEnd, leftovers, expiredQty: expired.reduce((a, l) => a + l.q, 0) };
+  }
+
+  /* ================= ADMIN: regras, previsão e histórico ================= */
+  async function abrirAdmin(){
+    const box = el('impastoAdmin'); box.innerHTML = '<div class="empty">A carregar…</div>';
+    try{ await carregarBase(); renderAdmin(); }
+    catch(e){ box.innerHTML = '<div class="empty">Não consegui carregar o Impasto. Confirma que a migration foi corrida no Supabase e recarrega a página.</div>'; }
+  }
+  const COLUNA = { ball: 'peso_bola', margin: 'margem_pct', yeast: 'fermento_massa_g', maxReuse: 'reaprov_max_pct', maxFlour: 'farinha_max_kg', bigaH: 'hora_biga', kneadH: 'hora_massa' };
+  async function regra(campo, valor){
+    let v = (campo === 'bigaH' || campo === 'kneadH') ? (valor || PADRAO[campo]) : num(valor, PADRAO[campo]);
+    if(campo === 'ball' && v < 100) v = PADRAO.ball;
+    if(campo === 'maxFlour' && v < 1) v = PADRAO.maxFlour;
+    const antes = C[campo]; C[campo] = v;
+    try{ await enviar('PATCH', 'impasto_config?id=eq.principal', { [COLUNA[campo]]: v }); }
+    catch(e){ C[campo] = antes; avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function previsao(i, j, valor){
+    const anterior = DEM[i][j];
+    DEM[i][j] = valor === '' ? null : Math.max(0, Math.floor(num(valor)));
+    const arr = DEM.map((x, dia) => ({ dia, almoco: x[0], jantar: x[1] }));
+    try{ await enviar('PATCH', 'impasto_config?id=eq.principal', { previsao: arr }); }
+    catch(e){ DEM[i][j] = anterior; avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function editarProd(id, campo, valor){
+    const p = PRODS.find(x => x.id === id); if(!p) return;
+    const v = valor === '' ? null : Math.max(0, Math.floor(num(valor)));
+    const antes = p[campo]; p[campo] = v;
+    try{ await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { [campo]: v }); }
+    catch(e){ p[campo] = antes; avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function apagarProd(id){
+    const p = PRODS.find(x => x.id === id); if(!p) return;
+    if(!(await showConfirm(`Apagar a produção de ${dLabel(parse(p.data_biga))}? Esta ação não tem "desfazer".`))) return;
+    try{ await enviar('DELETE', `impasto_producoes?id=eq.${id}`); PRODS = PRODS.filter(x => x.id !== id); }
+    catch(e){ avisarErroGravar(); }
+    renderAdmin();
+  }
+  function renderAdmin(){
+    const campo = (rot, k, tipo, passo, extra) => `<div><label class="field">${rot}<input type="${tipo}" ${passo ? 'step="' + passo + '"' : ''} value="${esc(C[k])}" onchange="IMPASTO.regra('${k}',this.value)"></label>${extra ? '<div class="save-note">' + extra + '</div>' : ''}</div>`;
+    const dem = DIAS_L.map((n, i) => `<tr><td>${n}</td>
+      <td><input type="number" min="0" step="1" inputmode="numeric" style="width:90px;" value="${DEM[i][0] == null ? '' : DEM[i][0]}" onchange="IMPASTO.previsao(${i},0,this.value)"></td>
+      <td><input type="number" min="0" step="1" inputmode="numeric" style="width:90px;" value="${DEM[i][1] == null ? '' : DEM[i][1]}" onchange="IMPASTO.previsao(${i},1,this.value)"></td></tr>`).join('');
+    const fechadas = PRODS.filter(p => p.bolas_rendidas != null && p.bolas_sobra != null);
+    const sumR = fechadas.reduce((a, p) => a + num(p.bolas_rendidas), 0), sumS = fechadas.reduce((a, p) => a + num(p.bolas_sobra), 0);
+    const pct = sumR > 0 ? sumS / sumR * 100 : 0;
+    const resumo = fechadas.length
+      ? `<div class="imp-kpis"><div class="imp-kpi"><span>Produções fechadas</span><b>${fechadas.length}</b></div><div class="imp-kpi"><span>Bolas que sobraram</span><b>${fmtN(pct)}%</b></div></div>
+         <div class="imp-alert ${pct > 10 ? 'warn' : 'ok'}">${pct > 10 ? 'Sobram mais de 10% das bolas: a previsão de vendas está alta. Baixe os valores na previsão acima.' : 'As sobras estão dentro do normal.'}</div>`
+      : '<p class="save-note">Ainda não há produções fechadas. Quando a equipa registar o que rendeu e o que sobrou, aparece aqui a percentagem de sobras.</p>';
+    const linhas = PRODS.map(p => `<tr><td>${esc(dLabel(parse(p.data_biga)))}</td><td>${fmtN(num(p.farinha_g) / 1000, 2)} kg</td><td>${fmtN(num(p.bolas_reaprov))}</td><td>${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)}</td>
+      <td><input type="number" min="0" step="1" style="width:76px;" value="${p.bolas_rendidas == null ? '' : p.bolas_rendidas}" onchange="IMPASTO.editarProd('${p.id}','bolas_rendidas',this.value)"></td>
+      <td><input type="number" min="0" step="1" style="width:76px;" value="${p.bolas_sobra == null ? '' : p.bolas_sobra}" onchange="IMPASTO.editarProd('${p.id}','bolas_sobra',this.value)"></td>
+      <td>${esc((p.criado_por || '').split('@')[0])}</td><td><button class="icon-btn danger" onclick="IMPASTO.apagarProd('${p.id}')">apagar</button></td></tr>`).join('');
+    el('impastoAdmin').innerHTML = `
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:6px;">Como funciona o Impasto (resumo)</h3>
+        <div class="save-note" style="line-height:1.6;">A equipa produz a massa de pizza com biga: a biga faz-se hoje (por volta das ${esc(C.bigaH)}), descansa 17 a 21 h no frio e a massa final bate-se amanhã (por volta das ${esc(C.kneadH)}). Antes de fazer a biga, o colaborador diz quantas bolas vão sobrar e quantas quer reaproveitar; a app calcula quantas bolas a massa nova tem de render e quanto pesar de cada ingrediente, usando a <b>previsão de vendas</b> abaixo. Cada passo do checklist fica registado com quem fez e quando. Só o dono altera as regras e a previsão.</div>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:10px;">Regras</h3>
+        <div class="field-row">
+          ${campo('Peso da bola (g)', 'ball', 'number', 1)}
+          ${campo('Margem de segurança (%)', 'margin', 'number', 0.5)}
+          ${campo('Fermento da massa final (g por 500 g de farinha)', 'yeast', 'number', 0.1)}
+          ${campo('Aviso de reaproveitamento (% da massa)', 'maxReuse', 'number', 1)}
+        </div>
+        <div class="field-row">
+          ${campo('Farinha máxima por batida (kg)', 'maxFlour', 'number', 0.5)}
+          ${campo('Hora da biga', 'bigaH', 'time')}
+          ${campo('Hora de bater a massa', 'kneadH', 'time')}
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:6px;">Previsão de vendas (bolas)</h3>
+        <div class="save-note" style="margin-bottom:10px;">Quantas bolas se vendem em cada serviço. ${previsaoVazia() ? '<b style="color:var(--danger-text);">Está vazia: enquanto não preencheres, o planeador não calcula e pede à equipa que te avise.</b>' : 'Em branco = sem previsão nesse serviço.'}</div>
+        <table><thead><tr><th>Dia</th><th>Almoço</th><th>Jantar</th></tr></thead><tbody>${dem}</tbody></table>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:10px;">Histórico de produções</h3>
+        ${resumo}
+        ${PRODS.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Biga</th><th>Farinha</th><th>Reaprov.</th><th>Previstas</th><th>Renderam</th><th>Sobraram</th><th>Quem fez</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>` : '<p class="save-note">Ainda não há produções registadas.</p>'}
+      </div>`;
+  }
+
+  /* ================= COLABORADOR ================= */
+  let E = { date: iso(new Date()), reuse: 0, lots: [] };
+  let ATUAL = null;
+
+  async function entrar(){
+    mostrarOperScreen('oper-screen-impasto-home');
+    el('impHomeConteudo').innerHTML = '<div class="empty">A carregar…</div>';
+    try{ await carregarBase(); renderHome(); }
+    catch(e){ el('impHomeConteudo').innerHTML = '<div class="warn-box">Não consegui carregar o Impasto. Verifica a internet e tenta de novo. Se continuar, fala com o teu patrão.</div>'; }
+  }
+  async function voltarHome(){ ATUAL = null; await entrar(); }
+
+  // fim do prazo = jantar do dia seguinte ao da massa: a partir desse dia pede-se o registo das sobras
+  const diaMassa = p => p.massa_batida_em ? iso(new Date(p.massa_batida_em)) : iso(addDays(parse(p.data_biga), 1));
+  const pedeSobras = p => p.bolas_rendidas != null && p.bolas_sobra == null && iso(new Date()) >= iso(addDays(parse(diaMassa(p)), 1));
+
+  function renderHome(){
+    const emCurso = PRODS.filter(p => p.bolas_rendidas == null);
+    const porSobras = PRODS.filter(pedeSobras);
+    let h = `<button class="grupo-btn" onclick="IMPASTO.novoPlano()">➕ Planear a biga de hoje</button>`;
+    if(previsaoVazia()) h += '<div class="imp-alert bad">O dono ainda não definiu a previsão de vendas. Sem ela não dá para calcular: avisa o dono.</div>';
+    if(emCurso.length){
+      h += '<h4 style="margin:18px 0 8px;">Em curso</h4>';
+      h += emCurso.map(p => {
+        const bigaFeita = !!p.biga_feita_em;
+        const feitos = Object.keys(p.checklist || {}).length;
+        return `<div class="card" style="margin-bottom:10px;"><div style="font-weight:600;">Biga de ${esc(dLabel(parse(p.data_biga)))}</div>
+          <div class="save-note">${fmtN(num(p.farinha_g) / 1000, 2)} kg de farinha · ${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)} bolas previstas · ${bigaFeita ? 'biga no frio desde ' + esc(hora(p.biga_feita_em)) : 'biga por fazer'}</div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn" onclick="IMPASTO.abrirBiga('${p.id}')">${bigaFeita ? 'Ver checklist da biga' : 'Fazer a biga'}</button>
+            ${bigaFeita ? `<button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Massa final</button>` : ''}
+          </div></div>`;
+      }).join('');
+    }
+    if(porSobras.length){
+      h += '<h4 style="margin:18px 0 8px;">Registar sobras</h4><div class="save-note" style="margin-bottom:8px;">Já passou o prazo destas massas. Quantas bolas sobraram?</div>';
+      h += porSobras.map(p => `<div class="card" style="margin-bottom:10px;"><div style="font-weight:600;">Massa batida em ${esc(dLabel(parse(diaMassa(p))))} (${fmtN(p.bolas_rendidas)} bolas)</div>
+        <div style="display:flex;gap:8px;margin-top:10px;"><input type="number" min="0" step="1" inputmode="numeric" id="impSobras-${p.id}" class="imp-input" placeholder="Sobraram"><button class="btn" onclick="IMPASTO.sobras('${p.id}')">Guardar</button></div></div>`).join('');
+    }
+    el('impHomeConteudo').innerHTML = h;
+  }
+
+  async function sobras(id){
+    const v = el('impSobras-' + id).value;
+    if(v === ''){ await showAlert('Indica quantas bolas sobraram (pode ser 0).'); return; }
+    const n = Math.max(0, Math.floor(num(v)));
+    try{
+      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_sobra: n });
+      const lote = LOTES.find(l => l.producao_id === id);
+      if(lote) await enviar('PATCH', `impasto_lotes?id=eq.${lote.id}`, { bolas: n, atualizado_por: usuarioAtualEmail, atualizado_em: new Date().toISOString() });
+      await carregarBase(); renderHome();
+    }catch(e){ await avisarErroGravar(); }
+  }
+
+  /* ---------- planear ---------- */
+  function novoPlano(){
+    E = { date: iso(new Date()), reuse: 0, lots: LOTES.filter(l => num(l.bolas) > 0 && l.data_batida >= iso(addDays(new Date(), -4))).map(l => ({ dbId: l.id, d: l.data_batida, q: l.bolas })) };
+    renderEntradas(); renderResultado();
+    mostrarOperScreen('oper-screen-impasto-plano');
+  }
+  function renderEntradas(){
+    const lotes = E.lots.map((l, i) => `<div class="imp-lote">
+        <label>Batido em<input type="date" value="${esc(l.d || '')}" onchange="IMPASTO.pLote(${i},'d',this.value)"></label>
+        <label>Bolas<input type="number" min="0" step="1" inputmode="numeric" value="${esc(l.q)}" oninput="IMPASTO.pLote(${i},'q',this.value)"></label>
+        <button class="btn" type="button" onclick="IMPASTO.pRemLote(${i})">Remover</button></div>`).join('');
+    el('impPlanoEntradas').innerHTML = `
+      <details style="margin-bottom:12px;"><summary style="cursor:pointer;font-weight:600;">Receita e passos</summary>
+        <div class="save-note" style="line-height:1.7;margin-top:8px;">
+          <b>Biga</b> (por 500 g de farinha): farinha tipo 0 forte (W 320–340) 500 g · fermento fresco 2 g (0,4%) · água 220 g (44%). Misturar só até ficar em grumos, tapar, etiquetar e levar ao frio: repousa 17 a 21 h.<br>
+          <b>Massa final</b>: toda a biga + fermento ${fmtN(C.yeast, C.yeast % 1 ? 1 : 0)} g · água 140 g (28%) · sal 15 g (3%). As bolas para reaproveitar entram na fase final. Dividir em bolas de ${fmtN(C.ball)} g, caixas tapadas e etiquetadas, frigorífico.<br>
+          <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. A massa batida num dia vai ao forno a partir do jantar desse dia e até ao jantar do dia seguinte.</div></details>
+      <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
+      <h4 style="margin:14px 0 6px;">Bolas em stock <span class="save-note">(estimativa do que sobra depois do serviço de hoje, por lote)</span></h4>
+      ${lotes || '<div class="save-note" style="margin-bottom:8px;">Sem lotes em stock.</div>'}
+      <button class="btn" type="button" onclick="IMPASTO.pAddLote()" style="margin-bottom:14px;">+ Adicionar lote</button>
+      <label class="field">Bolas para reaproveitar (estimativa)<input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.reuse)}" oninput="IMPASTO.pReuse(this.value)"></label>
+      <div class="save-note" id="impReuseDica" style="margin:6px 0 14px;"></div>`;
+  }
+  function pData(v){ if(v){ E.date = v; renderResultado(); } }
+  function pReuse(v){ E.reuse = Math.max(0, Math.floor(num(v))); renderResultado(); }
+  function pLote(i, campo, v){ if(E.lots[i]){ E.lots[i][campo] = v; renderResultado(); } }
+  function pAddLote(){ E.lots.push({ dbId: null, d: E.date, q: 0 }); renderEntradas(); renderResultado(); }
+  // lote já gravado fica com q=0 (a base atualiza-o ao começar a biga); lote novo desaparece já
+  function pRemLote(i){ if(E.lots[i].dbId){ E.lots[i].removido = true; E.lots[i].q = 0; } else E.lots.splice(i, 1); renderEntradas(); renderResultado(); }
+  function usarExpirados(n){ E.reuse = n; renderEntradas(); renderResultado(); }
+
+  function renderResultado(){
+    const B = parse(E.date), reuse = E.reuse;
+    const visiveis = E.lots.map(l => l.removido ? { ...l, q: 0 } : l);
+    const P = plan(B, visiveis), q = quantities(P.target, reuse);
+    const dica = el('impReuseDica');
+    if(dica){
+      const partes = [];
+      if(P.expiredQty > 0) partes.push(fmtN(P.expiredQty) + ' bola(s) em stock já passaram do prazo depois do serviço de hoje.');
+      if(P.leftovers > 0) partes.push('Previsão: sobram ' + fmtN(P.leftovers) + ' bola(s) do stock atual no fim do prazo; entram na próxima massa.');
+      dica.innerHTML = esc(partes.join(' ')) + (P.expiredQty > 0 && P.expiredQty !== reuse ? ` <button class="btn" type="button" onclick="IMPASTO.usarExpirados(${P.expiredQty})">Usar ${fmtN(P.expiredQty)} para reaproveitar</button>` : '');
+    }
+    let h = '';
+    if(previsaoVazia()){
+      h += '<div class="imp-alert bad">O dono ainda não definiu a previsão de vendas, por isso não dá para calcular. Avisa o dono para a preencher (Produção → Impasto).</div>';
+    }else if(P.target === 0 && reuse === 0){
+      h += `<div class="imp-alert ok">O stock atual cobre a previsão até ${esc(sLabel(B, P.coverEnd))}. Não é preciso fazer biga hoje.</div>`;
+    }else{
+      h += `<div class="imp-kpis"><div class="imp-kpi"><span>Bolas a render</span><b>${fmtN(q.balls)}</b></div><div class="imp-kpi"><span>Farinha da biga</span><b>${fmtN(q.flour / 1000, 2)} kg</b></div><div class="imp-kpi"><span>Massa total</span><b>${fmtN(q.total / 1000, 1)} kg</b></div></div>`;
+      h += `<div class="save-note">Previsão a cobrir: ${fmtN(P.need)} bolas + ${fmtN(C.margin)}% de margem = ${fmtN(P.target)}.${reuse > 0 ? ` Com ${fmtN(reuse)} bola(s) reaproveitada(s) (${fmtN(q.reuseMass)} g), a massa nova só precisa de render o resto.` : ''}</div>`;
+      h += `<div class="imp-when"><b>${esc(dLabel(B))} ${esc(C.bigaH)}</b> — biga: ${g(q.flour)} farinha, ${g(q.bWater)} água, ${gy(q.bYeast)} fermento.<br>
+        <b>${esc(dLabel(addDays(B, 1)))} ${esc(C.kneadH)}</b> — massa: ${gy(q.mYeast)} fermento, ${g(q.mWater)} água, ${g(q.salt)} sal${reuse > 0 ? ', ' + fmtN(reuse) + ' bola(s) para reaproveitar' : ''}.<br>
+        <b>Serve</b> de ${esc(sLabel(B, P.newReady))} até ${esc(sLabel(B, P.newUntil))}.</div>`;
+      if(q.batches > 1) h += `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais de ${g(Math.round(q.flour / q.batches))} de farinha (limite da masseira: ${fmtN(C.maxFlour)} kg). As quantidades acima são o total.</div>`;
+      if(q.reusePct > C.maxReuse) h += `<div class="imp-alert warn">O reaproveitamento é ${fmtN(q.reusePct)}% da massa, acima do limite de ${fmtN(C.maxReuse)}%. Usa no máximo ${fmtN(Math.floor(P.target * C.maxReuse / 100))} bola(s); as restantes não entram nesta massa.</div>`;
+      if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas para reaproveitar já cobrem a previsão. Revê a quantidade: massa só de reaproveitamento não tem estrutura.</div>';
+    }
+    if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, 2))}). O stock atual não chega para esse serviço.</div>`;
+    // estado dos lotes
+    if(P.lots.length){
+      h += '<h4 style="margin:14px 0 6px;">Lotes em stock</h4>' + P.lots.map(l => l.until < 2
+        ? `<div class="save-note">${esc(dLabel(parse(l.d)))} · ${fmtN(l.q)} bolas — <b style="color:var(--danger-text);">fora do prazo: reaproveitar</b></div>`
+        : `<div class="save-note">${esc(dLabel(parse(l.d)))} · ${fmtN(l.q)} bolas — boa até ${esc(sLabel(B, l.until))}${l.rem > 0 && l.until <= P.coverEnd ? ' · <b>sobram ' + fmtN(l.rem) + '</b>' : ''}</div>`).join('');
+    }
+    // cobertura por serviço
+    if(!previsaoVazia()){
+      h += '<h4 style="margin:14px 0 6px;">Cobertura por serviço</h4><table><thead><tr><th>Serviço</th><th>Previsão</th><th>De onde vem</th></tr></thead><tbody>'
+        + P.rows.map(r => `<tr><td>${esc(sLabel(B, r.s))}</td><td>${fmtN(r.dem)}</td><td>${r.src.map(x => x.type === 'stock' ? `<span class="badge">${fmtN(x.n)} stock ${esc(dLabel(parse(x.d)))}</span>` : x.type === 'new' ? `<span class="badge ok">${fmtN(x.n)} massa nova</span>` : `<span class="badge danger">${fmtN(x.n)} em falta</span>`).join(' ') || '<span class="save-note">fechado</span>'}</td></tr>`).join('')
+        + '</tbody></table>';
+    }
+    const podeComecar = !previsaoVazia() && q.flour > 0;
+    h += `<div class="footer-bar"><button class="btn" ${podeComecar ? '' : 'disabled'} onclick="IMPASTO.comecarBiga()">Começar biga</button></div>`;
+    el('impPlanoResultado').innerHTML = h;
+  }
+
+  async function comecarBiga(){
+    const B = parse(E.date), reuse = E.reuse;
+    const P = plan(B, E.lots.map(l => l.removido ? { ...l, q: 0 } : l)), q = quantities(P.target, reuse);
+    if(previsaoVazia() || q.flour <= 0){ await showAlert('Não há biga para fazer com estes números.'); return; }
+    if(PRODS.some(p => p.data_biga === E.date)){ await showAlert('Já existe uma produção para esse dia. Abre-a na lista "Em curso".'); return; }
+    if(!(await showConfirm(`Começar a biga de ${dLabel(B)}? Vai gravar a produção: ${g(q.flour)} de farinha, ${fmtN(q.balls)} bolas previstas.`))) return;
+    try{
+      // atualiza os lotes de stock
+      for(const l of E.lots){
+        const bolas = l.removido ? 0 : Math.max(0, Math.floor(num(l.q)));
+        if(l.dbId){
+          const orig = LOTES.find(x => x.id === l.dbId);
+          if(orig && (num(orig.bolas) !== bolas || orig.data_batida !== l.d)) await enviar('PATCH', `impasto_lotes?id=eq.${l.dbId}`, { bolas, data_batida: l.d, atualizado_por: usuarioAtualEmail, atualizado_em: new Date().toISOString() });
+        }else if(bolas > 0 && l.d){
+          await enviar('POST', 'impasto_lotes', { id: novoId(), data_batida: l.d, bolas, atualizado_por: usuarioAtualEmail });
+        }
+      }
+      const id = novoId();
+      await enviar('POST', 'impasto_producoes', {
+        id, data_biga: E.date, alvo: P.target, farinha_g: q.flour, bolas_reaprov: reuse, bolas_previstas: q.balls,
+        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, margin: C.margin },
+        checklist: {}, criado_por: usuarioAtualEmail
+      });
+      await carregarBase();
+      await abrirBiga(id);
+    }catch(e){ await avisarErroGravar(); }
+  }
+
+  /* ---------- checklists ---------- */
+  async function recarregar(id){
+    const r = await ler(`impasto_producoes?select=*&id=eq.${id}`);
+    if(r[0]){ const i = PRODS.findIndex(p => p.id === id); if(i >= 0) PRODS[i] = r[0]; else PRODS.unshift(r[0]); }
+    return r[0];
+  }
+  function itensBiga(q){ return [
+    ['b-flour', 'Farinha tipo 0 forte (W 320–340) pesada', g(q.flour)],
+    ['b-water', 'Água pesada', g(q.bWater)],
+    ['b-yeast', 'Fermento fresco pesado e dissolvido na água', gy(q.bYeast)],
+    ['b-mix', 'Misturado só até ficar em grumos, sem farinha seca', ''],
+    ['b-label', 'Recipiente tapado e etiquetado com data e hora', ''],
+    ['b-cold', 'Biga no frio (repousa entre 17 e 21 h)', '']
+  ]; }
+  function itensMassa(q){
+    const it = [['m-biga', 'Biga na masseira (confirmar 17 a 21 h de repouso)', ''], ['m-yeast', 'Fermento fresco', gy(q.mYeast)], ['m-water', 'Água, juntada aos poucos', g(q.mWater)], ['m-salt', 'Sal, quando a massa começa a ligar', g(q.salt)]];
+    if(q.reuse > 0) it.push(['m-reuse', 'Bolas para reaproveitar, cortadas, na parte final', fmtN(q.reuse) + ' bolas']);
+    it.push(['m-knead', 'Massa lisa e elástica, a soltar-se da cuba', ''], ['m-div', `Dividida em bolas de ${q.ball || C.ball} g`, '≈ ' + fmtN(q.balls) + ' bolas'], ['m-box', 'Caixas tapadas e etiquetadas com data e hora da batida', ''], ['m-cold', 'Bolas no frigorífico', '']);
+    return it;
+  }
+  function listaChecklist(p, itens, fase){
+    const ch = p.checklist || {};
+    const feitos = itens.filter(([id]) => ch[id] && ch[id].feito).length;
+    const linhas = itens.map(([id, txt, qty]) => {
+      const c = ch[id], done = c && c.feito;
+      return `<label class="imp-check${done ? ' done' : ''}"><input type="checkbox" ${done ? 'checked' : ''} onchange="IMPASTO.marcar('${fase}','${id}',this.checked)">
+        <span class="imp-txt">${esc(txt)}${done ? `<span class="imp-who">${esc((c.por || '').split('@')[0])} · ${esc(hora(c.em))}</span>` : ''}</span><span class="imp-q">${esc(qty)}</span></label>`;
+    }).join('');
+    return `<div class="imp-barra"><div style="width:${feitos / itens.length * 100}%"></div></div><div class="save-note" style="margin:-8px 0 10px;">${feitos} de ${itens.length}</div>${linhas}`;
+  }
+  async function abrirBiga(id){
+    ATUAL = id;
+    try{ await recarregar(id); }catch(e){ await showAlert('Não consegui abrir a produção. Verifica a internet.'); return; }
+    renderBiga(); mostrarOperScreen('oper-screen-impasto-biga');
+  }
+  function renderBiga(){
+    const p = PRODS.find(x => x.id === ATUAL); if(!p) return;
+    const q = p.quantidades || {};
+    el('impBigaTitulo').textContent = 'Biga de ' + dLabel(parse(p.data_biga));
+    const bigaFeita = !!p.biga_feita_em;
+    el('impBigaConteudo').innerHTML = `
+      <div class="save-note" style="margin-bottom:6px;">Marca cada passo quando o fizeres: fica marcado para todos. ${q.batches > 1 ? `<b>Dividir em ${q.batches} batidas iguais</b> de ${g(Math.round(q.flour / q.batches))} de farinha.` : ''}</div>
+      ${listaChecklist(p, itensBiga(q), 'biga')}
+      ${bigaFeita ? `<div class="imp-alert ok">Biga no frio desde ${esc(hora(p.biga_feita_em))}. A massa final faz-se ${esc(dLabel(addDays(parse(p.data_biga), 1)))} por volta das ${esc(C.kneadH)} (repouso de 17 a 21 h).</div>
+        <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>` : ''}`;
+  }
+  async function abrirMassa(id){
+    ATUAL = id;
+    try{ await recarregar(id); }catch(e){ await showAlert('Não consegui abrir a produção. Verifica a internet.'); return; }
+    renderMassa(); mostrarOperScreen('oper-screen-impasto-massa');
+  }
+  function repousoHoras(p){
+    const desde = p.biga_feita_em ? new Date(p.biga_feita_em) : (() => { const [h, m] = (C.bigaH || '19:00').split(':').map(Number); const d = parse(p.data_biga); d.setHours(h || 19, m || 0, 0, 0); return d; })();
+    return (Date.now() - desde.getTime()) / 3600000;
+  }
+  function renderMassa(){
+    const p = PRODS.find(x => x.id === ATUAL); if(!p) return;
+    const q = { ...(p.quantidades || {}) };
+    el('impMassaTitulo').textContent = 'Massa final · biga de ' + dLabel(parse(p.data_biga));
+    const rep = repousoHoras(p), ok = rep >= 17 && rep <= 21;
+    const itens = itensMassa(q), ch = p.checklist || {};
+    const tudo = itens.every(([id]) => ch[id] && ch[id].feito);
+    el('impMassaConteudo').innerHTML = `
+      <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 21 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 21 h).' : '(passou das 21 h: confirma com o dono antes de continuar).'}</div>
+      ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}
+      ${listaChecklist(p, itens, 'massa')}
+      ${p.bolas_rendidas == null ? `<h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
+        <input type="number" min="0" step="1" inputmode="numeric" id="impRendidas" class="imp-input" placeholder="ex.: ${esc(q.balls || '')}">
+        <div class="footer-bar"><button class="btn" onclick="IMPASTO.fecharMassa()">${tudo ? 'Fechar massa final' : 'Fechar (há passos por marcar)'}</button></div>`
+        : `<div class="imp-alert ok">Massa fechada: ${fmtN(p.bolas_rendidas)} bolas renderam.</div>`}`;
+  }
+  async function marcar(fase, itemId, marcado){
+    const id = ATUAL; if(!id) return;
+    if(fase === 'massa' && itemId === 'm-biga' && marcado){
+      const p = PRODS.find(x => x.id === id), rep = repousoHoras(p);
+      if(rep < 17 || rep > 21){
+        if(!(await showConfirm(`A biga repousou ${fmtN(rep, 1)} h (o ideal é entre 17 e 21 h). Continuar mesmo assim?`))){ fase === 'massa' ? renderMassa() : renderBiga(); return; }
+      }
+    }
+    try{
+      // relê antes de gravar, para não apagar o que outra pessoa marcou entretanto
+      const fresco = (await ler(`impasto_producoes?select=checklist&id=eq.${id}`))[0] || { checklist: {} };
+      const ch = { ...(fresco.checklist || {}) };
+      if(marcado) ch[itemId] = { feito: true, por: usuarioAtualEmail, em: new Date().toISOString() }; else delete ch[itemId];
+      const patch = { checklist: ch };
+      if(itemId === 'b-cold') patch.biga_feita_em = marcado ? new Date().toISOString() : null;
+      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, patch);
+      await recarregar(id);
+    }catch(e){ await avisarErroGravar(); try{ await recarregar(id); }catch(e2){} }
+    fase === 'massa' ? renderMassa() : renderBiga();
+  }
+  async function fecharMassa(){
+    const id = ATUAL, p = PRODS.find(x => x.id === id); if(!p) return;
+    const v = el('impRendidas').value;
+    if(v === ''){ await showAlert('Indica quantas bolas renderam.'); return; }
+    const rendidas = Math.max(0, Math.floor(num(v)));
+    const itens = itensMassa({ ...(p.quantidades || {}) }), ch = p.checklist || {};
+    if(!itens.every(([i]) => ch[i] && ch[i].feito) && !(await showConfirm('Ainda há passos por marcar. Fechar a massa mesmo assim?'))) return;
+    try{
+      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_rendidas: rendidas, massa_batida_em: new Date().toISOString() });
+      await enviar('POST', 'impasto_lotes', { id: novoId(), data_batida: iso(new Date()), bolas: rendidas, producao_id: id, atualizado_por: usuarioAtualEmail });
+      await carregarBase();
+      await showAlert(`Massa fechada: ${fmtN(rendidas)} bolas. O lote de hoje ficou registado no stock.`);
+      await entrar();
+    }catch(e){ await avisarErroGravar(); }
+  }
+
+  return { entrar, voltarHome, abrirAdmin, regra, previsao, editarProd, apagarProd, novoPlano, pData, pReuse, pLote, pAddLote, pRemLote, usarExpirados, comecarBiga, abrirBiga, abrirMassa, marcar, fecharMassa, sobras };
+})();
+
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
 const FINANCAS = (function(){
   const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -4804,7 +5315,7 @@ const FINANCAS = (function(){
 async function fazerBackupDados(){
   const btn = document.getElementById('btnBackup');
   const out = document.getElementById('backupResultado');
-  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro','parecer_claude'];
+  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro','parecer_claude','impasto_config','impasto_producoes','impasto_lotes'];
   btn.disabled = true;
   out.textContent = 'A exportar...';
   const resultado = { exportadoEm: new Date().toISOString() };
@@ -5448,6 +5959,9 @@ function setProducaoCategoria(cat){
   producaoCategoriaAtual = cat;
   document.getElementById('tgProducaoInsumos').classList.toggle('active', cat === 'insumos');
   document.getElementById('tgProducaoImpasto').classList.toggle('active', cat === 'impasto');
+  document.getElementById('producaoInsumosWrap').style.display = cat === 'impasto' ? 'none' : '';
+  document.getElementById('impastoAdmin').style.display = cat === 'impasto' ? '' : 'none';
+  if(cat === 'impasto'){ IMPASTO.abrirAdmin(); return; }
   renderProducaoItens();
 }
 
@@ -6683,6 +7197,7 @@ function diaSemanaHoje(){
 }
 
 function selecionarProducaoCategoria(categoria){
+  if(categoria === 'impasto'){ IMPASTO.entrar(); return; }
   producaoCategoriaOperacional = categoria;
   document.getElementById('producaoAreasTitulo').textContent = `${categoria === 'insumos' ? 'Insumos' : 'Impasto'} — em que área(s) vais produzir?`;
 
