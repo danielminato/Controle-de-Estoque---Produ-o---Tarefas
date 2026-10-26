@@ -258,3 +258,60 @@ create policy "colaborador atualiza a propria contagem" on contagens
   with check (auth.jwt() ->> 'email' = usuario_email and status = 'pendente');
 
 delete from contagens where status = 'em_andamento';
+
+-- Il Fortunato — Impasto (massa de biga): regras, produções e lotes
+-- Cola no SQL Editor do Supabase e clica em "Run"
+-- Depois de correr: testar um insert e um update reais (lição do bug das contagens).
+
+create table if not exists impasto_config (
+  id text primary key default 'principal',
+  peso_bola int not null default 290,
+  margem_pct numeric not null default 3,
+  fermento_massa_g numeric not null default 1,
+  reaprov_max_pct numeric not null default 20,
+  farinha_max_kg numeric not null default 10,
+  hora_biga text not null default '19:00',
+  hora_massa text not null default '11:00',
+  previsao jsonb not null default '[]'  -- [{dia:0..6 (0=segunda), almoco:int, jantar:int}]
+);
+insert into impasto_config (id) values ('principal') on conflict do nothing;
+
+create table if not exists impasto_producoes (
+  id uuid primary key default gen_random_uuid(),
+  data_biga date not null,
+  alvo int, farinha_g int, bolas_reaprov int default 0, bolas_previstas int,
+  bolas_rendidas int, bolas_sobra int,
+  quantidades jsonb,            -- pesos calculados no momento
+  checklist jsonb default '{}', -- {item: {feito, por, em}}
+  biga_feita_em timestamptz, massa_batida_em timestamptz,
+  criado_por text, criado_em timestamptz default now()
+);
+
+create table if not exists impasto_lotes (
+  id uuid primary key default gen_random_uuid(),
+  data_batida date not null, bolas int not null default 0,
+  producao_id uuid references impasto_producoes(id) on delete set null,
+  atualizado_por text, atualizado_em timestamptz default now()
+);
+
+alter table impasto_config enable row level security;
+alter table impasto_producoes enable row level security;
+alter table impasto_lotes enable row level security;
+
+-- Regras e previsão de vendas: todos leem, só administradores alteram
+create policy "ler impasto_config" on impasto_config for select using (auth.role() = 'authenticated');
+create policy "admin cria impasto_config" on impasto_config for insert with check (auth.jwt() ->> 'email' in (select email from admins));
+create policy "admin edita impasto_config" on impasto_config for update using (auth.jwt() ->> 'email' in (select email from admins));
+create policy "admin apaga impasto_config" on impasto_config for delete using (auth.jwt() ->> 'email' in (select email from admins));
+
+-- Produções (histórico + checklist): qualquer utilizador com login lê, cria e atualiza; só admin apaga
+create policy "ler impasto_producoes" on impasto_producoes for select using (auth.role() = 'authenticated');
+create policy "colaborador cria impasto_producoes" on impasto_producoes for insert with check (auth.role() = 'authenticated');
+create policy "colaborador atualiza impasto_producoes" on impasto_producoes for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin apaga impasto_producoes" on impasto_producoes for delete using (auth.jwt() ->> 'email' in (select email from admins));
+
+-- Lotes em stock: o mesmo
+create policy "ler impasto_lotes" on impasto_lotes for select using (auth.role() = 'authenticated');
+create policy "colaborador cria impasto_lotes" on impasto_lotes for insert with check (auth.role() = 'authenticated');
+create policy "colaborador atualiza impasto_lotes" on impasto_lotes for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin apaga impasto_lotes" on impasto_lotes for delete using (auth.jwt() ->> 'email' in (select email from admins));
