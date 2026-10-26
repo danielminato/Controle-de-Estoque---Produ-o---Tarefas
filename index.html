@@ -4525,6 +4525,7 @@ const IMPASTO = (function(){
     E = { date: hoje, valid: soma(l => l.data_batida >= ontem), expired: soma(l => l.data_batida < ontem), dbHoje: soma(l => l.data_batida >= hoje), dbOntem: soma(l => l.data_batida === ontem) };
     renderEntradas(); renderResultado();
     mostrarOperScreen('oper-screen-impasto-plano');
+    avisarNivel();
   }
   function renderEntradas(){
     el('impPlanoEntradas').innerHTML = `
@@ -4535,13 +4536,21 @@ const IMPASTO = (function(){
           <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. Ciclo: biga num dia, massa batida no dia seguinte (de tarde), pizza no dia a seguir. Massa batida na terça: vale de quarta ao almoço até quinta ao jantar. Em SOS pode usar-se na própria terça à noite (ver nota no fim do checklist da massa).</div></details>
       <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
       <label class="field" style="margin-top:14px;">Quantas bolas estão dentro do prazo?
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.valid)}" oninput="IMPASTO.pValid(this.value)"></label>
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.valid)}" oninput="IMPASTO.pValid(this.value)" onchange="IMPASTO.avisarNivel()"></label>
       <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do serviço de hoje: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã.</div>
       <label class="field">Quantas bolas estão vencidas ou vencem antes de amanhã?
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.expired)}" oninput="IMPASTO.pExp(this.value)"></label>
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.expired)}" oninput="IMPASTO.pExp(this.value)" onchange="IMPASTO.avisarNivel()"></label>
       <div class="save-note" style="margin:4px 0 14px;">Massa batida antes de ontem: já passou do prazo e não vai ao forno. Entra na massa final, nunca na biga.</div>`;
   }
-  function pData(v){ if(v){ E.date = v; renderResultado(); } }
+  const MSG_NIVEL = 'Quantidade de massas abaixo do nível para hoje, converse com um responsável.';
+  const emFalta = () => !previsaoVazia() && plan(parse(E.date), lotesPlano()).short > 0;
+  // avisa uma vez cada vez que se passa de "chega" para "falta"; ao mexer nos números só avisa quando o campo é confirmado
+  function avisarNivel(){
+    const falta = emFalta();
+    if(falta && !E.avisado){ E.avisado = true; showAlert('⚠️ ' + MSG_NIVEL); }
+    if(!falta) E.avisado = false;
+  }
+  function pData(v){ if(v){ E.date = v; renderResultado(); avisarNivel(); } }
   function pValid(v){ E.valid = Math.max(0, Math.floor(num(v))); renderResultado(); }
   function pExp(v){ E.expired = Math.max(0, Math.floor(num(v))); renderResultado(); }
   // o serviço gasta primeiro as bolas mais antigas, por isso o que sobra é o mais novo: se o total baixa,
@@ -4604,6 +4613,7 @@ const IMPASTO = (function(){
     const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
     if(previsaoVazia() || q.flour <= 0){ await showAlert('Não há biga para fazer com estes números.'); return; }
     if(PRODS.some(p => p.data_biga === E.date)){ await showAlert('Já existe uma produção para esse dia. Abre-a na lista "Em curso".'); return; }
+    if(P.short > 0 && !(await showConfirm(`⚠️ ${MSG_NIVEL}\n\nJá falaste com um responsável? Continuar com a biga?`))) return;
     if(!(await showConfirm(`Começar a biga de ${dLabel(B)}? Vai gravar a produção: ${g(q.flour)} de farinha, ${fmtN(q.balls)} bolas previstas.`))) return;
     try{
       // stock: as vencidas entram na massa (ficam a 0); o que está dentro do prazo fica com o valor indicado
@@ -4759,7 +4769,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, comecarBiga, abrirBiga, abrirMassa, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
