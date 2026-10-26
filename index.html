@@ -4522,10 +4522,10 @@ const IMPASTO = (function(){
   function novoPlano(){
     const hoje = iso(new Date()), ontem = iso(addDays(new Date(), -1));
     const soma = f => LOTES.filter(f).reduce((a, l) => a + Math.max(0, num(l.bolas)), 0);
-    E = { date: hoje, valid: soma(l => l.data_batida >= ontem), expired: soma(l => l.data_batida < ontem), dbHoje: soma(l => l.data_batida >= hoje), dbOntem: soma(l => l.data_batida === ontem) };
+    // os campos começam vazios: só se calcula (e só se avisa) depois de o colaborador dizer o que tem
+    E = { date: hoje, valid: null, expired: null, regValid: soma(l => l.data_batida >= ontem), regExp: soma(l => l.data_batida < ontem), dbHoje: soma(l => l.data_batida >= hoje), dbOntem: soma(l => l.data_batida === ontem) };
     renderEntradas(); renderResultado();
     mostrarOperScreen('oper-screen-impasto-plano');
-    avisarNivel();
   }
   function renderEntradas(){
     el('impPlanoEntradas').innerHTML = `
@@ -4536,14 +4536,14 @@ const IMPASTO = (function(){
           <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. Ciclo: biga num dia, massa batida no dia seguinte (de tarde), pizza no dia a seguir. Massa batida na terça: vale de quarta ao almoço até quinta ao jantar. Em SOS pode usar-se na própria terça à noite (ver nota no fim do checklist da massa).</div></details>
       <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
       <label class="field" style="margin-top:14px;">Quantas bolas estão dentro do prazo?
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.valid)}" oninput="IMPASTO.pValid(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do serviço de hoje: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã.</div>
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pValid(this.value)" onchange="IMPASTO.avisarNivel()"></label>
+      <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do serviço de hoje: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã. (Registado na app: ${fmtN(E.regValid)}.)</div>
       <label class="field">Quantas bolas estão vencidas ou vencem antes de amanhã?
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${esc(E.expired)}" oninput="IMPASTO.pExp(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Massa batida antes de ontem: já passou do prazo e não vai ao forno. Entra na massa final, nunca na biga.</div>`;
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pExp(this.value)" onchange="IMPASTO.avisarNivel()"></label>
+      <div class="save-note" style="margin:4px 0 14px;">Massa batida antes de ontem: já passou do prazo e não vai ao forno. Entra na massa final, nunca na biga. (Registado na app: ${fmtN(E.regExp)}.)</div>`;
   }
   const MSG_NIVEL = 'Quantidade de massas abaixo do nível para hoje, converse com um responsável.';
-  const emFalta = () => !previsaoVazia() && plan(parse(E.date), lotesPlano()).short > 0;
+  const emFalta = () => !previsaoVazia() && E.valid != null && E.expired != null && plan(parse(E.date), lotesPlano()).short > 0;
   // avisa uma vez cada vez que se passa de "chega" para "falta"; ao mexer nos números só avisa quando o campo é confirmado
   function avisarNivel(){
     const falta = emFalta();
@@ -4551,70 +4551,52 @@ const IMPASTO = (function(){
     if(!falta) E.avisado = false;
   }
   function pData(v){ if(v){ E.date = v; renderResultado(); avisarNivel(); } }
-  function pValid(v){ E.valid = Math.max(0, Math.floor(num(v))); renderResultado(); }
-  function pExp(v){ E.expired = Math.max(0, Math.floor(num(v))); renderResultado(); }
+  function pValid(v){ E.valid = v === '' ? null : Math.max(0, Math.floor(num(v))); renderResultado(); }
+  function pExp(v){ E.expired = v === '' ? null : Math.max(0, Math.floor(num(v))); renderResultado(); }
   // o serviço gasta primeiro as bolas mais antigas, por isso o que sobra é o mais novo: se o total baixa,
   // baixam primeiro as de ontem; se sobe, o extra conta como de hoje
   const repartirValidas = () => {
-    const ontem = Math.max(0, Math.min(E.dbOntem, E.valid - E.dbHoje));
-    return { ontem, hoje: E.valid - ontem };
+    const valid = E.valid || 0;
+    const ontem = Math.max(0, Math.min(E.dbOntem, valid - E.dbHoje));
+    return { ontem, hoje: valid - ontem };
   };
   const lotesPlano = () => { const r = repartirValidas(); return [{ d: iso(addDays(parse(E.date), -1)), q: r.ontem }, { d: E.date, q: r.hoje }]; };
 
   function renderResultado(){
-    const B = parse(E.date), reuse = E.expired;
-    const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
-    const totalProcura = P.rows.reduce((a, r) => a + r.dem, 0);
-    const usadas = P.active.reduce((a, l) => a + l.used, 0);
+    const B = parse(E.date);
     let h = '';
+    const informado = E.valid != null && E.expired != null;
     if(previsaoVazia()){
       h += '<div class="imp-alert bad">O dono ainda não definiu a previsão de vendas, por isso não dá para calcular. Avisa o dono para a preencher (Produção → Impasto).</div>';
-    }else if(P.target === 0 && reuse === 0){
+      el('impPlanoResultado').innerHTML = h; return;
+    }
+    if(!informado){
+      el('impPlanoResultado').innerHTML = '<div class="save-note" style="margin-top:6px;">Responde às duas perguntas (pode ser 0) para ver o que vamos produzir.</div>';
+      return;
+    }
+    const reuse = E.expired;
+    const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
+    if(P.target === 0 && reuse === 0){
       h += `<div class="imp-alert ok">As bolas dentro do prazo cobrem a previsão até ${esc(sLabel(B, P.coverEnd))}. Não é preciso fazer biga hoje.</div>`;
     }else{
-      const frescas = Math.max(0, P.target - reuse);
-      const caixa = (ico, num_, rot, cor) => `<div class="imp-eqbox ${cor || ''}"><div class="ico">${ico}</div><b>${fmtN(num_)}</b><span>${rot}</span></div>`;
-      h += `<h4 style="margin:4px 0 8px;">1. O que temos e o que falta</h4>
-        <div class="imp-eq">
-          ${caixa('📈', totalProcura, 'bolas previstas até ' + esc(sLabel(B, P.coverEnd)))}<div class="op">−</div>
-          ${caixa('✅', usadas, 'dentro do prazo (já temos)', 'ok')}<div class="op">${P.short > 0 ? '−' : '='}</div>
-          ${P.short > 0 ? caixa('⚠️', P.short, 'em falta antes da massa nova', 'warn') + '<div class="op">=</div>' : ''}
-          ${caixa('🥣', P.target, 'a massa nova tem de render', 'dest')}
-        </div>
-        ${reuse > 0 ? `<div class="imp-eq" style="margin-top:8px;">
-          ${caixa('🥣', P.target, 'massa nova')}<div class="op">−</div>
-          ${caixa('♻️', Math.min(reuse, P.target), 'vencidas: vão na massa final', 'warn')}<div class="op">=</div>
-          ${caixa('🌾', frescas, 'bolas de massa a fazer de novo', 'dest')}
-        </div>` : ''}`;
-      h += `<h4 style="margin:18px 0 8px;">2. Quanto produzir</h4>
-        <div class="imp-kpis"><div class="imp-kpi"><span>Farinha</span><b>${fmtN(q.flour / 1000, 2)} kg</b></div><div class="imp-kpi"><span>Bolas no fim</span><b>${fmtN(q.balls)}</b></div><div class="imp-kpi"><span>Massa total</span><b>${fmtN(q.total / 1000, 1)} kg</b></div></div>
-        <div class="imp-when"><b>🧊 Hoje: biga (${esc(dLabel(B))})</b><br>${g(q.flour)} farinha · ${g(q.bWater)} água · ${gy(q.bYeast)} levedura<br>
-          <b style="display:block;margin-top:8px;">🍕 Amanhã: massa final (${esc(dLabel(addDays(B, 1)))})</b>toda a biga · ${gy(q.mYeast)} levedura · ${g(q.mWater)} água · ${g(q.salt)} sal${reuse > 0 ? ' · ' + fmtN(reuse) + ' bola(s) vencida(s)' : ''}<br>
-          <span class="save-note">Bater e bolear entre 17 e 22 h depois de a biga ir para o frio. A app mostra as horas quando carregares em "Biga no frio".</span><br>
-          <span class="save-note">Serve de ${esc(sLabel(B, P.newReady))} até ${esc(sLabel(B, P.newUntil))}.</span></div>`;
-      if(q.batches > 1) h += `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais de ${g(Math.round(q.flour / q.batches))} de farinha (limite da masseira: ${fmtN(C.maxFlour)} kg). As quantidades acima são o total.</div>`;
+      const reu = Math.min(reuse, P.target), frescas = Math.max(0, P.target - reu);
+      h += `<div class="card" style="font-size:17px;line-height:1.6;margin:6px 0 12px;">Vamos produzir massa para <b>${fmtN(frescas)}</b> panetos${reu > 0 ? ` e reaproveitar <b>${fmtN(reu)}</b> panetos` : ''} = total de <b>${fmtN(P.target)}</b> panetos novos.</div>`;
+      if(q.batches > 1) h += `<div class="imp-alert ok">Vão ser ${q.batches} batidas iguais (a masseira leva no máximo ${fmtN(C.maxFlour)} kg de farinha).</div>`;
       if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas vencidas já cobrem a previsão toda. Massa só de reaproveitamento não tem estrutura: revê as quantidades.</div>';
     }
-    if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). As bolas dentro do prazo não chegam. Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
-    if(P.leftovers > 0) h += `<div class="save-note" style="margin-top:8px;">Previsão: sobram ${fmtN(P.leftovers)} bola(s) dentro do prazo no fim do ciclo; entram na próxima massa.</div>`;
-    if(!previsaoVazia()){
-      h += '<h4 style="margin:14px 0 6px;">Cobertura por serviço</h4><table><thead><tr><th>Serviço</th><th>Previsão</th><th>De onde vem</th></tr></thead><tbody>'
-        + P.rows.map(r => `<tr><td>${esc(sLabel(B, r.s))}</td><td>${fmtN(r.dem)}</td><td>${r.src.map(x => x.type === 'stock' ? `<span class="badge">${fmtN(x.n)} dentro do prazo</span>` : x.type === 'new' ? `<span class="badge ok">${fmtN(x.n)} massa nova</span>` : `<span class="badge danger">${fmtN(x.n)} em falta</span>`).join(' ') || '<span class="save-note">fechado</span>'}</td></tr>`).join('')
-        + '</tbody></table>';
-    }
-    const podeComecar = !previsaoVazia() && q.flour > 0;
-    if(podeComecar) h += '<h4 style="margin:18px 0 4px;">3. Combinado?</h4><div class="save-note">Se estiver certo, carrega em OK. Vai abrir o checklist da biga.</div>';
+    if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
+    const podeComecar = q.flour > 0;
     h += `<div class="footer-bar"><button class="btn" ${podeComecar ? '' : 'disabled'} onclick="IMPASTO.comecarBiga()">✔ OK, começar a biga</button></div>`;
     el('impPlanoResultado').innerHTML = h;
   }
 
   async function comecarBiga(){
+    if(E.valid == null || E.expired == null) return;
     const B = parse(E.date), reuse = E.expired;
     const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
     if(previsaoVazia() || q.flour <= 0){ await showAlert('Não há biga para fazer com estes números.'); return; }
     if(PRODS.some(p => p.data_biga === E.date)){ await showAlert('Já existe uma produção para esse dia. Abre-a na lista "Em curso".'); return; }
     if(P.short > 0 && !(await showConfirm(`⚠️ ${MSG_NIVEL}\n\nJá falaste com um responsável? Continuar com a biga?`))) return;
-    if(!(await showConfirm(`Começar a biga de ${dLabel(B)}? Vai gravar a produção: ${g(q.flour)} de farinha, ${fmtN(q.balls)} bolas previstas.`))) return;
     try{
       // stock: as vencidas entram na massa (ficam a 0); o que está dentro do prazo fica com o valor indicado
       const agora = { atualizado_por: usuarioAtualEmail, atualizado_em: new Date().toISOString() };
@@ -4651,12 +4633,9 @@ const IMPASTO = (function(){
     return r[0];
   }
   function itensBiga(q){ return [
-    ['b-flour', 'Farinha tipo 0 forte (W 320–340) pesada', g(q.flour)],
-    ['b-water', 'Água pesada', g(q.bWater)],
-    ['b-yeast', 'Fermento fresco pesado e dissolvido na água', gy(q.bYeast)],
-    ['b-mix', 'Misturado só até ficar em grumos, sem farinha seca', ''],
-    ['b-label', 'Recipiente tapado e etiquetado com data e hora', ''],
-    ['b-cold', 'Biga no frio (repousa entre 17 e 22 h)', '']
+    ['b-flour', 'Farinha tipo 0 forte (W 320–340)', g(q.flour)],
+    ['b-water', 'Água gelada', g(q.bWater)],
+    ['b-yeast', 'Levedura fresca', gy(q.bYeast)]
   ]; }
   function itensMassa(q){
     const it = [['m-biga', 'Biga na masseira (confirmar 17 a 22 h de repouso)', ''], ['m-yeast', 'Fermento fresco', gy(q.mYeast)], ['m-water', 'Água, juntada aos poucos', g(q.mWater)], ['m-salt', 'Sal, quando a massa começa a ligar', g(q.salt)]];
@@ -4683,22 +4662,34 @@ const IMPASTO = (function(){
     const p = PRODS.find(x => x.id === ATUAL); if(!p) return;
     const q = p.quantidades || {};
     el('impBigaTitulo').textContent = 'Biga de ' + dLabel(parse(p.data_biga));
-    const bigaFeita = !!p.biga_feita_em;
-    el('impBigaConteudo').innerHTML = `
-      <div class="save-note" style="margin-bottom:6px;">Marca cada passo quando o fizeres: fica marcado para todos. ${q.batches > 1 ? `<b>Dividir em ${q.batches} batidas iguais</b> de ${g(Math.round(q.flour / q.batches))} de farinha.` : ''}</div>
-      ${listaChecklist(p, itensBiga(q).filter(i => i[0] !== 'b-cold'), 'biga')}
-      ${bigaFeita ? `<div class="imp-alert ok">Biga no frio às <b>${esc(hora(p.biga_feita_em))}</b> (${esc(dLabel(new Date(p.biga_feita_em)))}).<br>
-          Bater a massa e bolear entre <b>${esc(janelaBolear(new Date(p.biga_feita_em)).txt)}</b> (17 a 22 h de repouso).
+    const bigaFeita = !!p.biga_feita_em, ch = p.checklist || {};
+    const itens = itensBiga(q), tudoSeparado = itens.every(([id]) => ch[id] && ch[id].feito), miseOk = ch['b-ok'] && ch['b-ok'].feito;
+    const lote = q.batches > 1 ? `<div class="imp-alert ok">Vão ser <b>${q.batches} batidas iguais</b>, de ${g(Math.round(q.flour / q.batches))} de farinha cada. Os pesos abaixo são o total.</div>` : '';
+    let h;
+    if(bigaFeita){
+      const t = new Date(p.biga_feita_em);
+      h = `<div class="imp-alert ok">Biga no frio às <b>${esc(hora(t))}</b> (${esc(dLabel(t))}).<br>
+          Bater a massa e bolear entre <b>${esc(janelaBolear(t).txt)}</b> (17 a 22 h de repouso).
           <div style="margin-top:6px;"><button class="link-btn" onclick="IMPASTO.marcar('biga','b-cold',false)">Foi engano: desfazer</button></div></div>
-        <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`
-      : `<div class="save-note" style="margin:14px 0 6px;">Quando a biga for para o frio, carrega no botão: a app regista a hora e mostra a janela para bater a massa e bolear.</div>
-        <div class="footer-bar"><button class="btn" onclick="IMPASTO.bigaNoFrio()">🧊 Biga no frio agora</button></div>`}`;
+        <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b></div>
+        <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`;
+    }else if(!miseOk){
+      h = `<h4 style="margin:0 0 4px;">Mise en place</h4>
+        <div class="save-note" style="margin-bottom:8px;">Separa e pesa tudo. Marca cada item quando estiver pronto.</div>
+        ${lote}${listaChecklist(p, itens, 'biga')}
+        <div class="footer-bar"><button class="btn" ${tudoSeparado ? '' : 'disabled'} onclick="IMPASTO.marcar('biga','b-ok',true)">OK, tudo separado</button></div>`;
+    }else{
+      h = `<h4 style="margin:0 0 8px;">Como fazer a biga</h4>
+        <div class="card" style="line-height:1.7;">
+          <p style="margin:0 0 8px;">Colocar toda a farinha na batedeira. Diluir a levedura na água e colocar aos poucos, batendo na velocidade lenta.</p>
+          <p style="margin:0 0 8px;">O objetivo é misturar grosseiramente a massa com a água: não pode ficar farinha seca, mas também não pode haver um bloco único de massa.</p>
+          <p style="margin:0;"><b>Depois de misturar, colocar IMEDIATAMENTE no frio</b>, indicando data, hora e quantidade de farinha da biga (${g(q.flour)}).</p></div>
+        <div class="save-note" style="margin:10px 0 0;">Quando a biga estiver no frio, carrega no botão: a app regista a hora e mostra a janela para bater a massa.</div>
+        <div class="footer-bar"><button class="btn" onclick="IMPASTO.bigaNoFrio()">🧊 Biga no frio agora</button></div>`;
+    }
+    el('impBigaConteudo').innerHTML = h;
   }
   async function bigaNoFrio(){
-    const p = PRODS.find(x => x.id === ATUAL); if(!p) return;
-    const ch = p.checklist || {};
-    const falta = itensBiga(p.quantidades || {}).filter(([id]) => id !== 'b-cold' && !(ch[id] && ch[id].feito)).length;
-    if(falta > 0 && !(await showConfirm(`Ainda há ${falta} passo(s) por marcar. Registar a biga no frio mesmo assim?`))) return;
     await marcar('biga', 'b-cold', true);
   }
   async function abrirMassa(id){
