@@ -4543,7 +4543,13 @@ const IMPASTO = (function(){
     const totPrev = DEM.reduce((a, x) => a + (x == null ? 0 : num(x)), 0);
     const nMassas = porDia.filter(x => x.temFech).length;
     const pctVenc = totProd > 0 ? totVenc / totProd * 100 : 0;
-    const celula = (x, k, kAb, negrito) => x.temFech ? (negrito ? `<b>${fmtN(x[k])}</b>` : fmtN(x[k])) : (x.temAb ? `<span class="save-note">~${fmtN(x[kAb])}</span>` : '<span class="save-note">—</span>');
+    const celula = (x, k, kAb, negrito) => x.temFech ? (negrito ? `<b>${fmtN(x[k])}</b>` : fmtN(x[k])) : '<span class="save-note">—</span>';
+    // nota de rodapé: o ideal é as vencidas não passarem de 30% do total produzido; acima disso produz-se a mais
+    const LIM_VENC = 30;
+    const excesso = totVenc - totProd * LIM_VENC / 100, porMassa = nMassas ? Math.ceil(excesso / nMassas) : 0;
+    const sugestaoSem = pctVenc > LIM_VENC
+      ? `<div class="imp-alert warn" style="margin:10px 0 0;"><b>Nota:</b> as vencidas estão em ${fmtN(pctVenc, 1)}% do total produzido, acima do ideal (máximo ${LIM_VENC}%). Estamos a produzir a mais. Sugestão: baixar a produção em cerca de <b>${fmtN(porMassa)}</b> bola(s) por massa (ou baixar a previsão de vendas nos dias em que mais sobra) e ver como fica a semana seguinte.</div>`
+      : `<div class="imp-alert ok" style="margin:10px 0 0;"><b>Nota:</b> as vencidas estão em ${fmtN(pctVenc, 1)}% do total produzido, dentro do ideal (máximo ${LIM_VENC}%). Se baixarem muito e começar a faltar massa, sobe a previsão.</div>`;
     const fimSem = diasSem[6];
     const tituloSem = `${z2(seg.getDate())} ${MESES[seg.getMonth()]}${seg.getFullYear() !== fimSem.getFullYear() ? ' ' + seg.getFullYear() : ''} a ${z2(fimSem.getDate())} ${MESES[fimSem.getMonth()]} ${fimSem.getFullYear()}`;
     const NOMES = ['2ª', '3ª', '4ª', '5ª', '6ª', 'Sáb', 'Dom'];
@@ -4564,10 +4570,11 @@ const IMPASTO = (function(){
             <tr><td style="text-align:left;">Massa produzida</td>${porDia.map(x => `<td>${celula(x, 'prod', 'prodAb', false)}</td>`).join('')}<td><b>${fmtN(totProd)}</b></td></tr>
             <tr><td style="text-align:left;"><b>Massas vencidas</b></td>${porDia.map(x => `<td>${celula(x, 'venc', 'vencAb', true)}</td>`).join('')}<td><b>${fmtN(totVenc)}</b></td></tr>
           </tbody></table></div>
-        <div class="save-note" style="margin-top:6px;">Bolas, no dia em que a massa é batida. "~" = massa ainda por fechar (não conta nos totais). "Massas vencidas" = bolas fora do prazo que foram reaproveitadas na massa final desse dia.</div>
+        <div class="save-note" style="margin-top:6px;">Só contam as bolas já feitas (massa fechada), no dia em que a massa é batida. "Massas vencidas" = bolas fora do prazo que foram reaproveitadas na massa final desse dia.</div>
         <div style="margin-top:10px;line-height:1.6;"><b>Resumo:</b> ${nMassas
           ? `${fmtN(nMassas)} massa(s) batida(s), <b>${fmtN(totProd)}</b> bolas produzidas; <b>${fmtN(totVenc)}</b> bolas vencidas reaproveitadas (${fmtN(pctVenc, 1)}% do que foi produzido, ou seja, a farinha nova só fez ${fmtN(totProd - totVenc)}).${totPrev > 0 && semanaOff < 0 ? ` A previsão de vendas da semana é ${fmtN(totPrev)} bolas: ${totProd >= totPrev ? 'produziste ' + fmtN(totProd - totPrev) + ' a mais' : 'produziste ' + fmtN(totPrev - totProd) + ' a menos'}.` : ''}`
           : 'sem massas batidas e fechadas nesta semana.'}</div>
+        ${nMassas ? sugestaoSem : ''}
       </div>`;
     const zerarHtml = `
       <div class="card" style="margin-top:14px;">
