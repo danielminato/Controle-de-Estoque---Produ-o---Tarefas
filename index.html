@@ -4408,18 +4408,32 @@ const IMPASTO = (function(){
     const fechadas = PRODS.filter(p => p.bolas_rendidas != null && p.bolas_sobra != null);
     const sumR = fechadas.reduce((a, p) => a + num(p.bolas_rendidas), 0), sumS = fechadas.reduce((a, p) => a + num(p.bolas_sobra), 0);
     const pct = sumR > 0 ? sumS / sumR * 100 : 0;
-    const resumo = fechadas.length
-      ? `<div class="imp-kpis"><div class="imp-kpi"><span>Produções fechadas</span><b>${fechadas.length}</b></div><div class="imp-kpi"><span>Bolas que sobraram</span><b>${fmtN(pct)}%</b></div></div>
-         <div class="imp-alert ${pct > 10 ? 'warn' : 'ok'}">${pct > 10 ? 'Sobram mais de 10% das bolas: a previsão de vendas está alta. Baixe os valores na previsão acima.' : 'As sobras estão dentro do normal.'}</div>`
-      : '<p class="save-note">Ainda não há produções fechadas. Quando a equipa registar o que rendeu e o que sobrou, aparece aqui a percentagem de sobras.</p>';
-    const linhas = PRODS.map(p => `<tr><td>${esc(dLabel(parse(p.data_biga)))}</td><td>${fmtN(num(p.farinha_g) / 1000, 2)} kg</td><td>${fmtN(num(p.bolas_reaprov))}</td><td>${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)}</td>
+    const nome = e => (e || '').split('@')[0] || '—';
+    const dh = s => s ? dLabel(new Date(s)) + ' ' + hora(s) : '—';
+    const sumReu = PRODS.reduce((a, p) => a + num(p.bolas_reaprov), 0), sumPrev = PRODS.reduce((a, p) => a + num(p.bolas_previstas), 0);
+    const mediaReu = PRODS.length ? sumReu / PRODS.length : 0, pctReu = sumPrev > 0 ? sumReu / sumPrev * 100 : 0;
+    const resumo = PRODS.length
+      ? `<div class="imp-kpis"><div class="imp-kpi"><span>Produções</span><b>${PRODS.length}</b></div>
+          <div class="imp-kpi"><span>Reaproveitadas por produção</span><b>${fmtN(mediaReu, 1)}</b></div>
+          <div class="imp-kpi"><span>Massa reaproveitada</span><b>${fmtN(pctReu, 1)}%</b></div>
+          <div class="imp-kpi"><span>Bolas que sobraram</span><b>${fechadas.length ? fmtN(pct, 1) + '%' : '—'}</b></div></div>
+         <div class="save-note" style="margin-bottom:10px;">Em média vão ${fmtN(mediaReu, 1)} bolas por produção para a massa final (${fmtN(pctReu, 1)}% da massa). Quanto maior este número, mais bolas estão a vencer: dá para baixar a previsão ou a produção.${fechadas.length && pct > 10 ? ' <b>Sobram mais de 10% das bolas:</b> a previsão de vendas está alta.' : ''}</div>`
+      : '<p class="save-note">Ainda não há produções registadas.</p>';
+    const linhas = PRODS.map(p => {
+      const ch = p.checklist || {}, fim = ch['m-fim'] || ch['m-cold'] || ch['m-knead'] || {};
+      const reu = num(p.bolas_reaprov), rp = num(p.bolas_previstas) > 0 ? reu / num(p.bolas_previstas) * 100 : 0;
+      return `<tr><td>${esc(dLabel(parse(p.data_biga)))}</td>
+      <td style="white-space:nowrap;">Começou: <b>${esc(nome(p.criado_por))}</b><br>No frio: <b>${esc(nome((ch['b-cold'] || {}).por))}</b> ${esc(dh(p.biga_feita_em))}</td>
+      <td style="white-space:nowrap;">${p.massa_batida_em ? `Bateu: <b>${esc(nome(fim.por))}</b><br>${esc(dh(p.massa_batida_em))}` : '<span class="save-note">por bater</span>'}</td>
+      <td>${fmtN(num(p.farinha_g) / 1000, 2)} kg</td><td>${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)}</td>
+      <td>${fmtN(reu)} (${fmtN(rp, 1)}%)</td>
       <td><input type="number" min="0" step="1" style="width:76px;" value="${p.bolas_rendidas == null ? '' : p.bolas_rendidas}" onchange="IMPASTO.editarProd('${p.id}','bolas_rendidas',this.value)"></td>
       <td><input type="number" min="0" step="1" style="width:76px;" value="${p.bolas_sobra == null ? '' : p.bolas_sobra}" onchange="IMPASTO.editarProd('${p.id}','bolas_sobra',this.value)"></td>
-      <td>${esc((p.criado_por || '').split('@')[0])}</td><td><button class="icon-btn danger" onclick="IMPASTO.apagarProd('${p.id}')">apagar</button></td></tr>`).join('');
-    el('impastoAdmin').innerHTML = `
+      <td><button class="icon-btn danger" onclick="IMPASTO.apagarProd('${p.id}')">apagar</button></td></tr>`; }).join('');
+    const regrasHtml = `
       <div class="card" style="margin-bottom:14px;">
         <h3 style="font-size:16px;margin-bottom:6px;">Como funciona o Impasto (resumo)</h3>
-        <div class="save-note" style="line-height:1.6;">A equipa produz a massa de pizza com biga: faz a biga e, quando a leva para o frio, carrega num botão que regista a hora. A biga descansa 17 a 22 h e a app mostra a janela para bater a massa final e bolear. Antes de fazer a biga, o colaborador diz quantas bolas vão sobrar e quantas quer reaproveitar; a app calcula quantas bolas a massa nova tem de render e quanto pesar de cada ingrediente, usando a <b>previsão de vendas</b> abaixo. Cada passo do checklist fica registado com quem fez e quando. Só o dono altera as regras e a previsão.</div>
+        <div class="save-note" style="line-height:1.6;">A equipa produz a massa de pizza com biga: faz a biga e, quando a leva para o frio, carrega num botão que regista a hora. A biga descansa 17 a 22 h e a app mostra a janela para bater a massa final e bolear. Antes de fazer a biga, o colaborador diz quantas bolas vão sobrar e quantas quer reaproveitar; a app calcula quantas bolas a massa nova tem de render e quanto pesar de cada ingrediente, usando a <b>previsão de vendas</b> abaixo. Cada passo fica registado com quem fez e quando, e só tu vês os nomes (separador Histórico). Só o dono altera as regras e a previsão.</div>
       </div>
       <div class="card" style="margin-bottom:14px;">
         <h3 style="font-size:16px;margin-bottom:10px;">Regras</h3>
@@ -4453,13 +4467,19 @@ const IMPASTO = (function(){
         <table><thead><tr><th>Dia</th><th>Bolas no dia</th></tr></thead><tbody>${dem}</tbody></table>
         <label class="field" style="margin-top:12px;max-width:260px;">% das bolas do dia que saem ao almoço<input type="number" min="0" max="100" step="5" value="${esc(C.pctAlmoco)}" onchange="IMPASTO.pctAlmoco(this.value)"></label>
         <div class="save-note">Só serve para a app saber quantas bolas do dia saem antes de a massa nova ficar pronta. O resto sai ao jantar.</div>
-      </div>
+      </div>`;
+    const histHtml = `
       <div class="card">
         <h3 style="font-size:16px;margin-bottom:10px;">Histórico de produções</h3>
+        <div class="save-note" style="margin-bottom:10px;">Só tu vês quem fez cada parte. A equipa vê as produções em curso, mas sem nomes.</div>
         ${resumo}
-        ${PRODS.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Biga</th><th>Farinha</th><th>Reaprov.</th><th>Previstas</th><th>Renderam</th><th>Sobraram</th><th>Quem fez</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>` : '<p class="save-note">Ainda não há produções registadas.</p>'}
+        ${PRODS.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Biga</th><th>Quem fez a biga</th><th>Quem bateu a massa</th><th>Farinha</th><th>Previstas</th><th>Reaproveitadas</th><th>Renderam</th><th>Sobraram</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>` : '<p class="save-note">Ainda não há produções registadas.</p>'}
       </div>`;
+    const tab = (id, rot) => `<button class="${abaAdmin === id ? 'active' : ''}" onclick="IMPASTO.aba('${id}')">${rot}</button>`;
+    el('impastoAdmin').innerHTML = `<div class="toggle-group" style="margin-bottom:14px;max-width:360px;">${tab('regras', 'Regras e previsão')}${tab('hist', 'Histórico')}</div>` + (abaAdmin === 'hist' ? histHtml : regrasHtml);
   }
+  let abaAdmin = 'regras';
+  function aba(id){ abaAdmin = id; renderAdmin(); }
 
   /* ================= COLABORADOR ================= */
   let E = { date: iso(new Date()), reuse: 0, lots: [] };
@@ -4649,7 +4669,7 @@ const IMPASTO = (function(){
     const linhas = itens.map(([id, txt, qty]) => {
       const c = ch[id], done = c && c.feito;
       return `<label class="imp-check${done ? ' done' : ''}"><input type="checkbox" ${done ? 'checked' : ''} onchange="IMPASTO.marcar('${fase}','${id}',this.checked)">
-        <span class="imp-txt">${esc(txt)}${done ? `<span class="imp-who">${esc((c.por || '').split('@')[0])} · ${esc(hora(c.em))}</span>` : ''}</span><span class="imp-q">${esc(qty)}</span></label>`;
+        <span class="imp-txt">${esc(txt)}${done ? `<span class="imp-who">${esc(hora(c.em))}</span>` : ''}</span><span class="imp-q">${esc(qty)}</span></label>`;
     }).join('');
     return `<div class="imp-barra"><div style="width:${feitos / itens.length * 100}%"></div></div><div class="save-note" style="margin:-8px 0 10px;">${feitos} de ${itens.length}</div>${linhas}`;
   }
@@ -4752,7 +4772,11 @@ const IMPASTO = (function(){
     const itens = itensMassa({ ...(p.quantidades || {}) }), ch = p.checklist || {};
     if(!itens.every(([i]) => ch[i] && ch[i].feito) && !(await showConfirm('Ainda há passos por marcar. Fechar a massa mesmo assim?'))) return;
     try{
-      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_rendidas: rendidas, massa_batida_em: new Date().toISOString() });
+      // relê o checklist para não apagar passos marcados por outra pessoa, e regista quem fechou a massa
+      const fresco = (await ler(`impasto_producoes?select=checklist&id=eq.${id}`))[0] || { checklist: {} };
+      const agoraISO = new Date().toISOString();
+      const chFim = { ...(fresco.checklist || {}), 'm-fim': { feito: true, por: usuarioAtualEmail, em: agoraISO } };
+      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_rendidas: rendidas, massa_batida_em: agoraISO, checklist: chFim });
       await enviar('POST', 'impasto_lotes', { id: novoId(), data_batida: iso(new Date()), bolas: rendidas, producao_id: id, atualizado_por: usuarioAtualEmail });
       await carregarBase();
       await showAlert(`Massa fechada: ${fmtN(rendidas)} bolas. O lote de hoje ficou registado no stock.`);
@@ -4760,7 +4784,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
