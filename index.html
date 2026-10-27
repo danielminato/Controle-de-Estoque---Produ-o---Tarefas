@@ -1352,7 +1352,7 @@
     <div id="impHomeConteudo"></div>
   </div>
   <div class="oper-screen" id="oper-screen-impasto-plano">
-    <div class="top-actions"><h3>Planear a biga</h3><button class="link-btn" onclick="IMPASTO.voltarHome()">← voltar</button></div>
+    <div class="top-actions"><h3>Fazer biga</h3><button class="link-btn" onclick="IMPASTO.voltarHome()">← voltar</button></div>
     <div id="impPlanoEntradas"></div>
     <div id="impPlanoResultado"></div>
   </div>
@@ -4500,7 +4500,7 @@ const IMPASTO = (function(){
   function renderHome(){
     const emCurso = PRODS.filter(p => p.bolas_rendidas == null);
     const porSobras = PRODS.filter(pedeSobras);
-    let h = `<button class="grupo-btn" onclick="IMPASTO.novoPlano()">➕ Planear a biga de hoje</button>`;
+    let h = `<button class="grupo-btn" onclick="IMPASTO.novoPlano()">➕ Fazer biga</button>`;
     if(previsaoVazia()) h += '<div class="imp-alert bad">O dono ainda não definiu a previsão de vendas. Sem ela não dá para calcular: avisa o dono.</div>';
     if(emCurso.length){
       h += '<h4 style="margin:18px 0 8px;">Em curso</h4>';
@@ -4509,9 +4509,11 @@ const IMPASTO = (function(){
         const feitos = Object.keys(p.checklist || {}).length;
         return `<div class="card" style="margin-bottom:10px;"><div style="font-weight:600;">Biga de ${esc(dLabel(parse(p.data_biga)))}</div>
           <div class="save-note">${fmtN(num(p.farinha_g) / 1000, 2)} kg de farinha · ${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)} bolas previstas · ${bigaFeita ? 'biga no frio desde ' + esc(hora(p.biga_feita_em)) : 'biga por fazer'}</div>
-          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-            <button class="btn" onclick="IMPASTO.abrirBiga('${p.id}')">${bigaFeita ? 'Ver checklist da biga' : 'Fazer a biga'}</button>
-            ${bigaFeita ? `<button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Massa final</button>` : ''}
+          <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+            ${bigaFeita
+              ? `<button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Bater massa final</button>
+                 <button class="link-btn" style="font-weight:700;font-size:13px;" onclick="IMPASTO.abrirBiga('${p.id}')">Ver checklist da biga</button>`
+              : `<button class="btn" onclick="IMPASTO.abrirBiga('${p.id}')">Continuar a biga</button>`}
           </div></div>`;
       }).join('');
     }
@@ -4657,12 +4659,18 @@ const IMPASTO = (function(){
     ['b-water', 'Água gelada', g(q.bWater)],
     ['b-yeast', 'Levedura fresca', gy(q.bYeast)]
   ]; }
-  function itensMassa(q){
-    const it = [['m-biga', 'Biga na masseira (confirmar 17 a 22 h de repouso)', ''], ['m-yeast', 'Fermento fresco', gy(q.mYeast)], ['m-water', 'Água, juntada aos poucos', g(q.mWater)], ['m-salt', 'Sal, quando a massa começa a ligar', g(q.salt)]];
-    if(q.reuse > 0) it.push(['m-reuse', 'Bolas para reaproveitar, cortadas, na parte final', fmtN(q.reuse) + ' bolas']);
-    it.push(['m-knead', 'Massa lisa e elástica, a soltar-se da cuba', ''], ['m-div', `Dividida em bolas de ${q.ball || C.ball} g (${(q.ball || C.ball) - 5} a ${(q.ball || C.ball) + 5} g)`, '≈ ' + fmtN(q.balls) + ' bolas'], ['m-box', 'Caixas tapadas e etiquetadas com data e hora da batida', ''], ['m-cold', 'Bolas no frigorífico', '']);
+  const itensMise = q => {
+    const it = [['m-yeast', 'Levedura fresca (sempre com a balança de precisão)', gy(q.mYeast)], ['m-water', 'Água gelada', g(q.mWater)], ['m-salt', 'Sal', g(q.salt)]];
+    if(q.reuse > 0) it.push(['m-reuse', 'Panetos vencidos separados (passaram dos dois dias)', fmtN(q.reuse) + ' panetos']);
     return it;
-  }
+  };
+  const itensBigaMassa = () => [['m-biga', 'Colocar toda a biga na amassadeira', '']];
+  const itensFinal = q => { const b = q.ball || C.ball; return [
+    ['m-div', `Dividir em bolas de ~${b} g (${b - 5} a ${b + 5} g)`, '≈ ' + fmtN(q.balls) + ' bolas'],
+    ['m-box', 'Identificar cada caixa com a data de hoje e a validade (dois dias)', ''],
+    ['m-cold', 'Colocar no frigorífico', '']
+  ]; };
+  const itensMassa = q => [...itensMise(q), ...itensBigaMassa(), ...itensFinal(q)];
   function listaChecklist(p, itens, fase){
     const ch = p.checklist || {};
     const feitos = itens.filter(([id]) => ch[id] && ch[id].feito).length;
@@ -4727,23 +4735,45 @@ const IMPASTO = (function(){
     const q = { ...(p.quantidades || {}) };
     el('impMassaTitulo').textContent = 'Massa final · biga de ' + dLabel(parse(p.data_biga));
     const rep = repousoHoras(p), ok = rep >= 17 && rep <= 22;
-    const itens = itensMassa(q), ch = p.checklist || {};
-    const tudo = itens.every(([id]) => ch[id] && ch[id].feito);
+    const ch = p.checklist || {}, feito = id => !!(ch[id] && ch[id].feito);
+    const miseFeita = itensMise(q).every(([id]) => feito(id)), bigaFeita = feito('m-biga'), instrucoes = feito('m-ok');
     const jan = janelaBolear(new Date(p.biga_feita_em || p.criado_em));
     const dataBatida = p.massa_batida_em ? new Date(p.massa_batida_em) : new Date();
-    el('impMassaConteudo').innerHTML = `
-      <div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.</div>
-      <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever em cada caixa</b><br>
-        Batida: <b>${esc(dLabel(dataBatida))}</b><br>
-        Vale: <b>${esc(dLabel(addDays(dataBatida, 1)))} (almoço)</b> até <b>${esc(dLabel(addDays(dataBatida, 2)))} (jantar)</b></div>
+    const topo = `<div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.</div>
       <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 22 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 22 h).' : '(passou das 22 h: confirma com o dono antes de continuar).'}</div>
-      ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}
-      ${listaChecklist(p, itens, 'massa')}
-      <div class="save-note" style="margin:10px 0 0;line-height:1.6;">🆘 <b>SOS:</b> se precisares desta massa já esta noite, tira do frio <b>3 h antes</b> de usar só a caixa que vais usar. Guarda as outras e vai gerindo conforme a massa se desenvolve.</div>
-      ${p.bolas_rendidas == null ? `<h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
+      ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}`;
+    let h;
+    if(p.bolas_rendidas != null){
+      h = `<div class="imp-alert ok">Massa fechada: ${fmtN(p.bolas_rendidas)} bolas renderam.</div>`;
+    }else if(!instrucoes){
+      h = `${topo}<h4 style="margin:6px 0 4px;">Mise en place</h4>
+        <div class="save-note" style="margin-bottom:8px;">Separa e pesa tudo antes de começar. Usa sempre a balança de precisão. A biga fica na geladeira até ao fim.</div>
+        ${listaChecklist(p, itensMise(q), 'massa')}
+        ${miseFeita ? `<h4 style="margin:16px 0 8px;">Agora a biga</h4>${listaChecklist(p, itensBigaMassa(), 'massa')}` : ''}
+        <div class="footer-bar"><button class="btn" ${miseFeita && bigaFeita ? '' : 'disabled'} onclick="IMPASTO.marcar('massa','m-ok',true)">OK, vamos bater</button></div>`;
+    }else{
+      const itens = itensFinal(q), tudo = itensMassa(q).every(([id]) => feito(id));
+      h = `${topo}<h4 style="margin:6px 0 8px;">Como bater a massa</h4>
+        <div class="card" style="line-height:1.7;">
+          <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;">
+            <li>Pegar a levedura pesada, colocar na jarra, tarar a balança e juntar a água, diluindo toda a levedura (conforme a quantidade de água, vai-se completando com a balança).</li>
+            <li>Ligar a batedeira na <b>velocidade baixa</b> com timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única. Juntar o sal quando a massa começar a ligar.</li>
+            ${q.reuse > 0 ? `<li><b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}), os que passaram dos dois dias e foram identificados ao fazer a biga.</b></li>` : ''}
+            <li>A cada 1 min (±), pôr um fio de água para uma volta da batedeira e esperar a massa formar de novo a "abóbora". Repetir até acabarem os 12 min.</li>
+            <li>Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>. Continuar a pôr o resto da água em fio, no mesmo processo, mas agora vigiando sempre a temperatura da massa: o ideal é entre <b>19 e 21 °C</b>.</li>
+          </ol>
+          <div class="save-note" style="margin-top:10px;">Nesta fase a massa deve estar homogénea e a soltar-se da cuba sem resistência.</div></div>
+        <h4 style="margin:16px 0 8px;">Depois de bater</h4>
+        <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever em cada caixa</b><br>
+          Batida: <b>${esc(dLabel(dataBatida))}</b><br>
+          Vale: <b>${esc(dLabel(addDays(dataBatida, 1)))} (almoço)</b> até <b>${esc(dLabel(addDays(dataBatida, 2)))} (jantar)</b></div>
+        ${listaChecklist(p, itens, 'massa')}
+        <div class="save-note" style="margin:10px 0 0;line-height:1.6;">🆘 <b>SOS:</b> se precisares desta massa já esta noite, tira do frio <b>3 h antes</b> de usar só a caixa que vais usar. Guarda as outras e vai gerindo conforme a massa se desenvolve.</div>
+        <h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
         <input type="number" min="0" step="1" inputmode="numeric" id="impRendidas" class="imp-input" placeholder="ex.: ${esc(q.balls || '')}">
-        <div class="footer-bar"><button class="btn" onclick="IMPASTO.fecharMassa()">${tudo ? 'Fechar massa final' : 'Fechar (há passos por marcar)'}</button></div>`
-        : `<div class="imp-alert ok">Massa fechada: ${fmtN(p.bolas_rendidas)} bolas renderam.</div>`}`;
+        <div class="footer-bar"><button class="btn" onclick="IMPASTO.fecharMassa()">${tudo ? 'Fechar massa final' : 'Fechar (há passos por marcar)'}</button></div>`;
+    }
+    el('impMassaConteudo').innerHTML = h;
   }
   async function marcar(fase, itemId, marcado){
     const id = ATUAL; if(!id) return;
