@@ -4672,11 +4672,11 @@ const IMPASTO = (function(){
   ]; };
   // passos de "como bater": o texto leva negritos, por isso é HTML (só constantes nossas, sem dados do utilizador)
   const passosBater = q => [
-    ['m-p1', 'Pegar a levedura pesada, colocar na jarra, tarar a balança e juntar a água, diluindo toda a levedura (conforme a quantidade de água, vai-se completando com a balança).'],
-    ['m-p2', 'Ligar a batedeira na <b>velocidade baixa</b> com timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única.'],
-    ...(q.reuse > 0 ? [['m-p3', `<b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}), os que passaram dos dois dias e foram identificados ao fazer a biga.</b>`]] : []),
-    ['m-p4', 'A cada 1 min (±), pôr um fio de água para uma volta da batedeira e esperar a massa formar de novo a "abóbora". Repetir até acabarem os 12 min.'],
-    ['m-p5', 'Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>, segue colocando o restante da água em fio, faz o mesmo processo. <b>Quando estiver quase no final da água, colocar o sal</b>, para que o mesmo misture bem em ficar na amassadeira. <b>ATENÇÃO: A partir dos 6min. na velocidade rápida, monitorar a temperatura da massa usando o termômetro digital (pistola).</b> A temperatura ideal da massa é entre <b>19 e 21 graus</b>.']
+    ['m-p1', 'Pegar a levedura pesada, colocá-la na jarra, tarar a balança e juntar a água, diluindo toda a levedura (dependendo da quantidade de água, vai-se completando com a balança).'],
+    ['m-p2', 'Ligar a batedeira na <b>velocidade baixa</b>, com o timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única.'],
+    ...(q.reuse > 0 ? [['m-p3', `<b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}): os que passaram dos dois dias e foram identificados ao fazer a biga.</b>`]] : []),
+    ['m-p4', 'A cada 1 min, aproximadamente, colocar um fio de água durante uma volta da batedeira e esperar que a massa forme novamente a "abóbora". Repetir o processo até completar os 12 min.'],
+    ['m-p5', 'Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>, e continuar a colocar o restante da água em fio, repetindo o mesmo processo. <b>Quando estiver quase no final da água, colocar o sal</b>, para que se misture bem à massa. <b>ATENÇÃO: a partir dos 6 min na velocidade rápida, monitorar a temperatura da massa com o termómetro digital (pistola).</b> A temperatura ideal da massa é entre <b>19 e 21 °C</b>.']
   ];
   const itensMassa = q => [...itensMise(q), ...itensBigaMassa(), ...passosBater(q).map(([id]) => [id, '', '']), ...itensFinal(q)];
   function listaPassos(p, passos, fase){
@@ -4765,7 +4765,7 @@ const IMPASTO = (function(){
       h = `<div class="imp-alert ok">Massa fechada: ${fmtN(p.bolas_rendidas)} bolas renderam.</div>`;
     }else if(!instrucoes){
       h = `${topo}<h4 style="margin:6px 0 4px;">Mise en place</h4>
-        <div class="save-note" style="margin-bottom:8px;">Separa e pesa tudo antes de começar. Usa sempre a balança de precisão. A biga fica na geladeira até ao fim.</div>
+        <div class="save-note" style="margin-bottom:8px;">Separa e pesa tudo antes de começar. Usa sempre a balança de precisão. A biga fica no frio até ao último momento.</div>
         ${listaChecklist(p, itensMise(q), 'massa')}
         ${miseFeita ? `<h4 style="margin:16px 0 8px;">Agora a biga</h4>${listaChecklist(p, itensBigaMassa(), 'massa')}` : ''}
         <div class="footer-bar"><button class="btn" ${miseFeita && bigaFeita ? '' : 'disabled'} onclick="IMPASTO.marcar('massa','m-ok',true)">OK, vamos bater</button></div>`;
