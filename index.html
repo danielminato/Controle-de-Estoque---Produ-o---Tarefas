@@ -4676,7 +4676,7 @@ const IMPASTO = (function(){
     ['m-p2', 'Ligar a batedeira na <b>velocidade baixa</b> com timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única.'],
     ...(q.reuse > 0 ? [['m-p3', `<b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}), os que passaram dos dois dias e foram identificados ao fazer a biga.</b>`]] : []),
     ['m-p4', 'A cada 1 min (±), pôr um fio de água para uma volta da batedeira e esperar a massa formar de novo a "abóbora". Repetir até acabarem os 12 min.'],
-    ['m-p5', 'Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>, segue colocando o restante da água em fio, faz o mesmo processo. <b>Quando estiver quase no final da água, colocar o sal</b>, para que o mesmo misture bem em ficar na amassadeira.... Só que agora cuidando sempre a temperatura da massa, o ideal são entre <b>19 e 21 graus</b>.']
+    ['m-p5', 'Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>, segue colocando o restante da água em fio, faz o mesmo processo. <b>Quando estiver quase no final da água, colocar o sal</b>, para que o mesmo misture bem em ficar na amassadeira. <b>ATENÇÃO: A partir dos 6min. na velocidade rápida, monitorar a temperatura da massa usando o termômetro digital (pistola).</b> A temperatura ideal da massa é entre <b>19 e 21 graus</b>.']
   ];
   const itensMassa = q => [...itensMise(q), ...itensBigaMassa(), ...passosBater(q).map(([id]) => [id, '', '']), ...itensFinal(q)];
   function listaPassos(p, passos, fase){
