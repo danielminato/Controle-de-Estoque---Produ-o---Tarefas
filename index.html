@@ -4528,26 +4528,70 @@ const IMPASTO = (function(){
           <button class="btn small" onclick="IMPASTO.novoLote()">+ Adicionar lote</button>
         </div>
       </div>`;
-    const histHtml = `
+    // resumo semanal: cada produção conta no dia em que a massa foi batida (ou no dia seguinte à biga, se ainda não foi)
+    const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const seg = addDays(new Date(), -wd(new Date()) + 7 * semanaOff);
+    const diasSem = Array.from({ length: 7 }, (_, i) => addDays(seg, i));
+    const diaDaMassa = p => p.massa_batida_em ? iso(new Date(p.massa_batida_em)) : iso(addDays(parse(p.data_biga), 1));
+    const porDia = diasSem.map(d => {
+      const ps = PRODS.filter(p => diaDaMassa(p) === iso(d));
+      const fech = ps.filter(p => p.bolas_rendidas != null), aberto = ps.filter(p => p.bolas_rendidas == null);
+      return { prod: fech.reduce((a, p) => a + num(p.bolas_rendidas), 0), venc: fech.reduce((a, p) => a + num(p.bolas_reaprov), 0),
+               prodAb: aberto.reduce((a, p) => a + num(p.bolas_previstas), 0), vencAb: aberto.reduce((a, p) => a + num(p.bolas_reaprov), 0), temFech: fech.length > 0, temAb: aberto.length > 0 };
+    });
+    const totProd = porDia.reduce((a, x) => a + x.prod, 0), totVenc = porDia.reduce((a, x) => a + x.venc, 0);
+    const totPrev = DEM.reduce((a, x) => a + (x == null ? 0 : num(x)), 0);
+    const nMassas = porDia.filter(x => x.temFech).length;
+    const pctVenc = totProd > 0 ? totVenc / totProd * 100 : 0;
+    const celula = (x, k, kAb, negrito) => x.temFech ? (negrito ? `<b>${fmtN(x[k])}</b>` : fmtN(x[k])) : (x.temAb ? `<span class="save-note">~${fmtN(x[kAb])}</span>` : '<span class="save-note">—</span>');
+    const fimSem = diasSem[6];
+    const tituloSem = `${z2(seg.getDate())} ${MESES[seg.getMonth()]}${seg.getFullYear() !== fimSem.getFullYear() ? ' ' + seg.getFullYear() : ''} a ${z2(fimSem.getDate())} ${MESES[fimSem.getMonth()]} ${fimSem.getFullYear()}`;
+    const NOMES = ['2ª', '3ª', '4ª', '5ª', '6ª', 'Sáb', 'Dom'];
+    const semanaHtml = `
       <div class="card" style="margin-bottom:14px;">
+        <div class="row between" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+          <h3 style="font-size:16px;margin:0;">Semana de ${esc(tituloSem)}</h3>
+          <div style="display:flex;gap:6px;">
+            <button class="btn secondary small" onclick="IMPASTO.semana(-1)">← Anterior</button>
+            ${semanaOff !== 0 ? '<button class="btn secondary small" onclick="IMPASTO.semana(0)">Esta semana</button>' : ''}
+            <button class="btn secondary small" onclick="IMPASTO.semana(1)" ${semanaOff >= 0 ? 'disabled' : ''}>Seguinte →</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table style="text-align:center;"><thead><tr><th></th>
+          ${diasSem.map((d, i) => `<th>${NOMES[i]}<div class="save-note" style="font-weight:400;">${z2(d.getDate())}/${z2(d.getMonth() + 1)}</div></th>`).join('')}<th>Semana</th></tr></thead>
+          <tbody>
+            <tr><td style="text-align:left;" class="save-note">Previsão de vendas</td>${diasSem.map((d, i) => `<td class="save-note">${DEM[i] == null ? '—' : fmtN(DEM[i])}</td>`).join('')}<td class="save-note">${fmtN(totPrev)}</td></tr>
+            <tr><td style="text-align:left;">Massa produzida</td>${porDia.map(x => `<td>${celula(x, 'prod', 'prodAb', false)}</td>`).join('')}<td><b>${fmtN(totProd)}</b></td></tr>
+            <tr><td style="text-align:left;"><b>Massas vencidas</b></td>${porDia.map(x => `<td>${celula(x, 'venc', 'vencAb', true)}</td>`).join('')}<td><b>${fmtN(totVenc)}</b></td></tr>
+          </tbody></table></div>
+        <div class="save-note" style="margin-top:6px;">Bolas, no dia em que a massa é batida. "~" = massa ainda por fechar (não conta nos totais). "Massas vencidas" = bolas fora do prazo que foram reaproveitadas na massa final desse dia.</div>
+        <div style="margin-top:10px;line-height:1.6;"><b>Resumo:</b> ${nMassas
+          ? `${fmtN(nMassas)} massa(s) batida(s), <b>${fmtN(totProd)}</b> bolas produzidas; <b>${fmtN(totVenc)}</b> bolas vencidas reaproveitadas (${fmtN(pctVenc, 1)}% do que foi produzido, ou seja, a farinha nova só fez ${fmtN(totProd - totVenc)}).${totPrev > 0 && semanaOff < 0 ? ` A previsão de vendas da semana é ${fmtN(totPrev)} bolas: ${totProd >= totPrev ? 'produziste ' + fmtN(totProd - totPrev) + ' a mais' : 'produziste ' + fmtN(totPrev - totProd) + ' a menos'}.` : ''}`
+          : 'sem massas batidas e fechadas nesta semana.'}</div>
+      </div>`;
+    const zerarHtml = `
+      <div class="card" style="margin-top:14px;">
         <h3 style="font-size:16px;margin-bottom:6px;">Zerar</h3>
         <div class="save-note" style="margin-bottom:10px;">Para limpar testes ou recomeçar. Cada botão pede confirmação.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn secondary small" onclick="IMPASTO.zerarProducao()">Zerar a produção em curso</button>
           <button class="btn secondary small" onclick="IMPASTO.zerarStock()">Zerar o stock de massa</button>
         </div>
-      </div>
+      </div>`;
+    const histHtml = `
+      ${semanaHtml}
       ${stockHtml}
       <div class="card">
         <h3 style="font-size:16px;margin-bottom:10px;">Histórico de produções</h3>
         <div class="save-note" style="margin-bottom:10px;">Só tu vês quem fez cada parte. A equipa vê as produções em curso, mas sem nomes.</div>
         ${resumo}
         ${PRODS.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Biga</th><th>Quem fez a biga</th><th>Quem bateu a massa</th><th>Farinha</th><th>Previstas</th><th>Reaproveitadas</th><th>Renderam</th><th>Sobraram</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>` : '<p class="save-note">Ainda não há produções registadas.</p>'}
-      </div>`;
+      </div>${zerarHtml}`;
     const tab = (id, rot) => `<button class="${abaAdmin === id ? 'active' : ''}" onclick="IMPASTO.aba('${id}')">${rot}</button>`;
     el('impastoAdmin').innerHTML = `<div class="toggle-group" style="margin-bottom:14px;max-width:360px;">${tab('regras', 'Regras e previsão')}${tab('hist', 'Histórico')}</div>` + (abaAdmin === 'hist' ? histHtml : regrasHtml);
   }
-  let abaAdmin = 'regras';
+  let abaAdmin = 'regras', semanaOff = 0;
+  function semana(d){ semanaOff = d === 0 ? 0 : Math.min(0, semanaOff + d); renderAdmin(); }
   function aba(id){ abaAdmin = id; renderAdmin(); }
 
   /* ================= COLABORADOR ================= */
@@ -4901,7 +4945,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, semana, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
