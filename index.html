@@ -4670,7 +4670,25 @@ const IMPASTO = (function(){
     ['m-box', 'Identificar cada caixa com a data de hoje e a validade (dois dias)', ''],
     ['m-cold', 'Colocar no frigorífico', '']
   ]; };
-  const itensMassa = q => [...itensMise(q), ...itensBigaMassa(), ...itensFinal(q)];
+  // passos de "como bater": o texto leva negritos, por isso é HTML (só constantes nossas, sem dados do utilizador)
+  const passosBater = q => [
+    ['m-p1', 'Pegar a levedura pesada, colocar na jarra, tarar a balança e juntar a água, diluindo toda a levedura (conforme a quantidade de água, vai-se completando com a balança).'],
+    ['m-p2', 'Ligar a batedeira na <b>velocidade baixa</b> com timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única.'],
+    ...(q.reuse > 0 ? [['m-p3', `<b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}), os que passaram dos dois dias e foram identificados ao fazer a biga.</b>`]] : []),
+    ['m-p4', 'A cada 1 min (±), pôr um fio de água para uma volta da batedeira e esperar a massa formar de novo a "abóbora". Repetir até acabarem os 12 min.'],
+    ['m-p5', 'Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>, segue colocando o restante da água em fio, faz o mesmo processo. <b>Quando estiver quase no final da água, colocar o sal</b>, para que o mesmo misture bem em ficar na amassadeira.... Só que agora cuidando sempre a temperatura da massa, o ideal são entre <b>19 e 21 graus</b>.']
+  ];
+  const itensMassa = q => [...itensMise(q), ...itensBigaMassa(), ...passosBater(q).map(([id]) => [id, '', '']), ...itensFinal(q)];
+  function listaPassos(p, passos, fase){
+    const ch = p.checklist || {};
+    const feitos = passos.filter(([id]) => ch[id] && ch[id].feito).length;
+    const linhas = passos.map(([id, html]) => {
+      const c = ch[id], done = c && c.feito;
+      return `<label class="imp-check${done ? ' done' : ''}"><input type="checkbox" ${done ? 'checked' : ''} onchange="IMPASTO.marcar('${fase}','${id}',this.checked)">
+        <span class="imp-txt" style="line-height:1.5;">${html}${done ? `<span class="imp-who">${esc(hora(c.em))}</span>` : ''}</span></label>`;
+    }).join('');
+    return `<div class="imp-barra"><div style="width:${feitos / passos.length * 100}%"></div></div><div class="save-note" style="margin:-8px 0 10px;">${feitos} de ${passos.length}</div>${linhas}`;
+  }
   function listaChecklist(p, itens, fase){
     const ch = p.checklist || {};
     const feitos = itens.filter(([id]) => ch[id] && ch[id].feito).length;
@@ -4753,16 +4771,10 @@ const IMPASTO = (function(){
         <div class="footer-bar"><button class="btn" ${miseFeita && bigaFeita ? '' : 'disabled'} onclick="IMPASTO.marcar('massa','m-ok',true)">OK, vamos bater</button></div>`;
     }else{
       const itens = itensFinal(q), tudo = itensMassa(q).every(([id]) => feito(id));
-      h = `${topo}<h4 style="margin:6px 0 8px;">Como bater a massa</h4>
-        <div class="card" style="line-height:1.7;">
-          <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;">
-            <li>Pegar a levedura pesada, colocar na jarra, tarar a balança e juntar a água, diluindo toda a levedura (conforme a quantidade de água, vai-se completando com a balança).</li>
-            <li>Ligar a batedeira na <b>velocidade baixa</b> com timer de <b>12 min</b>. No início, colocar uma quantidade abundante de água (cerca de meia jarra) e deixar bater uns 2 min, até misturar e formar uma massa única.</li>
-            ${q.reuse > 0 ? `<li><b>Inserir os panetos com menos estrutura (${fmtN(q.reuse)}), os que passaram dos dois dias e foram identificados ao fazer a biga.</b></li>` : ''}
-            <li>A cada 1 min (±), pôr um fio de água para uma volta da batedeira e esperar a massa formar de novo a "abóbora". Repetir até acabarem os 12 min.</li>
-            <li>Ligar novamente a amassadeira, agora na <b>velocidade rápida</b>. Continuar a pôr o resto da água em fio, no mesmo processo, mas agora vigiando sempre a temperatura da massa: o ideal é entre <b>19 e 21 °C</b>. <b>Quando estiver quase no fim da água, colocar o sal</b>, para que se misture bem na massa.</li>
-          </ol>
-          <div class="save-note" style="margin-top:10px;">Nesta fase a massa deve estar homogénea e a soltar-se da cuba sem resistência.</div></div>
+      h = `${topo}<h4 style="margin:6px 0 4px;">Como bater a massa</h4>
+        <div class="save-note" style="margin-bottom:8px;">Marca cada passo quando o fizeres.</div>
+        ${listaPassos(p, passosBater(q), 'massa')}
+        <div class="save-note" style="margin:6px 0 0;">Nesta fase a massa deve estar homogénea e a soltar-se da cuba sem resistência.</div>
         <h4 style="margin:16px 0 8px;">Depois de bater</h4>
         <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever em cada caixa</b><br>
           Batida: <b>${esc(dLabel(dataBatida))}</b><br>
