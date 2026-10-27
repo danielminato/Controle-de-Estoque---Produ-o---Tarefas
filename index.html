@@ -4691,6 +4691,7 @@ const IMPASTO = (function(){
       h = `<div class="imp-alert ok">Biga no frio às <b>${esc(hora(t))}</b> (${esc(dLabel(t))}).<br>
           Bater a massa e bolear entre <b>${esc(janelaBolear(t).txt)}</b> (17 a 22 h de repouso).
           <div style="margin-top:6px;"><button class="link-btn" onclick="IMPASTO.marcar('biga','b-cold',false)">Foi engano: desfazer</button></div></div>
+        <div class="imp-alert bad" style="text-align:center;font-weight:800;font-size:18px;line-height:1.35;letter-spacing:.3px;">⏰ COLOQUE UM AVISO NO SEU ALARME/CALENDÁRIO<div style="font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px;">Bater a massa e bolear entre ${esc(janelaBolear(t).txt)}</div></div>
         <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b></div>
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`;
     }else if(!miseOk){
