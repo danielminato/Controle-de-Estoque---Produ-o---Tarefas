@@ -4739,8 +4739,10 @@ const IMPASTO = (function(){
   async function bigaNoFrio(){
     await marcar('biga', 'b-cold', true);
   }
+  let verMise = false;
+  function alternarMise(){ verMise = !verMise; renderMassa(); }
   async function abrirMassa(id){
-    ATUAL = id;
+    ATUAL = id; verMise = false;
     try{ await recarregar(id); }catch(e){ await showAlert('Não consegui abrir a produção. Verifica a internet.'); return; }
     renderMassa(); mostrarOperScreen('oper-screen-impasto-massa');
   }
@@ -4771,7 +4773,10 @@ const IMPASTO = (function(){
         <div class="footer-bar"><button class="btn" ${miseFeita && bigaFeita ? '' : 'disabled'} onclick="IMPASTO.marcar('massa','m-ok',true)">OK, vamos bater</button></div>`;
     }else{
       const itens = itensFinal(q), tudo = itensMassa(q).every(([id]) => feito(id));
-      h = `${topo}<h4 style="margin:6px 0 4px;">Como bater a massa</h4>
+      // o mise en place já está feito; fica à mão para conferir os pesos (só leitura)
+      const miseLeitura = verMise ? `<div style="margin:6px 0 12px;">${listaChecklist(p, [...itensMise(q), ...itensBigaMassa()], 'massa').replace(/<input type="checkbox"/g, '<input type="checkbox" disabled')}</div>` : '';
+      h = `${topo}<div style="margin:2px 0 10px;"><button class="link-btn" style="font-weight:700;font-size:13px;" onclick="IMPASTO.alternarMise()">${verMise ? 'Esconder o mise en place' : 'Ver mise en place'}</button></div>${miseLeitura}
+        <h4 style="margin:6px 0 4px;">Como bater a massa</h4>
         <div class="save-note" style="margin-bottom:8px;">Marca cada passo quando o fizeres.</div>
         ${listaPassos(p, passosBater(q), 'massa')}
         <div class="save-note" style="margin:6px 0 0;">Nesta fase a massa deve estar homogénea e a soltar-se da cuba sem resistência.</div>
@@ -4827,7 +4832,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
