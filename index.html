@@ -4400,6 +4400,44 @@ const IMPASTO = (function(){
     catch(e){ avisarErroGravar(); }
     renderAdmin();
   }
+  // zerar: só o admin (as políticas da base também o exigem). Apaga apenas o que está listado, por id.
+  async function zerarProducao(){
+    const emCurso = PRODS.filter(p => p.bolas_rendidas == null);
+    if(!emCurso.length){ await showAlert('Não há nenhuma produção em curso.'); return; }
+    if(!(await showConfirm(`Zerar a produção em curso? Vai apagar ${emCurso.length} produção(ões) por fechar (${emCurso.map(p => dLabel(parse(p.data_biga))).join(', ')}), com todos os checklists. Não tem "desfazer".`))) return;
+    try{ for(const p of emCurso) await enviar('DELETE', `impasto_producoes?id=eq.${p.id}`); await carregarBase(); }
+    catch(e){ await avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function zerarStock(){
+    const lotes = LOTES.filter(l => num(l.bolas) > 0);
+    if(!lotes.length){ await showAlert('O stock de massa já está a zero.'); return; }
+    if(!(await showConfirm(`Zerar o stock de massa? Vai apagar ${lotes.length} lote(s), ${fmtN(lotes.reduce((a, l) => a + num(l.bolas), 0))} bolas no total. Não tem "desfazer".`))) return;
+    try{ for(const l of LOTES) await enviar('DELETE', `impasto_lotes?id=eq.${l.id}`); await carregarBase(); }
+    catch(e){ await avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function editarLote(id, valor){
+    const l = LOTES.find(x => x.id === id); if(!l) return;
+    const v = Math.max(0, Math.floor(num(valor))), antes = l.bolas; l.bolas = v;
+    try{ await enviar('PATCH', `impasto_lotes?id=eq.${id}`, { bolas: v, atualizado_por: usuarioAtualEmail, atualizado_em: new Date().toISOString() }); }
+    catch(e){ l.bolas = antes; avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function apagarLote(id){
+    const l = LOTES.find(x => x.id === id); if(!l) return;
+    if(!(await showConfirm(`Apagar o lote de ${dLabel(parse(l.data_batida))} (${fmtN(l.bolas)} bolas)? Não tem "desfazer".`))) return;
+    try{ await enviar('DELETE', `impasto_lotes?id=eq.${id}`); LOTES = LOTES.filter(x => x.id !== id); }
+    catch(e){ avisarErroGravar(); }
+    renderAdmin();
+  }
+  async function novoLote(){
+    const d = el('impNovoLoteData').value, n = Math.max(0, Math.floor(num(el('impNovoLoteQtd').value)));
+    if(!d || n <= 0){ await showAlert('Indica o dia em que a massa foi batida e quantas bolas há.'); return; }
+    try{ await enviar('POST', 'impasto_lotes', { id: novoId(), data_batida: d, bolas: n, atualizado_por: usuarioAtualEmail }); await carregarBase(); }
+    catch(e){ await avisarErroGravar(); }
+    renderAdmin();
+  }
   function renderAdmin(){
     const F0 = C.maxFlour * 1000;
     const campo =(rot, k, tipo, passo, extra) => `<div><label class="field">${rot}<input type="${tipo}" ${passo ? 'step="' + passo + '"' : ''} value="${esc(C[k])}" onchange="IMPASTO.regra('${k}',this.value)"></label>${extra ? '<div class="save-note">' + extra + '</div>' : ''}</div>`;
@@ -4468,7 +4506,38 @@ const IMPASTO = (function(){
         <label class="field" style="margin-top:12px;max-width:260px;">% das bolas do dia que saem ao almoço<input type="number" min="0" max="100" step="5" value="${esc(C.pctAlmoco)}" onchange="IMPASTO.pctAlmoco(this.value)"></label>
         <div class="save-note">Só serve para a app saber quantas bolas do dia saem antes de a massa nova ficar pronta. O resto sai ao jantar.</div>
       </div>`;
+    const ontemISO = iso(addDays(new Date(), -1));
+    const lotesOrd = [...LOTES].sort((a, b) => (a.data_batida < b.data_batida ? 1 : -1));
+    const noPrazo = LOTES.filter(l => l.data_batida >= ontemISO).reduce((a, l) => a + Math.max(0, num(l.bolas)), 0);
+    const linhasStock = lotesOrd.map(l => {
+      const vale = l.data_batida >= ontemISO;
+      return `<tr><td>${esc(dLabel(parse(l.data_batida)))}</td>
+        <td><input type="number" min="0" step="1" style="width:76px;" value="${esc(l.bolas)}" onchange="IMPASTO.editarLote('${l.id}',this.value)"></td>
+        <td>${vale ? `<span class="badge ok">dentro do prazo até ${esc(dLabel(addDays(parse(l.data_batida), 2)))} (jantar)</span>` : '<span class="badge warn">vencido</span>'}</td>
+        <td>${l.producao_id ? 'de uma produção' : 'indicado à mão'}</td>
+        <td><button class="icon-btn danger" onclick="IMPASTO.apagarLote('${l.id}')">apagar</button></td></tr>`;
+    }).join('');
+    const stockHtml = `
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:6px;">Stock de massa</h3>
+        <div class="save-note" style="margin-bottom:10px;">Bolas por lote (dia em que a massa foi batida). Dentro do prazo agora: <b>${fmtN(noPrazo)}</b> bolas. É este stock que o planeador sugere à equipa quando vão fazer a biga.</div>
+        ${LOTES.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Batida</th><th>Bolas</th><th>Estado</th><th>Origem</th><th></th></tr></thead><tbody>${linhasStock}</tbody></table></div>` : '<p class="save-note">Sem lotes de massa registados.</p>'}
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:12px;">
+          <label class="field">Batida em<input type="date" id="impNovoLoteData" value="${esc(iso(new Date()))}"></label>
+          <label class="field">Bolas<input type="number" min="0" step="1" id="impNovoLoteQtd" style="width:90px;"></label>
+          <button class="btn small" onclick="IMPASTO.novoLote()">+ Adicionar lote</button>
+        </div>
+      </div>`;
     const histHtml = `
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:6px;">Zerar</h3>
+        <div class="save-note" style="margin-bottom:10px;">Para limpar testes ou recomeçar. Cada botão pede confirmação.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn secondary small" onclick="IMPASTO.zerarProducao()">Zerar a produção em curso</button>
+          <button class="btn secondary small" onclick="IMPASTO.zerarStock()">Zerar o stock de massa</button>
+        </div>
+      </div>
+      ${stockHtml}
       <div class="card">
         <h3 style="font-size:16px;margin-bottom:10px;">Histórico de produções</h3>
         <div class="save-note" style="margin-bottom:10px;">Só tu vês quem fez cada parte. A equipa vê as produções em curso, mas sem nomes.</div>
@@ -4832,7 +4901,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
