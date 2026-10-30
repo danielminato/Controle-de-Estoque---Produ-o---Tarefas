@@ -4266,7 +4266,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 40 };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 40, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
@@ -4296,6 +4296,7 @@ const IMPASTO = (function(){
       // formato novo {pctAlmoco, dias:[{dia,total}]}; o antigo era uma lista com almoco/jantar por dia
       const pv = r.previsao, lista = Array.isArray(pv) ? pv : ((pv && pv.dias) || []);
       if(pv && !Array.isArray(pv) && pv.pctAlmoco != null) C.pctAlmoco = num(pv.pctAlmoco, PADRAO.pctAlmoco);
+      C.servico = { ...PADRAO.servico, ...((pv && !Array.isArray(pv) && pv.servico) || {}) };
       lista.forEach(p => {
         if(!p || !(p.dia >= 0 && p.dia <= 6)) return;
         const t = p.total != null ? p.total : ((p.almoco == null && p.jantar == null) ? null : num(p.almoco) + num(p.jantar));
@@ -4370,7 +4371,14 @@ const IMPASTO = (function(){
     catch(e){ C[campo] = antes; avisarErroGravar(); }
     renderAdmin();
   }
-  const previsaoJson = () => ({ pctAlmoco: C.pctAlmoco, dias: DEM.map((total, dia) => ({ dia, total })) });
+  const previsaoJson = () => ({ pctAlmoco: C.pctAlmoco, servico: C.servico, dias: DEM.map((total, dia) => ({ dia, total })) });
+  async function servicoHora(campo, valor){
+    if(!/^\d{1,2}:\d{2}$/.test(valor || '')){ renderAdmin(); return; }
+    const antes = C.servico; C.servico = { ...C.servico, [campo]: valor };
+    try{ await enviar('PATCH', 'impasto_config?id=eq.principal', { previsao: previsaoJson() }); }
+    catch(e){ C.servico = antes; avisarErroGravar(); }
+    renderAdmin();
+  }
   async function previsao(i, valor){
     const anterior = DEM[i];
     DEM[i] = valor === '' ? null : Math.max(0, Math.floor(num(valor)));
@@ -4505,6 +4513,16 @@ const IMPASTO = (function(){
         <table><thead><tr><th>Dia</th><th>Bolas no dia</th></tr></thead><tbody>${dem}</tbody></table>
         <label class="field" style="margin-top:12px;max-width:260px;">% das bolas do dia que saem ao almoço<input type="number" min="0" max="100" step="5" value="${esc(C.pctAlmoco)}" onchange="IMPASTO.pctAlmoco(this.value)"></label>
         <div class="save-note">Só serve para a app saber quantas bolas do dia saem antes de a massa nova ficar pronta. O resto sai ao jantar.</div>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <h3 style="font-size:16px;margin-bottom:6px;">Horário de serviço (horas de ponta)</h3>
+        <div class="save-note" style="margin-bottom:10px;">A equipa não deve fazer a biga nem bater a massa nestas horas. A app usa-as para sugerir a melhor hora para começar a biga.</div>
+        <div class="field-row">
+          <label class="field">Almoço: abre<input type="time" value="${esc(C.servico.almIni)}" onchange="IMPASTO.servicoHora('almIni',this.value)"></label>
+          <label class="field">Almoço: fecha<input type="time" value="${esc(C.servico.almFim)}" onchange="IMPASTO.servicoHora('almFim',this.value)"></label>
+          <label class="field">Jantar: abre<input type="time" value="${esc(C.servico.jantIni)}" onchange="IMPASTO.servicoHora('jantIni',this.value)"></label>
+          <label class="field">Jantar: fecha<input type="time" value="${esc(C.servico.jantFim)}" onchange="IMPASTO.servicoHora('jantFim',this.value)"></label>
+        </div>
       </div>`;
     const ontemISO = iso(addDays(new Date(), -1));
     const lotesOrd = [...LOTES].sort((a, b) => (a.data_batida < b.data_batida ? 1 : -1));
@@ -4537,7 +4555,7 @@ const IMPASTO = (function(){
       const ps = PRODS.filter(p => diaDaMassa(p) === iso(d));
       const fech = ps.filter(p => p.bolas_rendidas != null), aberto = ps.filter(p => p.bolas_rendidas == null);
       return { prod: fech.reduce((a, p) => a + num(p.bolas_rendidas), 0), venc: fech.reduce((a, p) => a + num(p.bolas_reaprov), 0),
-               prodAb: aberto.reduce((a, p) => a + num(p.bolas_previstas), 0), vencAb: aberto.reduce((a, p) => a + num(p.bolas_reaprov), 0), temFech: fech.length > 0, temAb: aberto.length > 0 };
+               prodAb: aberto.reduce((a, p) => a + num(p.bolas_previstas), 0), vencAb: aberto.reduce((a, p) => a + num(p.bolas_reaprov), 0), temFech: fech.length > 0, temAb: aberto.length > 0, fechList: fech };
     });
     const totProd = porDia.reduce((a, x) => a + x.prod, 0), totVenc = porDia.reduce((a, x) => a + x.venc, 0);
     const totPrev = DEM.reduce((a, x) => a + (x == null ? 0 : num(x)), 0);
@@ -4553,6 +4571,42 @@ const IMPASTO = (function(){
     const fimSem = diasSem[6];
     const tituloSem = `${z2(seg.getDate())} ${MESES[seg.getMonth()]}${seg.getFullYear() !== fimSem.getFullYear() ? ' ' + seg.getFullYear() : ''} a ${z2(fimSem.getDate())} ${MESES[fimSem.getMonth()]} ${fimSem.getFullYear()}`;
     const NOMES = ['2ª', '3ª', '4ª', '5ª', '6ª', 'Sáb', 'Dom'];
+    // relatório da semana: por dia, quem fez e uma sugestão de produção que traga as vencidas para o limite
+    let relatorioHtml = '';
+    try{
+    const nomeDe = e => (e || '').split('@')[0] || '—';
+    const unicos = a => [...new Set(a.filter(Boolean))].join(', ') || '—';
+    const linhasRel = diasSem.map((d, i) => {
+      const x = porDia[i], ps = x.fechList;
+      const bigaPor = unicos(ps.flatMap(p => [nomeDe(p.criado_por), nomeDe(((p.checklist || {})['b-cold'] || {}).por)]).filter(n => n !== '—'));
+      const massaPor = unicos(ps.map(p => nomeDe(((p.checklist || {})['m-fim'] || {}).por)).filter(n => n !== '—'));
+      const exc = x.temFech ? Math.max(0, Math.ceil(x.venc - x.prod * LIM_VENC / 100)) : 0;
+      const sug = x.temFech ? Math.max(0, x.prod - exc) : (DEM[i] == null ? null : num(DEM[i]));
+      const pct = x.temFech && x.prod > 0 ? x.venc / x.prod * 100 : null;
+      return { d, nome: NOMES[i], prev: DEM[i], prod: x.temFech ? x.prod : null, venc: x.temFech ? x.venc : null, pct, bigaPor, massaPor, sug, exc, temFech: x.temFech };
+    });
+    const totSug = linhasRel.reduce((a, l) => a + (l.sug == null ? 0 : l.sug), 0);
+    const diasAltos = linhasRel.filter(l => l.pct != null && l.pct > LIM_VENC).map(l => `${l.nome} (${fmtN(l.venc)} vencidas, ${fmtN(l.pct, 0)}%)`);
+    const conclusao = !nMassas ? 'Sem massas fechadas nesta semana, por isso não há análise.'
+      : pctVenc > LIM_VENC
+        ? `As vencidas ficaram em ${fmtN(pctVenc, 1)}% do total produzido (limite ${LIM_VENC}%): produziu-se a mais. ${diasAltos.length ? 'Dias acima do limite: ' + diasAltos.join('; ') + '. ' : ''}Sugestão: nestes dias, produzir o valor da coluna "Sugestão de produção".`
+        : `As vencidas ficaram em ${fmtN(pctVenc, 1)}% do total produzido, dentro do limite de ${LIM_VENC}%. Mantém a produção; se começar a faltar massa, sobe a previsão.`;
+    const relatorioTexto = [`Relatório Impasto — semana de ${tituloSem}`, '',
+      ...linhasRel.map(l => `${l.nome} ${z2(l.d.getDate())}/${z2(l.d.getMonth() + 1)}: ${l.temFech ? `produzidas ${l.prod}, vencidas ${l.venc} (${fmtN(l.pct, 0)}%), biga por ${l.bigaPor}, massa por ${l.massaPor}` : 'sem massa fechada'} → sugestão ${l.sug == null ? '—' : l.sug}`),
+      '', `Total produzido: ${totProd} | vencidas: ${totVenc} (${fmtN(pctVenc, 1)}%) | previsão da semana: ${totPrev}`, conclusao].join('\n');
+    relatorioHtml = `
+      <details style="margin-top:12px;" ${semanaOff < 0 ? 'open' : ''}><summary style="cursor:pointer;font-weight:700;">Relatório da semana</summary>
+        <div style="overflow-x:auto;margin-top:8px;"><table style="text-align:center;"><thead><tr><th style="text-align:left;">Dia</th><th>Previsão</th><th>Produzido</th><th><b>Vencidas</b></th><th>%</th><th>Quem fez a biga</th><th>Quem bateu a massa</th><th>Sugestão de produção</th></tr></thead><tbody>
+          ${linhasRel.map(l => `<tr><td style="text-align:left;">${l.nome} ${z2(l.d.getDate())}/${z2(l.d.getMonth() + 1)}</td><td class="save-note">${l.prev == null ? '—' : fmtN(l.prev)}</td><td>${l.prod == null ? '—' : fmtN(l.prod)}</td><td>${l.venc == null ? '—' : '<b>' + fmtN(l.venc) + '</b>'}</td>
+            <td>${l.pct == null ? '—' : `<span class="badge ${l.pct > LIM_VENC ? 'warn' : 'ok'}">${fmtN(l.pct, 0)}%</span>`}</td><td>${esc(l.bigaPor)}</td><td>${esc(l.massaPor)}</td><td><b>${l.sug == null ? '—' : fmtN(l.sug)}</b>${l.exc > 0 ? `<div class="save-note">−${fmtN(l.exc)}</div>` : ''}</td></tr>`).join('')}
+          <tr><td style="text-align:left;"><b>Semana</b></td><td class="save-note">${fmtN(totPrev)}</td><td><b>${fmtN(totProd)}</b></td><td><b>${fmtN(totVenc)}</b></td><td>${nMassas ? fmtN(pctVenc, 1) + '%' : '—'}</td><td></td><td></td><td><b>${fmtN(totSug)}</b></td></tr>
+        </tbody></table></div>
+        <div style="margin-top:8px;line-height:1.6;"><b>Conclusão:</b> ${esc(conclusao)}</div>
+        <div class="save-note" style="margin-top:4px;">A sugestão tira, em cada dia, as bolas vencidas que passam de ${LIM_VENC}% do que foi produzido. Em dias sem massa fechada, usa a previsão de vendas. É uma orientação: ajusta a previsão em Regras e previsão se concordares.</div>
+        <div style="margin-top:8px;"><button class="btn secondary small" onclick="IMPASTO.copiarRelatorio()">Copiar relatório</button></div>
+      </details>`;
+    relatorioAtual = relatorioTexto;
+    }catch(e){ console.error("relatório da semana", e); relatorioHtml = ""; }
     const semanaHtml = `
       <div class="card" style="margin-bottom:14px;">
         <div class="row between" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;">
@@ -4575,6 +4629,7 @@ const IMPASTO = (function(){
           ? `${fmtN(nMassas)} massa(s) batida(s), <b>${fmtN(totProd)}</b> bolas produzidas; <b>${fmtN(totVenc)}</b> bolas vencidas reaproveitadas (${fmtN(pctVenc, 1)}% do que foi produzido, ou seja, a farinha nova só fez ${fmtN(totProd - totVenc)}).${totPrev > 0 && semanaOff < 0 ? ` A previsão de vendas da semana é ${fmtN(totPrev)} bolas: ${totProd >= totPrev ? 'produziste ' + fmtN(totProd - totPrev) + ' a mais' : 'produziste ' + fmtN(totPrev - totProd) + ' a menos'}.` : ''}`
           : 'sem massas batidas e fechadas nesta semana.'}</div>
         ${nMassas ? sugestaoSem : ''}
+        ${relatorioHtml}
       </div>`;
     const zerarHtml = `
       <div class="card" style="margin-top:14px;">
@@ -4597,7 +4652,11 @@ const IMPASTO = (function(){
     const tab = (id, rot) => `<button class="${abaAdmin === id ? 'active' : ''}" onclick="IMPASTO.aba('${id}')">${rot}</button>`;
     el('impastoAdmin').innerHTML = `<div class="toggle-group" style="margin-bottom:14px;max-width:360px;">${tab('regras', 'Regras e previsão')}${tab('hist', 'Histórico')}</div>` + (abaAdmin === 'hist' ? histHtml : regrasHtml);
   }
-  let abaAdmin = 'regras', semanaOff = 0;
+  let abaAdmin = 'regras', semanaOff = 0, relatorioAtual = '';
+  async function copiarRelatorio(){
+    try{ await navigator.clipboard.writeText(relatorioAtual); await showAlert('Relatório copiado. Podes colar onde quiseres.'); }
+    catch(e){ await showAlert(relatorioAtual); }
+  }
   function semana(d){ semanaOff = d === 0 ? 0 : Math.min(0, semanaOff + d); renderAdmin(); }
   function aba(id){ abaAdmin = id; renderAdmin(); }
 
@@ -4661,7 +4720,41 @@ const IMPASTO = (function(){
   // Duas perguntas: quantas bolas ainda estão dentro do prazo (servem amanhã) e quantas vencidas ou a
   // vencer (já não vão ao forno: entram na massa final, nunca na biga). Lote batido num dia vale de manhã do dia seguinte até ao
   // jantar do dia a seguir a esse; assim o de ontem ainda serve amanhã e o de anteontem já não.
-  function novoPlano(){
+  // Melhores horas para começar a biga: fora da hora de ponta (com 15 min de folga) e com a janela de bater a massa
+  // (17 a 22 h depois) a cair, pelo menos 90 min seguidos, numa altura livre do dia seguinte (a equipa só conta a partir das 09:00).
+  const hm = s => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const fmtHM = min => z2(Math.floor(min / 60)) + ':' + z2(min % 60);
+  function horasBoas(){
+    const S = C.servico, folga = 15;
+    const ponta = [[hm(S.almIni) - folga, hm(S.almFim) + folga], [hm(S.jantIni) - folga, hm(S.jantFim) + folga]];
+    const livre = m => m >= 540 && m < 1440 && !ponta.some(([a, b]) => m >= a && m < b);
+    const bons = [];
+    for(let t = 540; t < 1440; t += 15){
+      if(!livre(t)) continue;
+      let run = -1, melhor = 0;
+      for(let m = t + 17 * 60; m <= t + 22 * 60; m += 15){ if(livre(m % 1440)){ run = run < 0 ? 0 : run + 15; melhor = Math.max(melhor, run); } else run = -1; }
+      if(melhor >= 90) bons.push(t);
+    }
+    const faixas = [];
+    bons.forEach(t => { const u = faixas[faixas.length - 1]; if(u && t - u[1] === 15) u[1] = t; else faixas.push([t, t]); });
+    return { bons, faixas, ponta: `${S.almIni}–${S.almFim} e ${S.jantIni}–${S.jantFim}` };
+  }
+  // devolve true se a pessoa pode seguir para o planeamento
+  async function avisoHorario(){
+    const { bons, faixas, ponta } = horasBoas();
+    if(!bons.length) return true;
+    const txt = faixas.map(([a, b]) => `${fmtHM(a)} e ${fmtHM(b)}`).join(' ou entre as ');
+    const ag = new Date(), m = ag.getHours() * 60 + ag.getMinutes(), arred = Math.floor(m / 15) * 15;
+    if(bons.includes(arred)){
+      await showAlert(`✅ Agora é uma boa hora para fazer a biga. As melhores horas são entre as ${txt}. Evita as horas de serviço (${ponta}).`);
+      return true;
+    }
+    const prox = bons.find(t => t > m);
+    const sugestao = prox != null ? `Melhor começar às ${fmtHM(prox)}.` : `Melhor começar amanhã, entre as ${txt}.`;
+    return showConfirm(`⚠️ Agora não é a melhor hora para fazer a biga (é hora de serviço ou perto dele). As melhores horas são entre as ${txt}. ${sugestao} Queres começar mesmo assim?`);
+  }
+  async function novoPlano(){
+    if(!(await avisoHorario())) return;
     const hoje = iso(new Date()), ontem = iso(addDays(new Date(), -1));
     const soma = f => LOTES.filter(f).reduce((a, l) => a + Math.max(0, num(l.bolas)), 0);
     // os campos começam vazios: só se calcula (e só se avisa) depois de o colaborador dizer o que tem
@@ -4838,7 +4931,7 @@ const IMPASTO = (function(){
           Bater a massa e bolear entre <b>${esc(janelaBolear(t).txt)}</b> (17 a 22 h de repouso).
           <div style="margin-top:6px;"><button class="link-btn" onclick="IMPASTO.marcar('biga','b-cold',false)">Foi engano: desfazer</button></div></div>
         <div class="imp-alert bad" style="text-align:center;font-weight:800;font-size:18px;line-height:1.35;letter-spacing:.3px;">⏰ COLOQUE UM AVISO NO SEU ALARME/CALENDÁRIO<div style="font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px;">Bater a massa e bolear entre ${esc(janelaBolear(t).txt)}</div></div>
-        <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b></div>
+        <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b><br>Nome de quem produziu: <b>escrever o seu nome</b></div>
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`;
     }else if(!miseOk){
       h = `<h4 style="margin:0 0 4px;">Mise en place</h4>
@@ -4903,7 +4996,7 @@ const IMPASTO = (function(){
         <h4 style="margin:16px 0 8px;">Depois de bater</h4>
         <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever em cada caixa</b><br>
           Batida: <b>${esc(dLabel(dataBatida))}</b><br>
-          Vale: <b>${esc(dLabel(addDays(dataBatida, 1)))} (almoço)</b> até <b>${esc(dLabel(addDays(dataBatida, 2)))} (jantar)</b></div>
+          Vale: <b>${esc(dLabel(addDays(dataBatida, 1)))} (almoço)</b> até <b>${esc(dLabel(addDays(dataBatida, 2)))} (jantar)</b><br>Nome de quem produziu: <b>escrever o seu nome</b></div>
         ${listaChecklist(p, itens, 'massa')}
         <div class="save-note" style="margin:10px 0 0;line-height:1.6;">🆘 <b>SOS:</b> se precisares desta massa já esta noite, tira do frio <b>3 h antes</b> de usar só a caixa que vais usar. Guarda as outras e vai gerindo conforme a massa se desenvolve.</div>
         <h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
@@ -4952,7 +5045,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, aba, semana, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, semana, servicoHora, copiarRelatorio, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
