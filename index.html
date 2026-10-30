@@ -4266,7 +4266,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 40, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00' } };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 40, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
@@ -4515,13 +4515,18 @@ const IMPASTO = (function(){
         <div class="save-note">Só serve para a app saber quantas bolas do dia saem antes de a massa nova ficar pronta. O resto sai ao jantar.</div>
       </div>
       <div class="card" style="margin-bottom:14px;">
-        <h3 style="font-size:16px;margin-bottom:6px;">Horário de serviço (horas de ponta)</h3>
-        <div class="save-note" style="margin-bottom:10px;">A equipa não deve fazer a biga nem bater a massa nestas horas. A app usa-as para sugerir a melhor hora para começar a biga.</div>
+        <h3 style="font-size:16px;margin-bottom:6px;">Horário de serviço e horas de ponta</h3>
+        <div class="save-note" style="margin-bottom:10px;">A equipa só produz (biga e massa) dentro do horário de serviço e fora das horas de ponta. A app usa isto para sugerir a melhor hora para começar a biga e para bater a massa.</div>
         <div class="field-row">
           <label class="field">Almoço: abre<input type="time" value="${esc(C.servico.almIni)}" onchange="IMPASTO.servicoHora('almIni',this.value)"></label>
           <label class="field">Almoço: fecha<input type="time" value="${esc(C.servico.almFim)}" onchange="IMPASTO.servicoHora('almFim',this.value)"></label>
           <label class="field">Jantar: abre<input type="time" value="${esc(C.servico.jantIni)}" onchange="IMPASTO.servicoHora('jantIni',this.value)"></label>
           <label class="field">Jantar: fecha<input type="time" value="${esc(C.servico.jantFim)}" onchange="IMPASTO.servicoHora('jantFim',this.value)"></label>
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <label class="field">Ponta do almoço: de<input type="time" value="${esc(C.servico.almPontaIni)}" onchange="IMPASTO.servicoHora('almPontaIni',this.value)"></label>
+          <label class="field">Ponta do almoço: até<input type="time" value="${esc(C.servico.almPontaFim)}" onchange="IMPASTO.servicoHora('almPontaFim',this.value)"></label>
+          <label class="field">Ponta do jantar: a partir das<input type="time" value="${esc(C.servico.jantPontaIni)}" onchange="IMPASTO.servicoHora('jantPontaIni',this.value)"></label>
         </div>
       </div>`;
     const ontemISO = iso(addDays(new Date(), -1));
@@ -4720,38 +4725,59 @@ const IMPASTO = (function(){
   // Duas perguntas: quantas bolas ainda estão dentro do prazo (servem amanhã) e quantas vencidas ou a
   // vencer (já não vão ao forno: entram na massa final, nunca na biga). Lote batido num dia vale de manhã do dia seguinte até ao
   // jantar do dia a seguir a esse; assim o de ontem ainda serve amanhã e o de anteontem já não.
-  // Melhores horas para começar a biga: fora da hora de ponta (com 15 min de folga) e com a janela de bater a massa
-  // (17 a 22 h depois) a cair, pelo menos 90 min seguidos, numa altura livre do dia seguinte (a equipa só conta a partir das 09:00).
+  // A equipa só produz dentro do horário de serviço e fora das horas de ponta. Um minuto é "de trabalho" se cai
+  // no almoço ou no jantar e não cai na ponta (do almoço, ou do jantar em diante).
   const hm = s => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
   const fmtHM = min => z2(Math.floor(min / 60)) + ':' + z2(min % 60);
+  const trabalha = min => {
+    const S = C.servico, m = ((min % 1440) + 1440) % 1440, dentro = (a, b) => m >= hm(a) && m < hm(b);
+    return (dentro(S.almIni, S.almFim) || dentro(S.jantIni, S.jantFim)) && !(dentro(S.almPontaIni, S.almPontaFim) || dentro(S.jantPontaIni, S.jantFim));
+  };
+  // segmentos de trabalho (em minutos do dia) dentro de [ini, fim] minutos desde a meia-noite do dia da biga
+  function segmentosTrabalho(ini, fim){
+    const seg = [];
+    for(let m = ini; m < fim; m += 5){
+      if(!trabalha(m)) continue;
+      const u = seg[seg.length - 1];
+      if(u && m - u[1] === 5 && Math.floor(m / 1440) === Math.floor(u[0] / 1440)) u[1] = m; else seg.push([m, m]);
+    }
+    return seg.map(([a, b]) => [a, b + 5]);
+  }
+  // as melhores horas para começar a biga: dentro da equipa em trabalho (cerca de 30 min a misturar) e com a janela
+  // de bater a massa (17 a 22 h depois) a cair, pelo menos 45 min seguidos, numa altura de trabalho do dia seguinte
   function horasBoas(){
-    const S = C.servico, folga = 15;
-    const ponta = [[hm(S.almIni) - folga, hm(S.almFim) + folga], [hm(S.jantIni) - folga, hm(S.jantFim) + folga]];
-    const livre = m => m >= 540 && m < 1440 && !ponta.some(([a, b]) => m >= a && m < b);
-    const bons = [];
-    for(let t = 540; t < 1440; t += 15){
-      if(!livre(t)) continue;
-      let run = -1, melhor = 0;
-      for(let m = t + 17 * 60; m <= t + 22 * 60; m += 15){ if(livre(m % 1440)){ run = run < 0 ? 0 : run + 15; melhor = Math.max(melhor, run); } else run = -1; }
-      if(melhor >= 90) bons.push(t);
+    const S = C.servico, bons = [];
+    for(let t = 0; t < 1440; t += 15){
+      if(!(trabalha(t) && trabalha(t + 15) && trabalha(t + 29))) continue;
+      const maior = segmentosTrabalho(t + 17 * 60, t + 22 * 60).reduce((a, [x, y]) => Math.max(a, y - x), 0);
+      if(maior >= 45) bons.push(t);
     }
     const faixas = [];
     bons.forEach(t => { const u = faixas[faixas.length - 1]; if(u && t - u[1] === 15) u[1] = t; else faixas.push([t, t]); });
-    return { bons, faixas, ponta: `${S.almIni}–${S.almFim} e ${S.jantIni}–${S.jantFim}` };
+    return { bons, faixas, trab: `${S.almIni}–${S.almFim} e ${S.jantIni}–${S.jantFim}`, ponta: `${S.almPontaIni}–${S.almPontaFim} e a partir das ${S.jantPontaIni}` };
+  }
+  // texto da melhor hora para bater/bolear dentro da janela (17 a 22 h depois da biga no frio)
+  function melhorParaBater(t0){
+    const base = new Date(t0), d0 = new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime();
+    const ini = Math.round((base.getTime() - d0) / 60000) + 17 * 60, fim = ini + 5 * 60;
+    const seg = segmentosTrabalho(ini, fim).filter(([a, b]) => b - a >= 30);
+    if(!seg.length) return '';
+    return seg.map(([a, b]) => `${fmtHM(a % 1440)} e ${fmtHM(b % 1440)}`).join(', ou entre as ');
   }
   // devolve true se a pessoa pode seguir para o planeamento
   async function avisoHorario(){
-    const { bons, faixas, ponta } = horasBoas();
+    const { bons, faixas, trab, ponta } = horasBoas();
     if(!bons.length) return true;
     const txt = faixas.map(([a, b]) => `${fmtHM(a)} e ${fmtHM(b)}`).join(' ou entre as ');
     const ag = new Date(), m = ag.getHours() * 60 + ag.getMinutes(), arred = Math.floor(m / 15) * 15;
+    const regra = `A equipa só produz no horário de serviço (${trab}) e fora das horas de ponta (${ponta}).`;
     if(bons.includes(arred)){
-      await showAlert(`✅ Agora é uma boa hora para fazer a biga. As melhores horas são entre as ${txt}. Evita as horas de serviço (${ponta}).`);
+      await showAlert(`✅ Agora é uma boa hora para fazer a biga. ${regra} Por isso as melhores horas para a começar são entre as ${txt}.`);
       return true;
     }
     const prox = bons.find(t => t > m);
     const sugestao = prox != null ? `Melhor começar às ${fmtHM(prox)}.` : `Melhor começar amanhã, entre as ${txt}.`;
-    return showConfirm(`⚠️ Agora não é a melhor hora para fazer a biga (é hora de serviço ou perto dele). As melhores horas são entre as ${txt}. ${sugestao} Queres começar mesmo assim?`);
+    return showConfirm(`⚠️ Agora não é a melhor hora para fazer a biga. ${regra} As melhores horas são entre as ${txt}. ${sugestao} Queres começar mesmo assim?`);
   }
   async function novoPlano(){
     if(!(await avisoHorario())) return;
@@ -4930,7 +4956,7 @@ const IMPASTO = (function(){
       h = `<div class="imp-alert ok">Biga no frio às <b>${esc(hora(t))}</b> (${esc(dLabel(t))}).<br>
           Bater a massa e bolear entre <b>${esc(janelaBolear(t).txt)}</b> (17 a 22 h de repouso).
           <div style="margin-top:6px;"><button class="link-btn" onclick="IMPASTO.marcar('biga','b-cold',false)">Foi engano: desfazer</button></div></div>
-        <div class="imp-alert bad" style="text-align:center;font-weight:800;font-size:18px;line-height:1.35;letter-spacing:.3px;">⏰ COLOQUE UM AVISO NO SEU ALARME/CALENDÁRIO<div style="font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px;">Bater a massa e bolear entre ${esc(janelaBolear(t).txt)}</div></div>
+        <div class="imp-alert bad" style="text-align:center;font-weight:800;font-size:18px;line-height:1.35;letter-spacing:.3px;">⏰ COLOQUE UM AVISO NO SEU ALARME/CALENDÁRIO<div style="font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px;">Bater a massa e bolear entre ${esc(janelaBolear(t).txt)}</div>${melhorParaBater(t) ? `<div style="font-size:14px;font-weight:700;letter-spacing:0;margin-top:6px;">Melhor hora (equipa em trabalho, fora da ponta): entre as ${esc(melhorParaBater(t))}</div>` : ""}</div>
         <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b><br>Nome de quem produziu: <b>escrever o seu nome</b></div>
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`;
     }else if(!miseOk){
@@ -4972,7 +4998,7 @@ const IMPASTO = (function(){
     const miseFeita = itensMise(q).every(([id]) => feito(id)), bigaFeita = feito('m-biga'), instrucoes = feito('m-ok');
     const jan = janelaBolear(new Date(p.biga_feita_em || p.criado_em));
     const dataBatida = p.massa_batida_em ? new Date(p.massa_batida_em) : new Date();
-    const topo = `<div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.</div>
+    const topo = `<div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.${melhorParaBater(p.biga_feita_em || p.criado_em) ? ` <b>Melhor hora (fora da ponta): entre as ${esc(melhorParaBater(p.biga_feita_em || p.criado_em))}.</b>` : ""}</div>
       <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 22 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 22 h).' : '(passou das 22 h: confirma com o dono antes de continuar).'}</div>
       ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}`;
     let h;
