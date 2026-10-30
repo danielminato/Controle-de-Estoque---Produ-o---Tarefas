@@ -4266,7 +4266,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 40, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
