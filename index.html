@@ -773,7 +773,7 @@
     </section>
     <section class="panel">
       <h2>Sazonalidade mensal</h2>
-      <p class="desc">Marque o mês de <b>Referência (100%)</b> — o seu melhor faturamento real conhecido. Nos outros meses, escreva a <b>% de queda</b> em relação a essa referência, ou clique em "%"/"€" para escrever o faturamento real direto (a queda calcula-se sozinha). "Real?" é só uma etiqueta sua, não afeta o cálculo.</p>
+      <p class="desc">Marque o mês de <b>Referência (100%)</b> — o seu melhor faturamento real conhecido. Em cada um dos outros meses há dois campos ligados: a <b>variação em % em relação à referência</b> (positiva = sobe, negativa = cai) e o <b>faturamento em €</b>. Escreva num e o outro ajusta-se sozinho. "Real?" é só uma etiqueta sua, não afeta o cálculo.</p>
       <div style="overflow-x:auto;"><table class="grid-table" id="monthsTable"></table></div>
     </section>
     <section class="panel">
@@ -796,7 +796,8 @@
     </section>
     <section class="panel">
       <h2>Despesas mensais</h2>
-      <p class="desc">Nº de funcionários × salário base = despesa com pessoal daquele mês. As restantes linhas são editáveis diretamente. A última linha mostra o que sobra depois de todas as despesas.</p>
+      <p class="desc">Preenche os custos de cada mês (nº de funcionários × salário base = despesa com pessoal). Por baixo vês o resultado do mês, na ordem do DRE: entradas, saídas e saldo do período. Podes repetir os custos de um mês noutros meses.</p>
+      <div id="repetirCustos" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div style="overflow-x:auto;"><table class="grid-table" id="expensesTable"></table></div>
     </section>
     <section class="panel">
@@ -3572,6 +3573,24 @@ function updateMonthValue(i, val){
   else m.queda = parseFloat(val)||0;
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
+// % → faturamento: o € passa a ser calculado a partir da referência
+function updateMonthPct(i, val){
+  const m = editState.months[i]; if(m.isRef) return;
+  const v = parseFloat(val)||0;
+  m.queda = -v;                         // guardamos como "queda" (positiva = cai)
+  m.modo = 'queda';
+  m.valorEur = getRefRevenue()*(1-m.queda/100);
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+// faturamento → %: a variação passa a ser calculada a partir do valor
+function updateMonthEur(i, val){
+  const m = editState.months[i];
+  m.valorEur = parseFloat(val)||0;
+  m.modo = 'eur';
+  const ref = getRefRevenue();
+  m.queda = (!m.isRef && ref>0) ? (1-m.valorEur/ref)*100 : 0;
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
 function updateMonthMix(i, campo, val){
   editState.months[i][campo] = parseFloat(val)||0;
   renderMonths(); renderExpenses(); computeAndRenderCards();
@@ -3586,17 +3605,14 @@ function renderMonths(){
   let html = '<tr><td class="dia">Mês</td>' + editState.months.map(m=>`<td style="font-weight:700;">${m.mes}</td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Real?</td>' + editState.months.map((m,i)=>`<td><input type="checkbox" ${m.real?'checked':''} onchange="FX.toggleMonthReal(${i},this.checked)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Referência (100%)</td>' + editState.months.map((m,i)=>`<td><input type="radio" name="ref" ${m.isRef?'checked':''} onchange="FX.setReferencia(${i})"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Valor <span style="font-size:9px;">(clique p/ trocar)</span></td>' + editState.months.map((m,i)=>{
-    if(m.isRef) return `<td><input type="number" value="${(m.valorEur||0).toFixed(0)}" style="width:74px;" onchange="FX.updateMonthValue(${i},this.value)"><div style="font-size:9px;color:var(--text-soft);">ref. 100%</div></td>`;
-    return `<td>
-      <div class="row" style="gap:3px;justify-content:center;flex-wrap:nowrap;">
-        <input type="number" value="${(m.modo==='eur'?(m.valorEur||0):(m.queda||0)).toFixed(0)}" style="width:60px;" onchange="FX.updateMonthValue(${i},this.value)">
-        <button class="btn-ghost" style="padding:4px 6px;font-size:10px;" onclick="FX.toggleMonthModo(${i})">${m.modo==='eur'?'€':'%'}</button>
-      </div>
-      <div style="font-size:9px;color:var(--text-soft);">${m.modo==='eur'?'queda: '+(refRevenue>0?((1-(m.valorEur||0)/refRevenue)*100).toFixed(0):'—')+'%':'≈ '+fmtEUR(receitaDoMes(m,refRevenue))}</div>
-    </td>`;
+  // dois campos ligados: ao mexer num, o outro ajusta-se (variação em relação à referência: + sobe, − cai)
+  const varDe = m => refRevenue>0 ? (receitaDoMes(m,refRevenue)/refRevenue - 1)*100 : 0;
+  html += '<tr><td class="dia">Variação vs referência (%) <span style="font-size:9px;">(+ sobe / − cai)</span></td>' + editState.months.map((m,i)=>{
+    if(m.isRef) return '<td style="font-size:10px;color:var(--text-soft);">ref. 100%</td>';
+    return `<td><input type="number" step="0.1" value="${varDe(m).toFixed(1)}" style="width:66px;" onchange="FX.updateMonthPct(${i},this.value)"></td>`;
   }).join('') + '</tr>';
-  html += '<tr><td class="dia">Faturamento do mês</td>' + editState.months.map(m=>`<td style="font-weight:700;">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Faturamento (€) <span style="font-size:9px;">(escreve aqui ou a %)</span></td>' + editState.months.map((m,i)=>
+    `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(0)}" style="width:74px;" onchange="FX.updateMonthEur(${i},this.value)">${m.isRef?'<div style="font-size:9px;color:var(--text-soft);">ref. 100%</div>':''}</td>`).join('') + '</tr>';
   html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Mix do faturamento</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
   html += '<tr><td class="dia">% Almoço</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctAlmoco}" onchange="FX.updateMonthMix(${i},'pctAlmoco',this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">% Delivery</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctDelivery}" onchange="FX.updateMonthMix(${i},'pctDelivery',this.value)"></td>`).join('') + '</tr>';
@@ -3636,22 +3652,54 @@ function fmtEUR(v){ return v.toLocaleString('pt-PT',{style:'currency',currency:'
 function renderExpenses(){
   const t = document.getElementById('expensesTable');
   const c = editState.custos;
-  const refRevenue = getRefRevenue();
-  let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   const usandoReais = c.usarReais !== false && custosReais.disponivel;
   const ig = usandoReais ? ' style="opacity:.4;"' : '';
+  const dre = computeCenario(editState.months, c, custosReais).monthlyDRE;
+  const linha = (rot, vals, estilo) => `<tr><td class="dia"${estilo||''}>${rot}</td>` + vals.map(v=>`<td${estilo||''}>${v}</td>`).join('') + '</tr>';
+  const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
+  let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
+  // 1) o que se preenche
+  html += secao('CUSTOS A PREENCHER');
   html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
-  html += `<tr${ig}><td class="dia" style="color:var(--text-soft);font-weight:400;">→ Despesas com Pessoal</td>` + c.pessoalCount.map(n=>`<td style="color:var(--text-soft);">${fmtEUR(n*c.salarioBase)}</td>`).join('') + '</tr>';
-  html += `<tr${ig}><td class="dia">Despesas Administrativas</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
-  html += `<tr${ig}><td class="dia">Despesas Financeiras</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (sócios)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia" style="padding-top:12px;color:var(--text-soft);font-size:11px;">Faturamento do mês</td>' + editState.months.map(m=>`<td style="font-size:11px;color:var(--text-soft);">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
-  const dreAtual = computeCenario(editState.months, c, custosReais).monthlyDRE;
-  html += '<tr><td class="dia" style="font-weight:700;">Sobra do mês <span style="font-size:9px;font-weight:400;">(fat. − despesas)</span></td>' + dreAtual.map(d=>{
-    const sobra = d.resultadoLiquido;
-    return `<td style="font-weight:700;${sobra<0?'color:var(--danger);':'color:var(--ok);'}">${fmtEUR(sobra)}</td>`;
-  }).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia">Despesas Administrativas (€)</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia">Despesas Financeiras (€)</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
+  // 2) o resultado do mês, na ordem do DRE
+  const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
+  const totEntradas = dre.map(d=>d.receita);
+  const totSaidas = dre.map(d=>d.despPessoal + d.despAdmin + d.cmvValor + d.despFinanceiras + d.impostosValor + d.despDistribuicao);
+  html += secao('ENTRADAS');
+  html += linha('Vendas (faturamento)', dre.map(d=>fmtEUR(d.receita)));
+  html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
+  html += secao('SAÍDAS');
+  html += linha('Despesas com Pessoal', dre.map(d=>fmtEUR(d.despPessoal)));
+  html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
+  html += linha(`CMV — Custos de Mercadoria Vendida (${c.cmv}%)`, dre.map(d=>fmtEUR(d.cmvValor)));
+  html += linha('Despesas Financeiras', dre.map(d=>fmtEUR(d.despFinanceiras)));
+  if(c.impostos) html += linha(`Impostos e taxas (${c.impostos}%)`, dre.map(d=>fmtEUR(d.impostosValor)));
+  html += linha('Distribuição de Lucros', dre.map(d=>fmtEUR(d.despDistribuicao)));
+  html += linha('<b>Total de saídas</b>', totSaidas.map(v=>`<b>${fmtEUR(v)}</b>`));
+  html += linha('<b>Saldo do período</b>', totEntradas.map((v,i)=>{ const s = v - totSaidas[i]; return `<b style="${ok(s)}">${fmtEUR(s)}</b>`; }));
   t.innerHTML = html;
+  // repetir os custos de um mês noutros meses
+  const box = document.getElementById('repetirCustos');
+  if(box){
+    box.innerHTML = `<span style="font-size:12px;color:var(--text-soft);">Repetir os custos do mês</span>
+      <select id="repOrigem">${MESES.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}</select>
+      <span style="font-size:12px;color:var(--text-soft);">em</span>
+      <select id="repDestino"><option value="seguintes">os meses seguintes</option><option value="todos">todos os outros meses</option></select>
+      <button class="btn-ghost" onclick="FX.repetirCustos()">Repetir</button>`;
+  }
+}
+// copia nº de funcionários, administrativas, financeiras e distribuição do mês escolhido
+async function repetirCustos(){
+  const o = parseInt(document.getElementById('repOrigem').value, 10), alvo = document.getElementById('repDestino').value;
+  const c = editState.custos;
+  const destinos = MESES.map((_,i)=>i).filter(i => i !== o && (alvo === 'todos' || i > o));
+  if(!destinos.length) return;
+  if(!(await showConfirm(`Copiar os custos de ${MESES[o]} (${c.pessoalCount[o]} funcionários, administrativas ${fmtEUR(c.admin[o])}, financeiras ${fmtEUR(c.financeiras[o])}, distribuição ${fmtEUR(c.distribuicao[o])}) para ${destinos.length} mês(es)?`))) return;
+  destinos.forEach(i => { ['pessoalCount','admin','financeiras','distribuicao'].forEach(k => { c[k][i] = c[k][o]; }); });
+  renderExpenses(); computeAndRenderCards();
 }
 function updateExpense(campo, i, val){
   editState.custos[campo][i] = parseFloat(val)||0;
@@ -4227,7 +4275,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, repetirCustos, updateMonthPct, updateMonthEur, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
