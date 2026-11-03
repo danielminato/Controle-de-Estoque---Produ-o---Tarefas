@@ -781,7 +781,7 @@
       <p class="desc">CMV e impostos são taxas proporcionais à receita (o CMV de cada mês afina-se em "Despesas mensais"). Os tickets e os giros por dia da semana estão em "Resumo dos dias".</p>
       <div class="params-grid">
         <div><label>CMV padrão (% receita, aplica a todos os meses)</label><input type="number" id="cmv" step="0.5"></div>
-        <div><label>Impostos e taxas (% receita)</label><input type="number" id="impostos" step="0.5"></div>
+        <div><label>Impostos e taxas (% receita)</label><input type="number" id="impostos" step="0.5"><div class="desc" id="impostosDica" style="margin:4px 0 0;"></div></div>
         <div><label>Salário base por funcionário (€/mês)</label><input type="number" id="salarioBase" step="50"></div>
         <div style="display:none;"><label>Ticket médio Almoço (€)</label><input type="number" id="ticketAlmoco" step="0.5"></div>
         <div style="display:none;"><label>Ticket médio Delivery (€)</label><input type="number" id="ticketDelivery" step="0.5"></div>
@@ -3380,7 +3380,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais()]); renderComparacaoLista(); showView('list'); }
+  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
   function invalidarEscalas(){ escLoaded = false; }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -3583,6 +3583,7 @@ function newScenario(){
   editingId = null;
   editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
   editState.perfil = defaultPerfil(editState.months);
+  if(ivaLiquidoReal != null) editState.custos.impostos = Math.round(ivaLiquidoReal * 10) / 10;
   document.getElementById('cenNome').value = '';
   loadCustosToForm(editState.custos);
   renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
@@ -3603,6 +3604,7 @@ function editScenario(id){
   showView('editor');
 }
 function loadCustosToForm(c){
+  atualizarDicaImpostos();
   document.getElementById('cmv').value = c.cmv;
   document.getElementById('impostos').value = c.impostos;
   document.getElementById('salarioBase').value = c.salarioBase;
@@ -3610,6 +3612,15 @@ function loadCustosToForm(c){
   document.getElementById('ticketDelivery').value = c.ticketDelivery;
   document.getElementById('ticketJantar').value = c.ticketJantar;
   document.getElementById('cenUsarReais').checked = c.usarReais !== false;
+}
+function atualizarDicaImpostos(){
+  const el = document.getElementById('impostosDica'); if(!el) return;
+  el.innerHTML = ivaLiquidoReal == null ? '' : `IVA líquido real (Controle de IVA, IVA − crédito ÷ faturado): <b>${ivaLiquidoReal.toFixed(1).replace('.', ',')}%</b> · <a href="#" onclick="FX.usarIvaLiquido();return false;">usar</a>`;
+}
+function usarIvaLiquido(){
+  if(ivaLiquidoReal == null) return;
+  document.getElementById('impostos').value = (Math.round(ivaLiquidoReal * 10) / 10);
+  readCustosFromForm(); renderExpenses(); computeAndRenderCards();
 }
 function readCustosFromForm(){
   editState.custos.usarReais = document.getElementById('cenUsarReais').checked;
@@ -3846,6 +3857,18 @@ function computeAndRenderCards(){
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
 let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
+let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
+async function carregarIvaLiquido(){
+  ivaLiquidoReal = null;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/controle_iva?select=faturado_sistema,faturado_fora,iva,credito&ano=eq.${new Date().getFullYear()}`, { headers: sbHeadersFn() });
+    if(!res.ok) return;
+    const linhas = await res.json();
+    const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
+    const liq = linhas.reduce((s,r)=>s + (Number(r.iva)||0) - (Number(r.credito)||0), 0);
+    if(fat > 0) ivaLiquidoReal = liq / fat * 100;
+  }catch(e){ ivaLiquidoReal = null; }
+}
 async function carregarCustosReais(){
   const vazio = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
   try{
@@ -4369,7 +4392,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
