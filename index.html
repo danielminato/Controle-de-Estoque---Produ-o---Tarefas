@@ -3615,10 +3615,10 @@ function renderMonths(){
   const varDe = m => refRevenue>0 ? (receitaDoMes(m,refRevenue)/refRevenue - 1)*100 : 0;
   html += '<tr><td class="dia">Variação vs referência (%) <span style="font-size:9px;">(+ sobe / − cai)</span></td>' + editState.months.map((m,i)=>{
     if(m.mes===refMes) return '<td style="font-size:10px;color:var(--text-soft);">ref. 100%</td>';
-    return `<td><input type="number" step="0.1" value="${varDe(m).toFixed(1)}" style="width:66px;" onchange="FX.updateMonthPct(${i},this.value)"></td>`;
+    return `<td><input type="number" step="0.1" value="${varDe(m).toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthPct(${i},this.value)"></td>`;
   }).join('') + '</tr>';
   html += '<tr><td class="dia">Faturamento (€) <span style="font-size:9px;">(escreve aqui ou a %)</span></td>' + editState.months.map((m,i)=>
-    `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(0)}" style="width:74px;" onchange="FX.updateMonthEur(${i},this.value)">${m.mes===refMes?'<div style="font-size:9px;color:var(--text-soft);">ref. 100%</div>':''}</td>`).join('') + '</tr>';
+    `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(0)}" style="width:92px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthEur(${i},this.value)">${m.mes===refMes?'<div style="font-size:9px;color:var(--text-soft);">ref. 100%</div>':''}</td>`).join('') + '</tr>';
   html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Mix do faturamento</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
   html += '<tr><td class="dia">% Almoço</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctAlmoco}" onchange="FX.updateMonthMix(${i},'pctAlmoco',this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">% Delivery</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctDelivery}" onchange="FX.updateMonthMix(${i},'pctDelivery',this.value)"></td>`).join('') + '</tr>';
