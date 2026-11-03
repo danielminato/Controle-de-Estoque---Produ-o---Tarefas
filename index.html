@@ -767,9 +767,9 @@
       <input type="text" id="cenNome" style="max-width:400px;" placeholder="Ex: Base 2026-2027">
     </section>
     <section class="panel">
-      <h2>Dias e turnos abertos</h2>
-      <p class="desc">Informativo — quais dias/turnos a operação funciona. Já não define o faturamento (isso vem do painel "Sazonalidade mensal" abaixo).</p>
-      <table class="grid-table" id="daysTable"></table>
+      <h2>Resumo dos dias</h2>
+      <p class="desc">Ticket médio por dia da semana, cadeiras e giros (quantas vezes a casa enche em cada serviço). Os giros vêm calculados a partir do faturamento do melhor mês, com o almoço a pesar cerca de 20%; podes mexer em qualquer valor.</p>
+      <div id="perfilDias"></div>
     </section>
     <section class="panel">
       <h2>Sazonalidade mensal</h2>
@@ -780,7 +780,7 @@
       <h2>Estrutura de custos</h2>
       <p class="desc">CMV e impostos são taxas proporcionais à receita. Os 3 tickets médios são globais (usados em todos os meses) e convertem o mix de faturamento em nº de clientes/pedidos.</p>
       <div class="params-grid">
-        <div><label>CMV (% receita)</label><input type="number" id="cmv" step="0.5"></div>
+        <div><label>CMV padrão (% receita, aplica a todos os meses)</label><input type="number" id="cmv" step="0.5"></div>
         <div><label>Impostos e taxas (% receita)</label><input type="number" id="impostos" step="0.5"></div>
         <div><label>Salário base por funcionário (€/mês)</label><input type="number" id="salarioBase" step="50"></div>
         <div><label>Ticket médio Almoço (€)</label><input type="number" id="ticketAlmoco" step="0.5"></div>
@@ -3413,7 +3413,7 @@ function defaultSazonalidade(){
 }
 function defaultCustos(){
   return {
-    cmv:30, impostos:20, salarioBase:1200, usarReais:true,
+    cmv:25, cmvMes: Array(12).fill(25), impostos:20, salarioBase:1200, usarReais:true,
     ticketAlmoco:24, ticketDelivery:24, ticketJantar:24,
     pessoalCount: Array(12).fill(7),
     admin: Array(12).fill(600),
@@ -3424,11 +3424,12 @@ function defaultCustos(){
 // Migra cenários antigos (custos em formato plano) para o novo modelo de 12 colunas
 function migrarCustos(c){
   if(!c) return defaultCustos();
-  if(Array.isArray(c.pessoalCount) && c.ticketAlmoco!==undefined) return c; // já está no formato mais novo
+  if(Array.isArray(c.pessoalCount) && c.ticketAlmoco!==undefined){ if(!Array.isArray(c.cmvMes)) c.cmvMes = Array(12).fill(c.cmv ?? 30); return c; } // já está no formato mais novo
   const salarioBase = c.salarioBase || 1200;
   const nFunc = Array.isArray(c.pessoalCount) ? c.pessoalCount : Array(12).fill(Math.round((c.pessoalFixo || 4500) / salarioBase) || 4);
   return {
     cmv: c.cmv ?? 30,
+    cmvMes: Array.isArray(c.cmvMes) ? c.cmvMes : Array(12).fill(c.cmv ?? 30),
     impostos: c.impostos ?? 20,
     salarioBase,
     ticketAlmoco: c.ticketAlmoco ?? 24,
@@ -3485,11 +3486,103 @@ async function deleteScenario(id){
   await loadScenarios();
 }
 
+/* ---- Resumo dos dias: ticket, cadeiras e giros por dia da semana ---- */
+// A proporção entre os dias da semana vem do ticket × giros que se escreve; o total de cada mês continua a ser o
+// faturamento do mês (realizado ou projetado), só repartido pelos dias.
+const PESOS_DIA_PADRAO = [30,30,30,30,50,50,50];   // seg–qui fracos, sex–dom fortes (a mesma previsão do Impasto)
+let perfilVista = 'eur';
+function diasDoMes(mi, ano){
+  const n = Array(7).fill(0), total = new Date(ano, mi + 1, 0).getDate();
+  for(let d = 1; d <= total; d++) n[(new Date(ano, mi, d).getDay() + 6) % 7]++;
+  return n;
+}
+// giros por dia no melhor mês, a partir do faturamento dele e dos pesos dos dias
+function girosDeReferencia(months, ticket, seats, almocoPct){
+  const R = refDe(months), mi = R.mes ? MESES.indexOf(R.mes) : 7;
+  const n = diasDoMes(mi, new Date().getFullYear());
+  const soma = PESOS_DIA_PADRAO.reduce((a,w,i)=>a + w*n[i], 0);
+  const gTot = PESOS_DIA_PADRAO.map((w,i)=> R.valor > 0 && soma > 0 && ticket[i] > 0 && seats > 0 ? R.valor * w / soma / ticket[i] / seats : 0);
+  return { giroAlm: gTot.map(g=>+(g*almocoPct/100).toFixed(2)), giroJan: gTot.map(g=>+(g*(100-almocoPct)/100).toFixed(2)) };
+}
+function defaultPerfil(months){
+  const ticket = Array(7).fill(24), cadDentro = 14, cadFora = 8, almocoPct = 20;
+  return { ticket, cadDentro, cadFora, almocoPct, ...girosDeReferencia(months, ticket, cadDentro + cadFora, almocoPct) };
+}
+// cenários antigos não têm resumo dos dias: nascem com os valores calculados
+function migrarPerfil(p, months){
+  if(!p || !Array.isArray(p.ticket) || !Array.isArray(p.giroAlm) || !Array.isArray(p.giroJan)) return defaultPerfil(months);
+  return p;
+}
+function perfilMatriz(){
+  const p = editState.perfil, seats = (p.cadDentro||0) + (p.cadFora||0), ano = new Date().getFullYear();
+  const refRev = getRefRevenue();
+  const w = p.ticket.map((tk,i)=> (tk||0) * ((p.giroAlm[i]||0) + (p.giroJan[i]||0)) * seats);
+  return editState.months.map((m, mi)=>{
+    const R = receitaDoMes(m, refRev), n = diasDoMes(mi, ano);
+    const denom = w.reduce((a,x,i)=>a + x*n[i], 0);
+    const dias = w.map((x,i)=>{
+      const eur = denom > 0 ? R * x / denom : 0;
+      const clientes = p.ticket[i] > 0 ? eur / p.ticket[i] : 0;
+      const giros = seats > 0 ? clientes / seats : 0;
+      const gt = (p.giroAlm[i]||0) + (p.giroJan[i]||0), fa = gt > 0 ? (p.giroAlm[i]||0) / gt : 0;
+      return { eur, clientes, giros, girosAlm: giros * fa, girosJan: giros * (1 - fa) };
+    });
+    const nDias = n.reduce((a,b)=>a+b, 0);
+    return { mes: MESES[mi], R, dias, mediaDia: nDias ? R / nDias : 0 };
+  });
+}
+function renderPerfil(){
+  const box = document.getElementById('perfilDias');
+  if(!box) return;
+  const p = editState.perfil, seats = (p.cadDentro||0) + (p.cadFora||0);
+  const f1 = v => (v||0).toLocaleString('pt-PT', {minimumFractionDigits:1, maximumFractionDigits:1});
+  const f2 = v => (v||0).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const inp = (campo, i, w, step) => `<td><input type="number" min="0" step="${step}" value="${p[campo][i]}" style="width:${w}px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updatePerfil('${campo}',${i},this.value)"></td>`;
+  let html = `<div class="params-grid" style="margin-bottom:12px;">
+      <div><label>Cadeiras dentro</label><input type="number" min="0" value="${p.cadDentro}" onchange="FX.updatePerfilGeral('cadDentro',this.value)"></div>
+      <div><label>Cadeiras fora</label><input type="number" min="0" value="${p.cadFora}" onchange="FX.updatePerfilGeral('cadFora',this.value)"></div>
+      <div><label>Total de cadeiras (1 giro = casa cheia)</label><input type="number" value="${seats}" disabled></div>
+      <div><label>Almoço pesa (% do faturamento)</label><input type="number" min="0" max="100" value="${p.almocoPct}" onchange="FX.updatePerfilGeral('almocoPct',this.value)"></div>
+    </div>`;
+  html += `<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia"></td>${DIAS_CURTO.map(d=>`<td style="font-weight:700;">${d}</td>`).join('')}</tr>
+    <tr><td class="dia">Ticket médio (€)</td>${p.ticket.map((_,i)=>inp('ticket',i,76,0.5)).join('')}</tr>
+    <tr><td class="dia">Giros almoço<div style="font-size:9px;font-weight:400;color:var(--text-soft);">no melhor mês</div></td>${p.giroAlm.map((_,i)=>inp('giroAlm',i,76,0.05)).join('')}</tr>
+    <tr><td class="dia">Giros jantar<div style="font-size:9px;font-weight:400;color:var(--text-soft);">no melhor mês</div></td>${p.giroJan.map((_,i)=>inp('giroJan',i,76,0.05)).join('')}</tr>
+    <tr><td class="dia">Total de giros</td>${p.giroAlm.map((_,i)=>`<td style="font-weight:700;">${f2((p.giroAlm[i]||0)+(p.giroJan[i]||0))}</td>`).join('')}</tr></table></div>
+    <div style="margin:8px 0 14px;"><button class="btn-ghost" onclick="FX.recalcPerfil()">Recalcular os giros pelo faturamento do melhor mês (almoço ${p.almocoPct}%)</button></div>`;
+  // tabela meses × dias da semana
+  const M = perfilMatriz();
+  const vistas = [['eur','Faturamento por dia (€)'],['clientes','Clientes por dia'],['giros','Giros por dia']];
+  html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">${vistas.map(([k,r])=>`<button class="${perfilVista===k?'btn-primary':'btn-ghost'}" onclick="FX.setPerfilVista('${k}')">${r}</button>`).join('')}</div>`;
+  html += `<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Mês</td>${DIAS_CURTO.map(d=>`<td style="font-weight:700;">${d}</td>`).join('')}<td style="font-weight:700;">Média/dia</td></tr>`;
+  M.forEach(r=>{
+    const celula = d => {
+      if(perfilVista === 'eur') return fmtEUR(d.eur);
+      if(perfilVista === 'clientes') return Math.round(d.clientes).toLocaleString('pt-PT');
+      const cheio = d.girosJan > 2.5 ? 'color:var(--danger);font-weight:700;' : '';
+      return `<span style="${cheio}">${f1(d.giros)}</span><div style="font-size:9px;color:var(--text-soft);">A ${f1(d.girosAlm)} · J ${f1(d.girosJan)}</div>`;
+    };
+    html += `<tr><td class="dia">${r.mes}</td>${r.dias.map(d=>`<td>${r.R > 0 ? celula(d) : '—'}</td>`).join('')}<td style="font-weight:700;">${r.R > 0 ? fmtEUR(r.mediaDia) : '—'}</td></tr>`;
+  });
+  html += '</table></div><p class="desc" style="margin:8px 0 0;">Cada mês usa o faturamento da tabela "Sazonalidade mensal" e reparte-o pelos dias com a proporção ticket × giros acima. Giros = clientes ÷ cadeiras; A = almoço, J = jantar. Em vermelho: mais de 2,5 giros ao jantar (casa muito cheia).</p>';
+  box.innerHTML = html;
+}
+function updatePerfil(campo, i, val){ editState.perfil[campo][i] = parseFloat(val)||0; renderPerfil(); }
+function updatePerfilGeral(campo, val){ editState.perfil[campo] = campo === 'almocoPct' ? Math.min(100, Math.max(0, parseFloat(val)||0)) : Math.max(0, parseFloat(val)||0); renderPerfil(); }
+function recalcPerfil(){
+  const p = editState.perfil, g = girosDeReferencia(editState.months, p.ticket, (p.cadDentro||0) + (p.cadFora||0), p.almocoPct);
+  p.giroAlm = g.giroAlm; p.giroJan = g.giroJan;
+  renderPerfil();
+}
+function setPerfilVista(v){ perfilVista = v; renderPerfil(); }
+
 /* ================= CENÁRIOS: EDITOR ================= */
 let editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
+editState.perfil = defaultPerfil(editState.months);
 function newScenario(){
   editingId = null;
   editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
+  editState.perfil = defaultPerfil(editState.months);
   document.getElementById('cenNome').value = '';
   loadCustosToForm(editState.custos);
   renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
@@ -3503,6 +3596,7 @@ function editScenario(id){
     months: migrarSazonalidade(c.sazonalidade),
     custos: migrarCustos(c.custos)
   };
+  editState.perfil = migrarPerfil(c.dias_turnos?.perfil, editState.months);
   document.getElementById('cenNome').value = c.nome;
   loadCustosToForm(editState.custos);
   renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
@@ -3527,7 +3621,7 @@ function readCustosFromForm(){
   editState.custos.ticketJantar = parseFloat(document.getElementById('ticketJantar').value)||0;
   return editState.custos;
 }
-function renderDays(){
+function renderDays(){ renderPerfil(); return;
   const t = document.getElementById('daysTable');
   let html = '<tr><th style="text-align:left">Dia</th><th colspan="3">Almoço</th><th colspan="3">Jantar</th></tr>';
   html += '<tr><th></th><th>Aberto</th><th>Clientes</th><th>Ticket €</th><th>Aberto</th><th>Clientes</th><th>Ticket €</th></tr>';
@@ -3559,7 +3653,6 @@ function setReferencia(i){
   editState.months.forEach((m,idx)=>{ m.isRef = (idx===i); if(idx===i){ m.modo='eur'; m.queda=0; if(!m.valorEur) m.valorEur=0; } });
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
-function toggleMonthReal(i, val){ editState.months[i].real = val; renderMonths(); renderExpenses(); computeAndRenderCards(); }
 function toggleMonthModo(i){
   const m = editState.months[i];
   if(m.isRef) return; // a referência é sempre em €
@@ -3604,48 +3697,34 @@ function updateMonthMix(i, campo, val){
 function renderMonths(){
   const t = document.getElementById('monthsTable');
   const R = refDe(editState.months), refRevenue = R.valor, refMes = R.mes;
-  const ticketA = parseFloat(document.getElementById('ticketAlmoco')?.value)||0;
-  const ticketD = parseFloat(document.getElementById('ticketDelivery')?.value)||0;
-  const ticketJ = parseFloat(document.getElementById('ticketJantar')?.value)||0;
-
-  let html = '<tr><td class="dia">Mês</td>' + editState.months.map(m=>`<td style="font-weight:700;">${m.mes}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Real? <span style="font-size:9px;">(conta para a referência)</span></td>' + editState.months.map((m,i)=>`<td><input type="checkbox" ${m.real?'checked':''} onchange="FX.toggleMonthReal(${i},this.checked)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Referência <span style="font-size:9px;">(melhor faturamento do ano, automático)</span></td>' + editState.months.map(()=>`<td><input type="text" readonly value="${refRevenue>0 ? fmtEUR(refRevenue)+" · "+refMes : "—"}" style="width:96px;font-size:10px;text-align:center;background:#f4f6fa;"></td>`).join('') + '</tr>';
-  // dois campos ligados: ao mexer num, o outro ajusta-se (variação em relação à referência: + sobe, − cai)
-  const varDe = m => refRevenue>0 ? (receitaDoMes(m,refRevenue)/refRevenue - 1)*100 : 0;
-  html += '<tr><td class="dia">Variação vs referência (%) <span style="font-size:9px;">(+ sobe / − cai)</span></td>' + editState.months.map((m,i)=>{
-    if(m.mes===refMes) return '<td style="font-size:10px;color:var(--text-soft);">ref. 100%</td>';
-    return `<td><input type="number" step="0.1" value="${varDe(m).toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthPct(${i},this.value)"></td>`;
-  }).join('') + '</tr>';
-  html += '<tr><td class="dia">Faturamento (€) <span style="font-size:9px;">(escreve aqui ou a %)</span></td>' + editState.months.map((m,i)=>
-    `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(0)}" style="width:92px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthEur(${i},this.value)">${m.mes===refMes?'<div style="font-size:9px;color:var(--text-soft);">ref. 100%</div>':''}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Mix do faturamento</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
-  html += '<tr><td class="dia">% Almoço</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctAlmoco}" onchange="FX.updateMonthMix(${i},'pctAlmoco',this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">% Delivery</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctDelivery}" onchange="FX.updateMonthMix(${i},'pctDelivery',this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">% Jantar</td>' + editState.months.map((m,i)=>`<td><input type="number" min="0" max="100" value="${m.pctJantar}" onchange="FX.updateMonthMix(${i},'pctJantar',this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia" style="font-size:10px;color:var(--text-soft);">Soma (deve ser 100%)</td>' + editState.months.map(m=>{
-    const soma = m.pctAlmoco+m.pctDelivery+m.pctJantar;
-    return `<td style="font-size:10px;color:${Math.round(soma)!==100?'var(--danger)':'var(--ok)'};">${soma.toFixed(0)}%</td>`;
-  }).join('') + '</tr>';
-  html += '<tr><td class="dia" style="padding-top:14px;color:var(--olive-dark);font-weight:700;">Público estimado (nº/mês)</td>' + editState.months.map(()=>'<td></td>').join('') + '</tr>';
-  html += '<tr><td class="dia">Público Almoço</td>' + editState.months.map(m=>{
-    const receita = receitaDoMes(m,refRevenue);
-    const publico = ticketA>0 ? (receita*m.pctAlmoco/100)/ticketA : 0;
-    return `<td>${publico.toFixed(0)}</td>`;
-  }).join('') + '</tr>';
-  html += '<tr><td class="dia">Público Delivery</td>' + editState.months.map(m=>{
-    const receita = receitaDoMes(m,refRevenue);
-    const publico = ticketD>0 ? (receita*m.pctDelivery/100)/ticketD : 0;
-    return `<td>${publico.toFixed(0)}</td>`;
-  }).join('') + '</tr>';
-  html += '<tr><td class="dia">Público Jantar</td>' + editState.months.map(m=>{
-    const receita = receitaDoMes(m,refRevenue);
-    const publico = ticketJ>0 ? (receita*m.pctJantar/100)/ticketJ : 0;
-    return `<td>${publico.toFixed(0)}</td>`;
+  const fmtPct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
+  const diff = m => refRevenue > 0 ? (receitaDoMes(m, refRevenue) / refRevenue - 1) * 100 : 0;
+  // 1) os meses (o botão troca entre realizado e projeção)
+  let html = '<tr><td class="dia">Mês</td>' + editState.months.map((m,i)=>`<td style="font-weight:700;">${m.mes}<div><button class="btn-ghost" style="padding:2px 6px;font-size:9px;margin-top:3px;${m.real?'':'color:var(--primary);'}" title="Clique para trocar entre realizado e projeção" onclick="FX.toggleMonthReal(${i})">${m.real ? 'realizado' : 'projeção'}</button></div></td>`).join('') + '</tr>';
+  // 2) faturamento: realizado = escreve-se em €; projeção = calculado a partir da diferença
+  html += '<tr><td class="dia">Faturamento (€)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">realizado: escreve · projeção: calculado</div></td>' + editState.months.map((m,i)=>
+    m.real
+      ? `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(2)}" step="0.01" style="width:96px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthEur(${i},this.value)"></td>`
+      : `<td style="font-weight:700;">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
+  // 3) diferença para o melhor mês do ano (que a app descobre sozinha)
+  html += `<tr><td class="dia">Diferença vs melhor mês (%)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">− cai · + sobe${refMes ? ' · melhor mês: ' + fmtEUR(refRevenue) + ' (' + refMes + ')' : ''}</div></td>` + editState.months.map((m,i)=>{
+    if(m.real){
+      if(m.mes === refMes) return '<td style="font-size:11px;color:var(--ok);font-weight:700;">melhor mês</td>';
+      const d = diff(m);
+      return `<td style="color:${d<0?'var(--danger)':'var(--ok)'};">${fmtPct(d)}</td>`;
+    }
+    return `<td><input type="number" step="0.1" value="${diff(m).toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthPct(${i},this.value)"><div style="font-size:9px;color:var(--text-soft);">vs ${refMes ? fmtEUR(refRevenue) + ' (' + refMes + ')' : '—'}</div></td>`;
   }).join('') + '</tr>';
   t.innerHTML = html;
 }
-document.getElementById('cmv').addEventListener('change', computeAndRenderCards);
+// trocar um mês entre realizado (€ escrito) e projeção (% escrita), mantendo o valor atual
+function toggleMonthReal(i){
+  const m = editState.months[i], ref = getRefRevenue(), v = receitaDoMes(m, ref);
+  if(m.real){ m.real = false; m.modo = 'queda'; m.queda = ref > 0 ? (1 - v/ref) * 100 : 0; }
+  else { m.real = true; m.modo = 'eur'; m.valorEur = v; }
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+document.getElementById('cmv').addEventListener('change', ()=>{ const v = parseFloat(document.getElementById('cmv').value)||0; editState.custos.cmv = v; editState.custos.cmvMes = Array(12).fill(v); renderExpenses(); computeAndRenderCards(); });
 document.getElementById('impostos').addEventListener('change', computeAndRenderCards);
 document.getElementById('salarioBase').addEventListener('change', ()=>{ readCustosFromForm(); renderExpenses(); computeAndRenderCards(); });
 ['ticketAlmoco','ticketDelivery','ticketJantar'].forEach(id=>{
@@ -3665,11 +3744,12 @@ function renderExpenses(){
   const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
   let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   // 1) o que se preenche
-  html += secao('CUSTOS A PREENCHER');
+  html += secao('CUSTOS A PREENCHER (por mês)');
   html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Administrativas (€)</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">CMV (% do faturamento)</td>' + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
@@ -3680,12 +3760,19 @@ function renderExpenses(){
   html += secao('SAÍDAS');
   html += linha('Despesas com Pessoal', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
-  html += linha(`CMV — Custos de Mercadoria Vendida (${c.cmv}%)`, dre.map(d=>fmtEUR(d.cmvValor)));
+  html += linha('CMV — Custos de Mercadoria Vendida', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${d.cmvPct}%</div>`));
   html += linha('Despesas Financeiras', dre.map(d=>fmtEUR(d.despFinanceiras)));
   if(c.impostos) html += linha(`Impostos e taxas (${c.impostos}%)`, dre.map(d=>fmtEUR(d.impostosValor)));
   html += linha('Distribuição de Lucros', dre.map(d=>fmtEUR(d.despDistribuicao)));
   html += linha('<b>Total de saídas</b>', totSaidas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += linha('<b>Saldo do período</b>', totEntradas.map((v,i)=>{ const s = v - totSaidas[i]; return `<b style="${ok(s)}">${fmtEUR(s)}</b>`; }));
+  // 3) o mês paga-se ou não?
+  html += secao('O MÊS SE PAGA?');
+  const temFat = dre.some(d=>d.receita > 0);
+  const minimo = d => { const den = 1 - (d.cmvPct + c.impostos)/100; return den > 0 ? (d.despPessoal + d.despAdmin + d.despFinanceiras)/den : null; };
+  html += linha('Faturamento mínimo (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
+  html += linha('<b>Se paga?</b> (antes da distribuição)', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoAntesDistribuicao >= 0; return `<b style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</b><div style="font-size:9px;color:var(--text-soft);">${s?'sobra ':'falta '}${fmtEUR(Math.abs(d.resultadoAntesDistribuicao))}</div>`; }));
+  html += linha('Depois da distribuição de lucros?', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoLiquido >= 0; return `<span style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</span>`; }));
   t.innerHTML = html;
   // repetir os custos de um mês noutros meses
   const box = document.getElementById('repetirCustos');
@@ -3697,14 +3784,14 @@ function renderExpenses(){
       <button class="btn-ghost" onclick="FX.repetirCustos()">Repetir</button>`;
   }
 }
-// copia nº de funcionários, administrativas, financeiras e distribuição do mês escolhido
+// copia nº de funcionários, administrativas, financeiras, distribuição e CMV do mês escolhido
 async function repetirCustos(){
   const o = parseInt(document.getElementById('repOrigem').value, 10), alvo = document.getElementById('repDestino').value;
   const c = editState.custos;
   const destinos = MESES.map((_,i)=>i).filter(i => i !== o && (alvo === 'todos' || i > o));
   if(!destinos.length) return;
-  if(!(await showConfirm(`Copiar os custos de ${MESES[o]} (${c.pessoalCount[o]} funcionários, administrativas ${fmtEUR(c.admin[o])}, financeiras ${fmtEUR(c.financeiras[o])}, distribuição ${fmtEUR(c.distribuicao[o])}) para ${destinos.length} mês(es)?`))) return;
-  destinos.forEach(i => { ['pessoalCount','admin','financeiras','distribuicao'].forEach(k => { c[k][i] = c[k][o]; }); });
+  if(!(await showConfirm(`Copiar os custos de ${MESES[o]} (${c.pessoalCount[o]} funcionários, administrativas ${fmtEUR(c.admin[o])}, financeiras ${fmtEUR(c.financeiras[o])}, distribuição ${fmtEUR(c.distribuicao[o])}, CMV ${c.cmvMes[o]}%) para ${destinos.length} mês(es)?`))) return;
+  destinos.forEach(i => { ['pessoalCount','admin','financeiras','distribuicao','cmvMes'].forEach(k => { c[k][i] = c[k][o]; }); });
   renderExpenses(); computeAndRenderCards();
 }
 function updateExpense(campo, i, val){
@@ -3719,7 +3806,8 @@ function computeCenario(months, custos, reais){
   MESES.forEach((mes,i)=>{
     const m = months[i];
     const receita = m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
-    const cmvValor = receita * (custos.cmv/100);
+    const cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
+    const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
     const despPessoal = usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
@@ -3737,7 +3825,7 @@ function computeCenario(months, custos, reais){
     const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despAdmin - despFinanceiras) - impostosCash;
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
-    monthlyDRE.push({ mes, receita, cmvValor, lucroBruto, despPessoal, despAdmin, totalOperacionais, resultadoOperacional,
+    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despAdmin, totalOperacionais, resultadoOperacional,
       impostosValor, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
@@ -3753,7 +3841,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r);
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil();
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
@@ -3847,11 +3935,11 @@ function renderProjecao(r){
       : `<b>Se paga em ${s.n} de 12 meses.</b> Não se paga em: ${nao.join(', ')}. Pior mês: ${MESES[s.piorI]} (${fmtEUR(s.pior.resultadoAntesDistribuicao)}).`;
   }
   document.getElementById('projecaoGrafico').innerHTML = svgProjecao(dre);
-  const den = 1 - (editState.custos.cmv + editState.custos.impostos)/100;
+  const denDe = d => 1 - (d.cmvPct + editState.custos.impostos)/100;
   const linha = (rotulo, f, extra) => `<tr><td class="dia"${extra||''}>${rotulo}</td>` + dre.map((d,i)=>f(d,i)).join('') + '</tr>';
   let html = '<tr><td class="dia"></td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   html += linha('Faturamento do cenário', d=>`<td>${fmtEUR(d.receita)}</td>`);
-  html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${den>0 ? fmtEUR((d.despPessoal+d.despAdmin+d.despFinanceiras)/den) : '—'}</td>`);
+  html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${denDe(d)>0 ? fmtEUR((d.despPessoal+d.despAdmin+d.despFinanceiras)/denDe(d)) : '—'}</td>`);
   html += linha('Sobra / falta', d=>`<td style="font-weight:700;color:${d.resultadoAntesDistribuicao<0?'var(--danger)':'var(--ok)'};">${fmtEUR(d.resultadoAntesDistribuicao)}</td>`, ' style="font-weight:700;"');
   html += linha('Se paga?', (d,i)=>`<td style="font-weight:700;color:${s.meses[i]?'var(--ok)':'var(--danger)'};">${r.annualRevenue>0 ? (s.meses[i]?'✔':'✖') : '—'}</td>`);
   html += linha('Depois do pró-labore', d=>`<td style="color:${d.resultadoLiquido<0?'var(--danger)':'var(--text-soft)'};">${fmtEUR(d.resultadoLiquido)}</td>`);
@@ -3903,7 +3991,7 @@ async function saveScenario(){
   const nome = document.getElementById('cenNome').value.trim();
   const statusEl = document.getElementById('editorStatus');
   if(!nome){ statusEl.textContent = 'Dê um nome ao cenário antes de guardar.'; return; }
-  const payload = { nome, dias_turnos:{days:editState.days}, sazonalidade:editState.months, custos:readCustosFromForm(), atualizado_em:new Date().toISOString() };
+  const payload = { nome, dias_turnos:{days:editState.days, perfil:editState.perfil}, sazonalidade:editState.months, custos:readCustosFromForm(), atualizado_em:new Date().toISOString() };
   let error;
   if(editingId){ ({error} = await sb.from('cenarios').update(payload).eq('id', editingId)); }
   else{ ({error} = await sb.from('cenarios').insert({...payload, criado_por: currentUser.id})); }
@@ -4281,7 +4369,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, repetirCustos, updateMonthPct, updateMonthEur, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
