@@ -3394,17 +3394,20 @@ let editingId = null;
 function defaultDias(){
   return DIAS.map((d,i)=>({ dia:d, almocoAberto:true, almocoClientes:25, almocoTicket:14, jantarAberto:true, jantarClientes: i>=4?55:35, jantarTicket:22 }));
 }
-const MESES_REAIS_PADRAO = ['Mar','Abr','Mai','Jun','Jul'];
+// Faturamento real de 2026 desde a abertura (março), conforme os relatórios de caixa e o controlo externo.
+// O melhor mês (agosto) é a referência automática; os cenários partem destes valores reais.
+const REAIS_2026 = { Mar:11691.68, Abr:21461.00, Mai:26468.26, Jun:28100.14, Jul:27050.31, Ago:31197.48, Set:20994.01, Out:16600.62 };
+const MESES_REAIS_PADRAO = Object.keys(REAIS_2026);
 function defaultSazonalidade(){
-  // Agosto é a referência (100%) por padrão. Julho entra com o valor real já apurado.
-  const quedaPadrao = {Jan:65,Fev:60,Mar:50,Abr:35,Mai:20,Jun:10,Jul:0,Ago:0,Set:30,Out:45,Nov:60,Dez:55};
+  // Meses sem faturamento real (jan, fev, nov, dez) partem de uma queda estimada face ao melhor mês.
+  const quedaPadrao = {Jan:65,Fev:60,Nov:60,Dez:55};
   return MESES.map(m=>({
     mes:m,
-    real: MESES_REAIS_PADRAO.includes(m) || m==='Ago',
+    real: m in REAIS_2026,
     isRef: m==='Ago',
-    modo: (m==='Jul' || m==='Ago') ? 'eur' : 'queda',
-    valorEur: m==='Jul' ? 24649 : (m==='Ago' ? 31096 : null),
-    queda: quedaPadrao[m],
+    modo: (m in REAIS_2026) ? 'eur' : 'queda',
+    valorEur: (m in REAIS_2026) ? REAIS_2026[m] : null,
+    queda: (m in REAIS_2026) ? 0 : quedaPadrao[m],
     pctAlmoco: 10, pctDelivery: 0, pctJantar: 90
   }));
 }
