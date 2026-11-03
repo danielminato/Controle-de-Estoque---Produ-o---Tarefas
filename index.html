@@ -5289,10 +5289,12 @@ const FINANCAS = (function(){
             <tr><td class="dia">% IVA ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct(g(m,'iva') / fat[i]) : '—'}</td>`).join('')}<td>${fatT > 0 ? pct(taxa) : '—'}</td></tr>
             <tr><td class="dia">Crédito de IVA a deduzir (aprox.)</td>${campo(ms,'credito')}<td>${euro(credT)}</td></tr>
             <tr><td class="dia" style="font-weight:700;">A separar no mês (IVA − crédito)</td>${ms.map(m => { const v = g(m,'iva') - g(m,'credito'); return `<td style="font-weight:700;${v < 0 ? 'color:var(--ok);' : ''}">${euro(v)}</td>`; }).join('')}<td style="font-weight:700;">${euro(pagar)}</td></tr>
+            <tr><td class="dia">% líquida (IVA − crédito) ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct((g(m,'iva') - g(m,'credito')) / fat[i]) : '—'}</td>`).join('')}<td>${fatT > 0 ? pct(pagar / fatT) : '—'}</td></tr>
           </table>
           <div class="cards" style="margin-top:14px;">
             <div class="fx-stat highlight"><div class="label">${pagar < 0 ? 'Crédito a transportar' : 'Pagamento estimado'}</div><div class="value">${euro(Math.abs(pagar))}</div></div>
             <div class="fx-stat"><div class="label">Taxa média de IVA</div><div class="value">${fatT > 0 ? pct(taxa) : '—'}</div></div>
+            <div class="fx-stat"><div class="label">Taxa líquida (IVA − crédito)</div><div class="value">${fatT > 0 ? pct(pagar / fatT) : '—'}</div></div>
             <div class="fx-stat"><div class="label">Média mensal a separar</div><div class="value">${euro(Math.max(pagar, 0) / 3)}</div></div>
           </div></section>`;
       }
@@ -5349,7 +5351,7 @@ const FINANCAS = (function(){
         origens.sort((a, b) => b.ano - a.ano || b.mes - a.mes);
         const iv = await ler(`controle_iva?select=*&ano=eq.${ano}`);
         const fat = iv.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
-        const ivaT = iv.reduce((s, r) => s + num(r.iva), 0);
+        const ivaT = iv.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);   // IVA líquido: cobrado menos o crédito das compras
         ivaAuto = fat > 0 ? (ivaT / fat) * 100 : null;
         const rm = iv.find(r => r.mes === mes);
         fatReal = rm ? num(rm.faturado_sistema) + num(rm.faturado_fora) : 0;
@@ -5404,8 +5406,8 @@ const FINANCAS = (function(){
       document.getElementById('peParams').innerHTML = `
         <div><label>CMV (% do faturamento sem IVA)</label><input type="number" step="0.5" value="${cfg.cmv_pct}" onchange="FINANCAS.PE.config('cmv_pct',this.value)"></div>
         <div><label>Outros custos variáveis (%)</label><input type="number" step="0.5" value="${cfg.outros_pct}" onchange="FINANCAS.PE.config('outros_pct',this.value)"></div>
-        <div><label>IVA médio (% do faturado)</label><input type="number" step="0.1" value="${Number(ivaPct).toFixed(1)}" onchange="FINANCAS.PE.config('iva_pct',this.value)">
-          <div class="desc" style="margin:4px 0 0;">${ivaAuto != null ? 'Do Controle de IVA de ' + ano + ': ' + ivaAuto.toFixed(1).replace('.', ',') + '%' : 'Sem dados no Controle de IVA deste ano.'}</div></div>`;
+        <div><label>IVA líquido (% do faturado, já sem o crédito)</label><input type="number" step="0.1" value="${Number(ivaPct).toFixed(1)}" onchange="FINANCAS.PE.config('iva_pct',this.value)">
+          <div class="desc" style="margin:4px 0 0;">${ivaAuto != null ? 'Do Controle de IVA de ' + ano + ': ' + ivaAuto.toFixed(1).replace('.', ',') + '% (IVA − crédito ÷ faturado)' + (cfg.iva_pct != null && Math.abs(cfg.iva_pct - ivaAuto) > 0.05 ? ' · <a href="#" onclick="FINANCAS.PE.usarAutomatico();return false;">usar o automático</a>' : '') : 'Sem dados no Controle de IVA deste ano.'}</div></div>`;
     }
     async function editar(id, campo, valor){
       const it = itens.find(i => i.id === id); if(!it) return;
@@ -5432,12 +5434,18 @@ const FINANCAS = (function(){
       try{ await enviar('DELETE', `custos_fixos?id=eq.${encodeURIComponent(id)}`); itens = itens.filter(i => i.id !== id); render(); st('Guardado ✓'); }
       catch(e){ avisarErroGravar(); }
     }
+    // apaga o valor escrito à mão do IVA para voltar ao calculado a partir do Controle de IVA
+    async function usarAutomatico(){
+      cfg.iva_pct = null; render(); st('A guardar…');
+      try{ await enviar('DELETE', 'config_financeiro?chave=eq.iva_pct'); st('Guardado ✓'); }
+      catch(e){ st(''); avisarErroGravar(); }
+    }
     async function config(chave, valor){
       cfg[chave] = num(valor); render(); st('A guardar…');
       try{ await enviar('POST', 'config_financeiro?on_conflict=chave', { chave, valor: num(valor) }, 'resolution=merge-duplicates,return=minimal'); st('Guardado ✓'); }
       catch(e){ st(''); avisarErroGravar(); }
     }
-    return { abrir, mudar, puxar, editar, pagar, adicionar, remover, config };
+    return { abrir, mudar, puxar, editar, pagar, adicionar, remover, config, usarAutomatico };
   })();
 
   /* ================= CUSTO DA HORA ================= */
@@ -5529,7 +5537,7 @@ const FINANCAS = (function(){
       const estrutura = totalFixos + foraEscala;
       const estruturaHora = horasTotais > 0 ? estrutura / horasTotais : 0;
       const fatAno = D.ivaAno.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
-      const ivaAnoT = D.ivaAno.reduce((s, r) => s + num(r.iva), 0);
+      const ivaAnoT = D.ivaAno.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);
       const ivaAuto = fatAno > 0 ? (ivaAnoT / fatAno) * 100 : null;
       const ivaPct = D.cfg.iva_pct != null ? D.cfg.iva_pct : (ivaAuto != null ? ivaAuto : 0);
       const cmvPct = D.cfg.cmv_pct != null ? D.cfg.cmv_pct : 30, outrosPct = num(D.cfg.outros_pct);
