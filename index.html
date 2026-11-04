@@ -3442,7 +3442,7 @@ function defaultCustos(){
     pessoalCount: Array(12).fill(7),
     admin: Array(12).fill(600),
     financeiras: Array(12).fill(150),
-    distribuicao: Array(12).fill(1500)
+    distribuicao: Array(12).fill(0)
   };
 }
 // Migra cenários antigos (custos em formato plano) para o novo modelo de 12 colunas
@@ -3462,7 +3462,7 @@ function migrarCustos(c){
     pessoalCount: nFunc,
     admin: Array.isArray(c.admin) ? c.admin : Array(12).fill(c.admin ?? 600),
     financeiras: Array.isArray(c.financeiras) ? c.financeiras : Array(12).fill(c.financeiras ?? 150),
-    distribuicao: Array.isArray(c.distribuicao) ? c.distribuicao : Array(12).fill(c.distribuicao ?? 1500)
+    distribuicao: Array.isArray(c.distribuicao) ? c.distribuicao : Array(12).fill(c.distribuicao ?? 0)
   };
 }
 function migrarSazonalidade(months){
@@ -3977,7 +3977,7 @@ function renderExpenses(){
   html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Administrativas (€)</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Distribuição de Lucros / Pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Retiradas de lucro, além do pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">CMV (% do faturamento)</td>' + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
@@ -4068,7 +4068,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Faturamento anual</div><div class="value">${fmtEUR(r.annualRevenue)}</div></div>
     <div class="fx-stat"><div class="label">Resultado líquido anual</div><div class="value">${fmtEUR(r.annualResult)}</div></div>
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
-    <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
+    <div class="fx-stat highlight"><div class="label">Caixa livre (após retiradas)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
   renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderRealReal(r);
 }
@@ -4193,7 +4193,7 @@ function renderProjecao(r){
   html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${denDe(d)>0 ? fmtEUR((d.despPessoal+d.despAdmin+d.despFinanceiras)/denDe(d)) : '—'}</td>`);
   html += linha('Sobra / falta', d=>`<td style="font-weight:700;color:${d.resultadoAntesDistribuicao<0?'var(--danger)':'var(--ok)'};">${fmtEUR(d.resultadoAntesDistribuicao)}</td>`, ' style="font-weight:700;"');
   html += linha('Se paga?', (d,i)=>`<td style="font-weight:700;color:${s.meses[i]?'var(--ok)':'var(--danger)'};">${r.annualRevenue>0 ? (s.meses[i]?'✔':'✖') : '—'}</td>`);
-  html += linha('Depois do pró-labore', d=>`<td style="color:${d.resultadoLiquido<0?'var(--danger)':'var(--text-soft)'};">${fmtEUR(d.resultadoLiquido)}</td>`);
+  html += linha('Depois das retiradas', d=>`<td style="color:${d.resultadoLiquido<0?'var(--danger)':'var(--text-soft)'};">${fmtEUR(d.resultadoLiquido)}</td>`);
   document.getElementById('projecaoTabela').innerHTML = html;
 }
 
@@ -4233,7 +4233,7 @@ function htmlComparacao(itens){
   html += '<tr><td>Quando se paga</td>' + itens.map(it=>`<td style="text-align:left;">${tira(it)}</td>`).join('') + '</tr>';
   html += '<tr><td>Meses em que se paga</td>' + itens.map(it=>`<td>${it.semFat ? '—' : it.s.n + ' de 12'}</td>`).join('') + '</tr>';
   html += '<tr><td>Pior mês</td>' + itens.map(it=>`<td class="${!it.semFat && it.s.pior.resultadoAntesDistribuicao<0?'neg':''}">${it.semFat ? '—' : MESES[it.s.piorI] + ': ' + fmtEUR(it.s.pior.resultadoAntesDistribuicao)}</td>`).join('') + '</tr>';
-  [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após pró-labore)','cashCumulative']].forEach(([label,key])=>{
+  [['Faturamento anual','annualRevenue'],['Resultado líquido anual','annualResult'],['Caixa antes da distribuição','cashCumulativeBeforeDist'],['Caixa livre (após retiradas)','cashCumulative']].forEach(([label,key])=>{
     html += `<tr><td>${label}</td>` + itens.map(it=>`<td class="${it.r[key]<0?'neg':''}">${fmtEUR(it.r[key])}</td>`).join('') + '</tr>';
   });
   return html + '</table></div><p class="desc" style="margin:10px 0 0;">Quadrado verde: o mês cobre equipa e custos fixos. Vermelho: faltaria. Passa o rato por cima para ver o valor.</p>';
@@ -6077,7 +6077,7 @@ const FINANCAS = (function(){
         ['(−) Impostos e taxas', 'impostos', '', 'completo'],
         ['(−) Despesas financeiras', 'financeiras', '', 'completo'],
         ['= Resultado antes da distribuição', 'antes', 'sub', 'completo'],
-        ['(−) Distribuição de lucros / pró-labore', 'prolabore', '', 'completo'],
+        ['(−) Retiradas de lucro (além do pró-labore)', 'prolabore', '', 'completo'],
         ['= Resultado líquido', 'liquido', 'sub', 'completo']
       ];
       const estilo = c => c.includes('sub') ? 'background:#EAF0FA;font-weight:700;border-top:1px solid #9DB3DB;' : c.includes('forte') ? 'font-weight:700;' : c.includes('cab') ? 'background:#EAF0FA;color:var(--terracotta-dark);font-weight:700;font-size:11px;' : '';
@@ -6099,13 +6099,14 @@ const FINANCAS = (function(){
       el('dreNotas').innerHTML = [
         'Receita = faturado sem IVA (faturado no sistema + fora do sistema − IVA cobrado). O IVA tem relatório próprio.',
         `CMV estimado em ${String(par.cmv_pct).replace('.', ',')}% da receita; quando houver compras lançadas, passa a ser o CMV real.`,
+        'O pró-labore do Daniel e da Fernanda já está em Despesas com pessoal (grupo Equipa). A linha de retiradas de lucro é só para o que tirares além disso: deixa em 0 se não houve retirada.',
         'Despesas financeiras = itens dos custos fixos com nome de empréstimo, juros, banco ou leasing; os outros custos fixos ficam em administrativas.',
         semCustos.length ? `Meses com faturado mas sem custos lançados (${semCustos.join(', ')}) aparecem só até o lucro bruto: lança ou puxa os custos desses meses no Ponto de equilíbrio para completar.` : ''
       ].filter(Boolean).join('<br>');
       el('dreParams').innerHTML = `
         <div><label>CMV (% da receita sem IVA)</label><input type="number" step="0.5" value="${par.cmv_pct}" onchange="FINANCAS.DRE.param('cmv_pct',this.value)"></div>
         <div><label>Impostos e taxas (% da receita, além do IVA)</label><input type="number" step="0.5" value="${par.dre_impostos_pct}" onchange="FINANCAS.DRE.param('dre_impostos_pct',this.value)"></div>
-        <div><label>Pró-labore / distribuição por mês (€)</label><input type="number" step="50" value="${par.dre_prolabore}" onchange="FINANCAS.DRE.param('dre_prolabore',this.value)"></div>`;
+        <div><label>Retiradas de lucro por mês, além do pró-labore (€)</label><input type="number" step="50" value="${par.dre_prolabore}" onchange="FINANCAS.DRE.param('dre_prolabore',this.value)"></div>`;
     }
     async function param(chave, valor){
       par[chave] = num(valor); render(); st('A guardar…');
@@ -8924,7 +8925,7 @@ if(!_emRecuperacao) tentarLoginAutomatico();
     'Estrutura de custos': T('o CMV e os impostos são percentagens da receita. O CMV padrão aplica-se a todos os meses (cada mês afina-se em "Despesas mensais"). "Impostos e taxas" é o IVA líquido médio, ou seja, a parte de cada euro faturado que vai para o Estado, e parte do valor do Ponto de equilíbrio. O salário base só conta quando os custos reais estão desligados.', 'confirma o IVA (podes usar a sugestão por baixo do campo) e o CMV médio. Se tens um menu de almoço mais barato, sobe o CMV dos meses em que ele vigora.'),
     'Custos reais (da aba Ponto de equilíbrio)': T('com a caixa ligada, a equipa e os custos fixos de cada mês vêm do que lançaste no Ponto de equilíbrio. Os meses sem lançamento repetem o último mês lançado e aparecem como "projetado".', 'deixa ligada para o cenário acompanhar a realidade. Desliga só se quiseres simular com despesas estimadas à mão (nº de funcionários, administrativas, financeiras).'),
     'Despesas mensais': T('mostra, mês a mês, entradas (faturamento), saídas (pessoal, administrativas, CMV, financeiras, IVA e distribuição de lucros) e o saldo. No fim diz se o mês se paga: o faturamento mínimo é (pessoal + administrativas + financeiras) ÷ (1 − CMV% − impostos%).', 'preenche nº de funcionários, administrativas, financeiras, distribuição de lucros e CMV de cada mês. Com os custos reais ligados, equipa e fixos vêm do Ponto de equilíbrio. Usa "Repetir os custos do mês" para copiar um mês para os seguintes.'),
-    'Resultado projetado': T('resume o ano do cenário: faturamento anual, resultado líquido (depois de IVA, CMV, custos e pró-labore), caixa antes e depois da distribuição de lucros e em quantos meses a operação se paga. O IVA sai da caixa no fim de cada trimestre.', 'olha primeiro "Meses em que a operação se paga" e depois a caixa livre. Se algum valor for negativo, volta ao Simulador do mês ou às despesas e testa ajustes.'),
+    'Resultado projetado': T('resume o ano do cenário: faturamento anual, resultado líquido (depois de IVA, CMV e custos; o pró-labore já está na equipa), caixa antes e depois das retiradas de lucro e em quantos meses a operação se paga. O IVA sai da caixa no fim de cada trimestre.', 'olha primeiro "Meses em que a operação se paga" e depois a caixa livre. Se algum valor for negativo, volta ao Simulador do mês ou às despesas e testa ajustes.'),
     'A operação se paga?': T('cada coluna é o custo do mês (equipa + custos fixos) e a linha é a margem disponível (faturamento − CMV − impostos). Se a linha está acima da coluna, o mês cobre os custos (verde); se não, falta dinheiro (vermelho).', 'procura os meses vermelhos e usa a tabela de baixo: ela mostra o faturamento mínimo e quanto sobra ou falta. Depois testa no Simulador do mês o que precisa mudar (mais clientes, ticket diferente, menos custo).'),
     'Real × Realizável': T('compara o que esperavas faturar com o que faturaste. <b>Realizável</b> é o valor do cenário (o que pões na Sazonalidade ou no Simulador do mês); <b>Real</b> é o faturado lançado no Controle de IVA. A diferença mostra o quanto a expectativa se afastou da realidade, e a linha tracejada é o faturamento mínimo do mês.', 'para os meses futuros, simula no Simulador do mês. Quando um mês fechar, lança o faturado no Controle de IVA e marca o mês como "realizado": a expectativa que tinhas fica guardada. Para meses que já estavam fechados, escreve no Simulador do mês o que esperavas faturar. Se o real fica sempre abaixo, a tua expectativa está otimista; se fica acima, está conservadora.'),
     'Comparação com os outros cenários': T('põe o cenário em edição ao lado dos guardados, mês a mês, para ver quando cada um se paga.', 'usa-a para decidir qual hipótese é mais segura: compara o pior mês e a caixa livre de cada um.'),
