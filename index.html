@@ -780,8 +780,13 @@
     </section>
     <section class="panel">
       <h2>Sazonalidade mensal</h2>
-      <p class="desc">A <b>referência (100%)</b> é sempre o <b>melhor faturamento do ano</b>: a app procura-o sozinha entre os meses marcados <b>"Real?"</b> e escritos em € (se mudares um valor real, a referência atualiza-se) e mostra-a em cada mês. Nos outros meses escreve a <b>variação em % em relação à referência</b> (positiva = sobe, negativa = cai) ou o <b>faturamento em €</b>: os dois campos estão ligados e um ajusta o outro.</p>
+      <p class="desc">A <b>referência (100%)</b> é sempre o <b>melhor faturamento do ano</b>: a app procura-o sozinha entre os meses marcados <b>"Real?"</b> e escritos em € (se mudares um valor real, a referência atualiza-se) e mostra-a em cada mês. Nos outros meses escreve a <b>variação em % em relação à referência</b> (positiva = sobe, negativa = cai) ou o <b>faturamento em €</b>: os dois campos estão ligados e um ajusta o outro. Para prever um mês de outra forma (ticket × clientes, ou partindo de outro mês), usa o <b>Simulador do mês</b> logo abaixo: os meses simulados aparecem aqui como "simulador do mês".</p>
       <div style="overflow-x:auto;"><table class="grid-table" id="monthsTable"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Simulador do mês</h2>
+      <p class="desc">Escolhe um mês e diz como queres prever o faturamento dele: <b>montando</b> (ticket × clientes por dia, almoço e jantar separados) ou <b>partindo de outro mês</b> com uma subida ou queda em % no almoço e no jantar. O resultado alimenta a tabela acima, o resultado anual e os gráficos, e diz logo se o mês paga os custos.</p>
+      <div id="simMes"></div>
     </section>
     <section class="panel">
       <h2>Estrutura de custos</h2>
@@ -3415,7 +3420,8 @@ function defaultSazonalidade(){
     modo: (m in REAIS_2026) ? 'eur' : 'queda',
     valorEur: (m in REAIS_2026) ? REAIS_2026[m] : null,
     queda: (m in REAIS_2026) ? 0 : quedaPadrao[m],
-    pctAlmoco: 10, pctDelivery: 0, pctJantar: 90
+    pctAlmoco: 10, pctDelivery: 0, pctJantar: 90,
+    fonte: 'manual', sim: null        // fonte do faturamento: 'manual' (€ ou %), 'montar' (ticket × clientes) ou 'partir' (outro mês ± %)
   }));
 }
 function defaultCustos(){
@@ -3458,7 +3464,8 @@ function migrarSazonalidade(months){
     modo: (m.modo==='eur' || m.modo==='queda') ? m.modo : (m.modo==='pct' ? 'queda' : 'eur'),
     valorEur: m.valorEur ?? (m.mult!==undefined ? null : 0),
     queda: m.queda ?? (m.mult!==undefined ? (100-m.mult) : 0),
-    pctAlmoco: m.pctAlmoco ?? 10, pctDelivery: m.pctDelivery ?? 0, pctJantar: m.pctJantar ?? 90
+    pctAlmoco: m.pctAlmoco ?? 10, pctDelivery: m.pctDelivery ?? 0, pctJantar: m.pctJantar ?? 90,
+    fonte: (m.fonte === 'montar' || m.fonte === 'partir') && m.sim ? m.fonte : 'manual', sim: m.sim || null
   }));
 }
 
@@ -3525,7 +3532,7 @@ function perfilMatriz(){
   const refRev = getRefRevenue();
   const w = p.ticket.map((tk,i)=> (tk||0) * ((p.giroAlm[i]||0) + (p.giroJan[i]||0)) * seats);
   return editState.months.map((m, mi)=>{
-    const R = receitaDoMes(m, refRev), n = diasDoMes(mi, ano);
+    const R = receitaMesI(editState.months, mi), n = diasDoMes(mi, ano);
     const denom = w.reduce((a,x,i)=>a + x*n[i], 0);
     const dias = w.map((x,i)=>{
       const eur = denom > 0 ? R * x / denom : 0;
@@ -3666,13 +3673,61 @@ function updateDay(i, field, val){
 }
 function refDe(months){
   // melhor faturamento do ano: o maior valor em € entre os meses marcados "Real?"; sem nenhum, o maior em € que exista
-  const reais = months.filter(m=>m.modo==='eur' && m.real && (m.valorEur||0)>0);
-  const base = reais.length ? reais : months.filter(m=>m.modo==='eur' && (m.valorEur||0)>0);
+  const manual = m => (m.fonte || 'manual') === 'manual';
+  const reais = months.filter(m=>manual(m) && m.modo==='eur' && m.real && (m.valorEur||0)>0);
+  const base = reais.length ? reais : months.filter(m=>manual(m) && m.modo==='eur' && (m.valorEur||0)>0);
   return base.reduce((b,m)=> (m.valorEur||0) > b.valor ? { valor:m.valorEur, mes:m.mes } : b, { valor:0, mes:null });
 }
 function getRefRevenue(){ return refDe(editState.months).valor; }
 function receitaDoMes(m, refRevenue){
   return m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
+}
+
+/* ---- Faturamento de cada mês: manual, montado (ticket × clientes) ou partindo de outro mês (± %) ---- */
+const ANO_SIM = new Date().getFullYear();
+function nDiasSemFds(mi){ const n = diasDoMes(mi, ANO_SIM); return { sem: n[0]+n[1]+n[2]+n[3], fds: n[4]+n[5]+n[6] }; }
+// faturamento escrito à mão (€ ou % da referência), repartido em almoço / jantar / delivery pelas percentagens do mês
+function partesManual(months, i){
+  const m = months[i], tot = receitaDoMes(m, refDe(months).valor);
+  const a = m.pctAlmoco||0, j = m.pctJantar||0, d = m.pctDelivery||0, s = (a + j + d) || 1;
+  return { alm: tot*a/s, jan: tot*j/s, del: tot*d/s };
+}
+function partesMontar(sim, i){
+  const n = nDiasSemFds(i), srv = x => (x.ticket||0) * ((x.clSem||0) * n.sem + (x.clFds||0) * n.fds);
+  return { alm: srv(sim.alm), jan: srv(sim.jan), del: sim.delivery||0 };
+}
+// índice do mês de base: 'anterior' (Janeiro não tem: usa o melhor mês), 'melhor' ou um número de 0 a 11
+function indiceBase(months, i){
+  const b = months[i].sim && months[i].sim.base;
+  let idx = null;
+  if(b === 'melhor' || (b === 'anterior' && i === 0)){ const R = refDe(months); idx = R.mes ? MESES.indexOf(R.mes) : null; }
+  else if(b === 'anterior' || b == null) idx = i - 1;
+  else idx = Number(b);
+  return (idx != null && idx >= 0 && idx < 12 && idx !== i) ? idx : null;
+}
+function partesMes(months, i, nivel){
+  nivel = nivel || 0;
+  const m = months[i], f = m.fonte || 'manual';
+  let p;
+  if(f === 'montar' && m.sim) p = partesMontar(m.sim, i);
+  else if(f === 'partir' && m.sim && nivel < 13){
+    const b = indiceBase(months, i), pb = b == null ? { alm:0, jan:0, del:0 } : partesMes(months, b, nivel + 1);
+    p = { alm: pb.alm * (1 + (m.sim.varAlm||0)/100), jan: pb.jan * (1 + (m.sim.varJan||0)/100), del: pb.del };
+  }
+  else p = partesManual(months, i);
+  p.total = p.alm + p.jan + p.del;
+  return p;
+}
+const receitaMesI = (months, i) => partesMes(months, i).total;
+// valores de partida do "montar": reproduzem a previsão atual do mês (almoço e jantar pelas percentagens do mês,
+// sexta a domingo a pesar 50 e segunda a quinta 30, como no Resumo dos dias), para depois mexeres só no que mudou
+function simPadrao(months, i){
+  const ticks = editState.perfil.ticket, tk = +((ticks.reduce((s,v)=>s+(v||0),0) / (ticks.length || 1)) || 24).toFixed(1);
+  const pm = partesMes(months, i), n = nDiasSemFds(i), den = 30 * n.sem + 50 * n.fds;
+  const cl = (eur, w) => (den > 0 && tk > 0) ? Math.round(eur * w / den / tk) : 0;
+  return { alm: { ticket: tk, clSem: cl(pm.alm, 30), clFds: cl(pm.alm, 50) },
+           jan: { ticket: tk, clSem: cl(pm.jan, 30), clFds: cl(pm.jan, 50) },
+           delivery: Math.round(pm.del), base: 'anterior', varAlm: 0, varJan: 0 };
 }
 function setReferencia(i){
   editState.months.forEach((m,idx)=>{ m.isRef = (idx===i); if(idx===i){ m.modo='eur'; m.queda=0; if(!m.valorEur) m.valorEur=0; } });
@@ -3723,30 +3778,121 @@ function renderMonths(){
   const t = document.getElementById('monthsTable');
   const R = refDe(editState.months), refRevenue = R.valor, refMes = R.mes;
   const fmtPct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
-  const diff = m => refRevenue > 0 ? (receitaDoMes(m, refRevenue) / refRevenue - 1) * 100 : 0;
+  const diff = (m, i) => refRevenue > 0 ? (receitaMesI(editState.months, i) / refRevenue - 1) * 100 : 0;
   // 1) os meses (o botão troca entre realizado e projeção)
   let html = '<tr><td class="dia">Mês</td>' + editState.months.map((m,i)=>`<td style="font-weight:700;">${m.mes}<div><button class="btn-ghost" style="padding:2px 6px;font-size:9px;margin-top:3px;${m.real?'':'color:var(--primary);'}" title="Clique para trocar entre realizado e projeção" onclick="FX.toggleMonthReal(${i})">${m.real ? 'realizado' : 'projeção'}</button></div></td>`).join('') + '</tr>';
   // 2) faturamento: realizado = escreve-se em €; projeção = calculado a partir da diferença
   html += '<tr><td class="dia">Faturamento (€)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">realizado: escreve · projeção: calculado</div></td>' + editState.months.map((m,i)=>
     m.real
       ? `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(2)}" step="0.01" style="width:96px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthEur(${i},this.value)"></td>`
-      : `<td style="font-weight:700;">${fmtEUR(receitaDoMes(m,refRevenue))}</td>`).join('') + '</tr>';
+      : `<td style="font-weight:700;">${fmtEUR(receitaMesI(editState.months, i))}</td>`).join('') + '</tr>';
   // 3) diferença para o melhor mês do ano (que a app descobre sozinha)
   html += `<tr><td class="dia">Diferença vs melhor mês (%)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">− cai · + sobe${refMes ? ' · melhor mês: ' + fmtEUR(refRevenue) + ' (' + refMes + ')' : ''}</div></td>` + editState.months.map((m,i)=>{
     if(m.real){
       if(m.mes === refMes) return '<td style="font-size:11px;color:var(--ok);font-weight:700;">melhor mês</td>';
-      const d = diff(m);
+      const d = diff(m, i);
       return `<td style="color:${d<0?'var(--danger)':'var(--ok)'};">${fmtPct(d)}</td>`;
     }
-    return `<td><input type="number" step="0.1" value="${diff(m).toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthPct(${i},this.value)"><div style="font-size:9px;color:var(--text-soft);">vs ${refMes ? fmtEUR(refRevenue) + ' (' + refMes + ')' : '—'}</div></td>`;
+    if((m.fonte || 'manual') !== 'manual') return `<td style="font-size:11px;color:var(--primary);">simulador do mês<div style="font-size:10px;color:${diff(m,i)<0?'var(--danger)':'var(--ok)'};">${fmtPct(diff(m,i))} vs melhor</div></td>`;
+    return `<td><input type="number" step="0.1" value="${diff(m, i).toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthPct(${i},this.value)"><div style="font-size:9px;color:var(--text-soft);">vs ${refMes ? fmtEUR(refRevenue) + ' (' + refMes + ')' : '—'}</div></td>`;
   }).join('') + '</tr>';
   t.innerHTML = html;
 }
+/* ---- Painel "Simulador do mês" ---- */
+let simMesSel = Math.min(11, Math.max(0, new Date().getMonth()));
+function setSimMes(i){ simMesSel = i; renderSimMes(); }
+function setSimFonte(i, f){
+  const m = editState.months[i]; if(m.real) return;
+  if(f !== 'manual' && !m.sim) m.sim = simPadrao(editState.months, i);
+  m.fonte = f;
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function updateSim(i, k1, k2, val){
+  const m = editState.months[i]; if(!m.sim) return;
+  const v = parseFloat(val) || 0;
+  if(k2) m.sim[k1][k2] = Math.max(0, v); else m.sim[k1] = (k1 === 'varAlm' || k1 === 'varJan') ? v : Math.max(0, v);
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function setSimBase(i, val){
+  const m = editState.months[i]; if(!m.sim) return;
+  m.sim.base = (val === 'anterior' || val === 'melhor') ? val : Number(val);
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+// % de almoço do mês de base (o resto vai para o jantar, descontando o delivery)
+function setBaseAlmoco(b, val){
+  const m = editState.months[b]; if(!m) return;
+  const a = Math.min(100, Math.max(0, parseFloat(val) || 0));
+  m.pctAlmoco = a; m.pctJantar = Math.max(0, 100 - a - (m.pctDelivery || 0));
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function copiarSim(i){
+  const o = editState.months[i]; if(!o.sim || o.fonte !== 'montar') return;
+  const alvos = editState.months.map((m, k) => k).filter(k => k > i && !editState.months[k].real);
+  if(!alvos.length) return;
+  alvos.forEach(k => { const m = editState.months[k]; m.fonte = 'montar'; m.sim = JSON.parse(JSON.stringify(o.sim)); });
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
+function renderSimMes(){
+  const box = document.getElementById('simMes'); if(!box) return;
+  const months = editState.months, i = simMesSel, m = months[i], f = m.fonte || 'manual';
+  const dre = computeCenario(months, editState.custos, custosReais).monthlyDRE[i];
+  const p = partesMes(months, i), diasMes = diasDoMes(i, ANO_SIM).reduce((a, b) => a + b, 0);
+  const pct1 = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
+  const marca = k => { const mk = months[k]; return mk.real ? ' · real' : ((mk.fonte || 'manual') === 'montar' ? ' ✎' : (mk.fonte === 'partir' ? ' ↻' : '')); };
+  let html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' + MESES.map((nm, k) =>
+    `<button class="${k === i ? 'btn-primary' : 'btn-ghost'}" style="padding:6px 10px;font-size:12px;" onclick="FX.setSimMes(${k})">${nm}<span style="font-size:10px;opacity:.8;">${marca(k)}</span></button>`).join('') + '</div>';
+  if(m.real){
+    html += `<p class="desc" style="margin:0 0 10px;">${MESES_LONGO_FX[i]} está marcado como <b>realizado</b>: o faturamento é o que escreveste na tabela acima. Para simular, troca-o para "projeção" no botão por baixo do nome do mês.</p>`;
+  }else{
+    const radio = (v, rot) => `<label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="simFonte" ${f === v ? 'checked' : ''} onchange="FX.setSimFonte(${i},'${v}')"> ${rot}</label>`;
+    html += `<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;">${radio('manual', 'Manual (€ ou % na tabela acima)')}${radio('montar', 'Montar: ticket × clientes por dia')}${radio('partir', 'Partir de outro mês (± %)')}</div>`;
+  }
+  const num = (v, w, step, handler) => `<input type="number" min="0" step="${step}" value="${v}" style="width:${w}px;font-size:13px;padding:6px 4px;text-align:center;" onchange="${handler}">`;
+  if(!m.real && f === 'montar' && m.sim){
+    const s = m.sim, n = nDiasSemFds(i);
+    const linha = (rot, k, tot) => `<tr><td class="dia">${rot}</td><td>${num(s[k].ticket, 70, 0.5, `FX.updateSim(${i},'${k}','ticket',this.value)`)}</td><td>${num(s[k].clSem, 70, 1, `FX.updateSim(${i},'${k}','clSem',this.value)`)}</td><td>${num(s[k].clFds, 70, 1, `FX.updateSim(${i},'${k}','clFds',this.value)`)}</td><td style="font-weight:700;">${fmtEUR(tot)}</td></tr>`;
+    html += `<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia"></td><td style="font-weight:700;">Ticket médio (€)</td><td style="font-weight:700;">Clientes/dia<div style="font-size:9px;font-weight:400;">Seg–Qui (${n.sem} dias)</div></td><td style="font-weight:700;">Clientes/dia<div style="font-size:9px;font-weight:400;">Sex–Dom (${n.fds} dias)</div></td><td style="font-weight:700;">Faturamento do mês</td></tr>
+      ${linha('Almoço', 'alm', p.alm)}${linha('Jantar', 'jan', p.jan)}
+      <tr><td class="dia">Delivery (€ no mês)</td><td colspan="3">${num(s.delivery, 90, 50, `FX.updateSim(${i},'delivery',null,this.value)`)}</td><td style="font-weight:700;">${fmtEUR(p.del)}</td></tr></table></div>
+      <div style="margin:8px 0;"><button class="btn-ghost" onclick="FX.copiarSim(${i})">Copiar estes valores para os meses seguintes (que não são realizados)</button></div>
+      <p class="desc" style="margin:0 0 10px;">Os valores de partida reproduzem a previsão que o mês tinha (almoço ${months[i].pctAlmoco}% do faturamento, sexta a domingo a pesar mais). Muda o que for diferente: num menu de almoço de inverno a 12 €, baixa só o ticket do almoço e mantém o do jantar. O preço do menu, o CMV e o retorno calculam-se na aba Menus.</p>`;
+  }
+  if(!m.real && f === 'partir' && m.sim){
+    const s = m.sim, b = indiceBase(months, i), pb = b == null ? null : partesMes(months, b);
+    const opcoes = [['anterior', 'Mês anterior'], ['melhor', 'Melhor mês']].concat(MESES.map((nm, k) => [String(k), nm])).filter(([v]) => v !== String(i));
+    html += `<div class="params-grid" style="margin-bottom:10px;">
+      <div><label>Mês de base</label><select onchange="FX.setSimBase(${i},this.value)">${opcoes.map(([v, r]) => `<option value="${v}" ${String(s.base) === v ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div><label>Variação do almoço (%)</label>${num(s.varAlm, 90, 1, `FX.updateSim(${i},'varAlm',null,this.value)`).replace('min="0" ', '')}</div>
+      <div><label>Variação do jantar (%)</label>${num(s.varJan, 90, 1, `FX.updateSim(${i},'varJan',null,this.value)`).replace('min="0" ', '')}</div></div>`;
+    if(pb){
+      const manualB = (months[b].fonte || 'manual') === 'manual';
+      html += `<p class="desc" style="margin:0 0 10px;">Base: <b>${MESES[b]}</b> faturou ${fmtEUR(pb.total)} (almoço ${fmtEUR(pb.alm)} · jantar ${fmtEUR(pb.jan)}${pb.del > 0 ? ' · delivery ' + fmtEUR(pb.del) : ''}).`
+        + (manualB ? ` Almoço pesa <input type="number" min="0" max="100" value="${months[b].pctAlmoco}" style="width:56px;font-size:13px;padding:4px;text-align:center;" onchange="FX.setBaseAlmoco(${b},this.value)">% desse mês (o resto é jantar).` : '')
+        + ` Aqui: almoço ${fmtEUR(pb.alm)} → ${fmtEUR(p.alm)}, jantar ${fmtEUR(pb.jan)} → ${fmtEUR(p.jan)}.</p>`;
+    }else{
+      html += '<p class="desc" style="margin:0 0 10px;">⚠️ Não há mês de base com faturamento: escolhe outro mês de base.</p>';
+    }
+  }
+  const custos = dre.despPessoal + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + editState.custos.impostos) / 100;
+  const minimo = den > 0 ? custos / den : null, paga = dre.resultadoAntesDistribuicao >= 0, temFat = p.total > 0;
+  const stat = (rot, val, estilo) => `<div class="fx-stat"${estilo ? ` style="${estilo}"` : ''}><div class="label">${rot}</div><div class="value">${val}</div></div>`;
+  html += `<div class="cards" style="margin-top:6px;">
+    ${stat('Faturamento previsto', fmtEUR(p.total))}
+    ${stat('Média por dia', fmtEUR(p.total / diasMes))}
+    ${stat('Almoço / jantar', fmtEUR(p.alm) + ' / ' + fmtEUR(p.jan))}
+    ${stat('Faturamento mínimo', minimo != null ? fmtEUR(minimo) : '—')}
+    ${stat(paga ? 'Sobra' : 'Falta', temFat ? fmtEUR(Math.abs(dre.resultadoAntesDistribuicao)) : '—')}
+    ${stat('Paga os custos?', temFat ? (paga ? '✔ sim' : '✖ não') : '—', temFat ? `background:${paga ? 'var(--ok-text)' : 'var(--danger-text)'};` : 'background:var(--ink-soft);')}
+  </div>
+  <p class="desc" style="margin:8px 0 0;">${MESES_LONGO_FX[i]}: custos ${fmtEUR(custos)} (equipa ${fmtEUR(dre.despPessoal)}, fixos ${fmtEUR(dre.despAdmin + dre.despFinanceiras)}), CMV ${dre.cmvPct}% e impostos ${editState.custos.impostos}% (IVA) sobre o faturamento. O CMV do mês ajusta-se em "Despesas mensais".</p>`;
+  box.innerHTML = html;
+}
+const MESES_LONGO_FX = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 // trocar um mês entre realizado (€ escrito) e projeção (% escrita), mantendo o valor atual
 function toggleMonthReal(i){
-  const m = editState.months[i], ref = getRefRevenue(), v = receitaDoMes(m, ref);
+  const m = editState.months[i], ref = getRefRevenue(), v = receitaMesI(editState.months, i);
   if(m.real){ m.real = false; m.modo = 'queda'; m.queda = ref > 0 ? (1 - v/ref) * 100 : 0; }
-  else { m.real = true; m.modo = 'eur'; m.valorEur = v; }
+  else { m.real = true; m.modo = 'eur'; m.valorEur = v; m.fonte = 'manual'; }
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
 document.getElementById('cmv').addEventListener('change', ()=>{ const v = parseFloat(document.getElementById('cmv').value)||0; editState.custos.cmv = v; editState.custos.cmvMes = Array(12).fill(v); renderExpenses(); computeAndRenderCards(); });
@@ -3830,7 +3976,7 @@ function computeCenario(months, custos, reais){
   let monthlyDRE = [], ivaAccumQuarter=0, cashCumulative=0, cashCumulativeBeforeDist=0;
   MESES.forEach((mes,i)=>{
     const m = months[i];
-    const receita = m.modo==='eur' ? (m.valorEur||0) : refRevenue*(1-(m.queda||0)/100);
+    const receita = receitaMesI(months, i);
     const cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
@@ -3866,7 +4012,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil();
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes();
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
@@ -4413,7 +4559,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
