@@ -658,6 +658,13 @@
     <div id="retornoContent"></div>
   </div>
 
+  <!-- MENUS -->
+  <div class="view" id="view-menus">
+    <div class="save-note" style="margin-bottom:14px;">Monta um menu de almoço (loja) ou de delivery com pratos e bebidas que já têm custo e preço em Receitas e Bebidas. A app mostra o CMV, o retorno e, no delivery, o custo da comissão e da embalagem. Se faltar o custo ou o preço de algum item, avisa o que falta.</div>
+    <div id="menusAvisoTabela" class="save-note" style="display:none;margin-bottom:14px;color:var(--danger-text);">Ainda não é possível guardar menus: falta criar a tabela "menus" no Supabase (SQL em schema_completo.sql, secção Menus). Podes montar e calcular menus à mesma, mas não ficam guardados.</div>
+    <div id="menusContent"></div>
+  </div>
+
   <!-- UTILIZADORES -->
   <div class="view" id="view-utilizadores">
     <div class="card" style="max-width:520px;">
@@ -5972,6 +5979,7 @@ const NAV_AREAS = {
       { view: 'receitas', label: 'Receitas' },
       { view: 'bebidas', label: 'Bebidas' },
       { view: 'retorno', label: 'Taxa de Retorno' },
+      { view: 'menus', label: 'Menus' },
     ]},
   ]},
   marketing: { label: 'Marketing', tabs: [] },
@@ -5999,6 +6007,7 @@ function ativarView(view){
   if(view === 'estoque') renderEstoque();
   if(view === 'bebidas') renderBebidas();
   if(view === 'retorno') renderRetorno();
+  if(view === 'menus') MENUS.abrir();
   if(view === 'iva') FINANCAS.IVA.abrir();
   if(view === 'equilibrio') FINANCAS.PE.abrir();
   if(view === 'custohora') FINANCAS.CH.abrir();
@@ -7634,6 +7643,262 @@ function renderRetorno(){
       </tr>`).join('')}</tbody>
   </table></div>`;
 }
+
+// ---------- MENUS (almoço na loja ou delivery) ----------
+// Junta pratos (Receitas) e bebidas (Bebidas) num menu de preço fixo e mostra o CMV, o retorno e
+// o custo do delivery, usando os MESMOS preços e custos que já estão em Receitas/Bebidas.
+// Cada parte do menu (entrada, prato principal, bebida, sobremesa, café) pode ter várias opções:
+// o resultado mostra o pior caso, a média e o melhor caso entre as combinações possíveis.
+const MENUS = (function(){
+  const SLOTS = [
+    { key:'entrada',   label:'Entrada',                          rx:/entrad|antipast|starter|petisc/i },
+    { key:'principal', label:'Prato principal (pizza ou massa)', rx:/pizza|massa|pasta|prato|principal/i },
+    { key:'bebida',    label:'Bebida',                           rx:/bebid/i },
+    { key:'sobremesa', label:'Sobremesa',                        rx:/sobremes|doce|dessert/i },
+    { key:'cafe',      label:'Café',                             rx:/caf/i },
+  ];
+  const vazio = () => ({ id:null, nome:'', canal:'loja', preco:'', itens:{ entrada:[], principal:[], bebida:[], sobremesa:[], cafe:[] } });
+  let guardados = [], tabelaOk = true, atual = vazio(), montado = false;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const pct = v => (Number(v)||0).toFixed(1).replace('.', ',') + '%';
+
+  async function carregar(){
+    try{ guardados = await sbGet('menus'); tabelaOk = true; }
+    catch(e){ guardados = []; tabelaOk = false; }
+  }
+
+  // todos os itens que podem entrar num menu: pratos finais (com ou sem ficha) e produtos da categoria Bebidas
+  function catalogo(){
+    const m = new Map();
+    produtos.filter(p => p.tipo === 'prato_final').forEach(p => {
+      const r = receitas.find(x => x.produtoId === p.id) || null;
+      const grupo = (r && r.extra && r.extra.grupo && r.extra.grupo.trim()) || 'Sem grupo';
+      m.set(p.id, { id:p.id, nome:p.nome, grupo, tipo:'prato', produto:p, receita:r });
+    });
+    produtos.filter(p => p.categoria === 'Bebidas' && !m.has(p.id)).forEach(p => {
+      m.set(p.id, { id:p.id, nome:p.nome, grupo:'Bebidas', tipo:'bebida', produto:p, receita:null });
+    });
+    return m;
+  }
+
+  // custo e preço de um item no canal escolhido, ou o que falta para o poder calcular
+  function dadosItem(it, canal){
+    const delivery = canal === 'delivery', avisos = [];
+    if(it.tipo === 'prato'){
+      const r = it.receita;
+      if(!r) return { ok:false, avisos:['sem ficha técnica em Receitas: não temos o custo'] };
+      const ex = r.extra || {};
+      const itens = receitaItens.filter(ri => ri.receitaId === r.id);
+      const custoTotal = itens.reduce((s, ri) => s + custoPorGramaProduto(ri.ingredienteProdutoId) * (ri.quantidadeG||0) / (rendPctDoItem(r, ri) / 100), 0);
+      const util = porcoesUteis(ex.porcoes || 1, ex.perdaPct || 0) || (ex.porcoes || 1);
+      const custo = custoTotal / util;
+      const extra = (delivery && ex.incluirCaixaPizza) ? custoCaixaPizza() / util : 0;
+      const preco = Number(delivery ? ex.precoVendaDelivery : r.precoVenda) || 0;
+      if(!(custo > 0)) avisos.push('a ficha técnica não tem custo calculado');
+      if(!(preco > 0)) avisos.push(delivery ? 'sem preço de venda no delivery' : 'sem preço de venda na loja');
+      return { ok: !avisos.length, avisos, custo, extra, preco, ivaPct:ex.ivaPct, part:ex.participacaoPct,
+               comPct: delivery ? ex.deliveryTaxaPct : 0, comIva: delivery ? ex.deliveryIvaTaxaPct : 0 };
+    }
+    const custo = precoPorGrama(it.produto), est = estadoBebida(it.id);
+    const preco = parseFloat(delivery ? est.precoDelivery : est.precoCobrado) || 0;
+    if(custo == null) avisos.push('sem custo (falta a embalagem em Produtos)');
+    if(!(preco > 0)) avisos.push(delivery ? 'sem preço de delivery em Bebidas' : 'sem preço de venda em Bebidas');
+    return { ok: !avisos.length, avisos, custo: custo || 0, extra:0, preco, ivaPct:est.ivaPct, part:0,
+             comPct: delivery ? bebidasGlobal.comissaoPct : 0, comIva: delivery ? bebidasGlobal.ivaComissaoPct : 0 };
+  }
+
+  // retorno de um item vendido ao preço p (c/ IVA)
+  function retItem(d, p){
+    return calcularRetornoReal(d.custo + d.extra, p, { ivaPct:d.ivaPct, participacaoPct:d.part, comissaoPct:d.comPct, ivaComissaoPct:d.comIva });
+  }
+  // um menu = uma opção de cada parte; o preço do menu reparte-se pelos itens na proporção dos preços avulsos
+  function calcCombo(dados, precoMenu){
+    const soma = dados.reduce((s, d) => s + d.preco, 0), p = precoMenu != null ? precoMenu : soma;
+    const t = { soma, preco:p, sIva:0, retorno:0, custo:0, extra:0, comissao:0, ivaCom:0 };
+    dados.forEach(d => {
+      const r = retItem(d, soma > 0 ? p * d.preco / soma : 0);
+      t.sIva += r.sIva; t.retorno += r.retorno; t.custo += d.custo; t.extra += d.extra; t.comissao += r.comissao; t.ivaCom += r.ivaComissao;
+    });
+    t.cmv = t.sIva > 0 ? (t.custo + t.extra) / t.sIva * 100 : 0;
+    t.retPct = t.sIva > 0 ? t.retorno / t.sIva * 100 : 0;
+    t.desconto = soma > 0 ? (1 - p / soma) * 100 : 0;
+    t.custoDelivery = t.comissao + t.ivaCom + t.extra;
+    return t;
+  }
+  function produtoCartesiano(listas){
+    let out = [[]];
+    listas.forEach(l => { out = out.flatMap(c => l.map(x => c.concat([x]))); });
+    return out;
+  }
+
+  // ---- ecrã ----
+  function montar(){
+    const c = document.getElementById('menusContent'); if(!c) return;
+    c.innerHTML = `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <select id="menusLista" onchange="MENUS.abrirGuardado(this.value)" style="max-width:260px;"></select>
+          <button class="btn-ghost" onclick="MENUS.novo()">Novo menu</button>
+          <button class="btn-primary" onclick="MENUS.guardar()">Guardar</button>
+          <button class="btn-ghost" onclick="MENUS.apagar()">Apagar</button>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:var(--ink-soft);margin-bottom:6px;">Este menu é para:</div>
+          <label style="margin-right:16px;"><input type="radio" name="menusCanal" value="loja" onchange="MENUS.setCanal('loja')"> Loja (almoço)</label>
+          <label><input type="radio" name="menusCanal" value="delivery" onchange="MENUS.setCanal('delivery')"> Delivery</label>
+        </div>
+        <div class="params-grid">
+          <label class="field">Nome do menu<input type="text" id="menusNome" placeholder="ex.: Menu de inverno" oninput="MENUS.setNome(this.value)"></label>
+          <label class="field">Preço do menu (c/ IVA)<input type="number" id="menusPreco" min="0" step="0.1" placeholder="vazio = soma dos preços avulsos" oninput="MENUS.setPreco(this.value)"></label>
+        </div>
+      </div>
+      <div id="menusSlots"></div>
+      <div id="menusResultado"></div>`;
+    montado = true;
+  }
+
+  function sincronizarCabecalho(){
+    const sel = document.getElementById('menusLista'); if(!sel) return;
+    sel.innerHTML = '<option value="">— menus guardados —</option>' + guardados.map(m =>
+      `<option value="${esc(m.id)}" ${m.id === atual.id ? 'selected' : ''}>${esc(m.nome || '(sem nome)')} · ${m.canal === 'delivery' ? 'delivery' : 'loja'}</option>`).join('');
+    document.querySelectorAll('input[name="menusCanal"]').forEach(r => { r.checked = r.value === atual.canal; });
+    document.getElementById('menusNome').value = atual.nome || '';
+    document.getElementById('menusPreco').value = atual.preco === '' || atual.preco == null ? '' : atual.preco;
+  }
+
+  function renderSlots(){
+    const el = document.getElementById('menusSlots'); if(!el) return;
+    const cat = catalogo(), canal = atual.canal;
+    const todos = [...cat.values()];
+    el.innerHTML = SLOTS.map(s => {
+      const escolhidos = atual.itens[s.key];
+      const chips = escolhidos.map(id => {
+        const it = cat.get(id);
+        if(!it) return `<span class="badge warn">item removido <a href="#" onclick="MENUS.tirar('${s.key}','${esc(id)}');return false;">✕</a></span>`;
+        const d = dadosItem(it, canal);
+        return `<span class="badge ${d.ok ? '' : 'warn'}" title="${esc(d.ok ? '' : d.avisos.join('; '))}">${esc(it.nome)}${d.ok ? ' · ' + eur(d.preco) : ' ⚠'} <a href="#" onclick="MENUS.tirar('${s.key}','${esc(id)}');return false;">✕</a></span>`;
+      }).join(' ');
+      const livres = todos.filter(it => !escolhidos.includes(it.id));
+      const grupos = {};
+      livres.forEach(it => { (grupos[it.grupo] = grupos[it.grupo] || []).push(it); });
+      const nomesGrupos = Object.keys(grupos).sort((a, b) => (s.rx.test(b) - s.rx.test(a)) || a.localeCompare(b));
+      const opcoes = nomesGrupos.map(g => `<optgroup label="${esc(g)}">${grupos[g].sort((a, b) => a.nome.localeCompare(b.nome)).map(it => {
+        const d = dadosItem(it, canal);
+        return `<option value="${esc(it.id)}">${esc(it.nome)}${d.ok ? ' · ' + eur(d.preco) : ' ⚠ ' + esc(d.avisos[0])}</option>`;
+      }).join('')}</optgroup>`).join('');
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="font-weight:700;margin-bottom:6px;">${s.label} <span class="save-note" style="font-weight:400;">(opcional · podes escolher várias opções)</span></div>
+        <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;">${chips || '<span class="save-note">nada escolhido</span>'}</div>
+        <select onchange="MENUS.juntar('${s.key}',this.value);this.value='';" style="max-width:420px;"><option value="">+ adicionar…</option>${opcoes}</select>
+      </div>`;
+    }).join('');
+  }
+
+  function renderResultado(){
+    const el = document.getElementById('menusResultado'); if(!el) return;
+    const cat = catalogo(), canal = atual.canal, delivery = canal === 'delivery';
+    const ativos = SLOTS.filter(s => atual.itens[s.key].length);
+    if(!ativos.length){ el.innerHTML = '<div class="empty">Escolhe pelo menos um item acima para ver o CMV e o retorno do menu.</div>'; return; }
+    const dados = {}, faltas = [];
+    ativos.forEach(s => atual.itens[s.key].forEach(id => {
+      const it = cat.get(id);
+      if(!it){ faltas.push(`${s.label}: um item escolhido já não existe`); return; }
+      const d = dadosItem(it, canal); dados[id] = d;
+      if(!d.ok) d.avisos.forEach(a => faltas.push(`${s.label} «${esc(it.nome)}»: ${esc(a)}`));
+    }));
+    if(faltas.length){
+      el.innerHTML = `<div class="card" style="border-color:var(--danger-text);"><b style="color:var(--danger-text);">Faltam dados para calcular o menu ${delivery ? 'de delivery' : 'da loja'}</b>
+        <ul style="margin:8px 0 6px;padding-left:18px;">${faltas.map(f => `<li>${f}</li>`).join('')}</ul>
+        <div class="save-note">Preenche o que falta em Receitas (ficha técnica e preços de venda) ou em Bebidas, e volta aqui. Também podes tirar o item do menu.</div></div>`;
+      return;
+    }
+    const listas = ativos.map(s => atual.itens[s.key].map(id => ({ slot:s, it:cat.get(id), d:dados[id] })));
+    const nCombos = listas.reduce((n, l) => n * l.length, 1);
+    if(nCombos > 5000){ el.innerHTML = '<div class="empty">Demasiadas combinações: reduz as opções por parte.</div>'; return; }
+    const precoMenu = parseFloat(atual.preco) > 0 ? parseFloat(atual.preco) : null;
+    const combos = produtoCartesiano(listas).map(c => ({ itens:c, r:calcCombo(c.map(x => x.d), precoMenu) }));
+    combos.sort((a, b) => a.r.retorno - b.r.retorno);
+    const pior = combos[0], melhor = combos[combos.length - 1];
+    const media = {};
+    ['soma','preco','custo','extra','cmv','retorno','retPct','desconto','comissao','ivaCom','custoDelivery'].forEach(k => { media[k] = combos.reduce((s, c) => s + c.r[k], 0) / combos.length; });
+    const colunas = combos.length > 1 ? [['Pior caso', pior.r], ['Média', media], ['Melhor caso', melhor.r]] : [['Este menu', pior.r]];
+    const cmvCor = v => v > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
+    const linha = (rot, f, estilo) => `<tr><td>${rot}</td>${colunas.map(([, r]) => `<td style="text-align:right;${estilo ? estilo(r) : ''}">${f(r)}</td>`).join('')}</tr>`;
+    const nomes = c => c.itens.map(x => esc(x.it.nome)).join(' + ');
+    let html = `<div class="card" style="margin-bottom:10px;">
+      <h3 style="font-size:16px;margin:0 0 4px;">${esc(atual.nome || 'Menu sem nome')} · ${delivery ? 'delivery' : 'loja (almoço)'}</h3>
+      <div class="save-note" style="margin-bottom:10px;">${precoMenu ? 'Preço do menu: ' + eur(precoMenu) : 'Sem preço do menu: calculado ao preço avulso de cada item (sem desconto)'} · ${combos.length} combinaç${combos.length === 1 ? 'ão' : 'ões'} possíve${combos.length === 1 ? 'l' : 'is'}.</div>
+      <div style="overflow-x:auto;"><table><thead><tr><th></th>${colunas.map(([n]) => `<th style="text-align:right;">${n}</th>`).join('')}</tr></thead><tbody>
+        ${linha('Preço avulso (soma dos itens)', r => eur(r.soma))}
+        ${linha('Preço do menu (c/ IVA)', r => eur(r.preco))}
+        ${linha('Desconto do menu', r => pct(r.desconto))}
+        ${linha('Custo dos ingredientes', r => eur(r.custo))}
+        ${linha('CMV', r => pct(r.cmv), r => 'font-weight:700;color:' + cmvCor(r.cmv))}
+        ${linha('Retorno do menu', r => eur(r.retorno), r => 'font-weight:700;color:' + (r.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)'))}
+        ${linha('Taxa de retorno', r => pct(r.retPct))}
+        ${delivery ? linha('Comissão da plataforma', r => eur(r.comissao)) + linha('IVA da comissão', r => eur(r.ivaCom)) + linha('Embalagem (caixa de pizza)', r => eur(r.extra)) + linha('<b>Custo do delivery</b>', r => '<b>' + eur(r.custoDelivery) + '</b>') : ''}
+      </tbody></table></div>`;
+    if(combos.length > 1) html += `<div class="save-note" style="margin-top:8px;"><b>Pior caso:</b> ${nomes(pior)}<br><b>Melhor caso:</b> ${nomes(melhor)}</div>`;
+    // o que o desconto custa face a vender os mesmos itens avulso
+    const avulso = c => c.itens.reduce((s, x) => s + retItem(x.d, x.d.preco).retorno, 0);
+    const retAvulsoMedio = combos.reduce((s, c) => s + avulso(c), 0) / combos.length;
+    html += `<div class="save-note" style="margin-top:8px;">Vendidos avulso, estes itens dariam em média ${eur(retAvulsoMedio)} de retorno; no menu dão ${eur(media.retorno)}. ${retAvulsoMedio - media.retorno > 0.005 ? 'O desconto custa ' + eur(retAvulsoMedio - media.retorno) + ' por menu: só compensa se trouxer clientes que não viriam, ou se encher lugares vazios.' : 'Sem desconto face ao preço avulso.'}</div></div>`;
+    // detalhe por item
+    html += `<div class="card"><div style="font-weight:700;margin-bottom:6px;">Itens do menu, ao preço avulso</div><div style="overflow-x:auto;"><table>
+      <thead><tr><th>Parte</th><th>Item</th><th style="text-align:right;">Preço</th><th style="text-align:right;">Custo${delivery ? ' (c/ embalagem)' : ''}</th><th style="text-align:right;">CMV</th><th style="text-align:right;">Retorno</th></tr></thead><tbody>
+      ${listas.flat().map(x => { const r = retItem(x.d, x.d.preco); return `<tr><td>${x.slot.label.split(' (')[0]}</td><td>${esc(x.it.nome)}</td><td style="text-align:right;">${eur(x.d.preco)}</td><td style="text-align:right;">${eur(x.d.custo + x.d.extra)}</td><td style="text-align:right;color:${cmvCor(r.cmvReal)};">${pct(r.cmvReal)}</td><td style="text-align:right;">${eur(r.retorno)}</td></tr>`; }).join('')}
+      </tbody></table></div></div>`;
+    el.innerHTML = html;
+  }
+
+  function tudo(){
+    if(!montado || !document.getElementById('menusSlots')) montar();
+    sincronizarCabecalho(); renderSlots(); renderResultado();
+    const aviso = document.getElementById('menusAvisoTabela');
+    if(aviso) aviso.style.display = tabelaOk ? 'none' : 'block';
+  }
+
+  async function abrir(){
+    montado = false; tudo();
+    await carregar(); tudo();
+  }
+  function novo(){ atual = vazio(); tudo(); }
+  function abrirGuardado(id){
+    if(!id){ return; }
+    const m = guardados.find(x => x.id === id); if(!m) return;
+    const it = m.itens || {};
+    atual = { id:m.id, nome:m.nome || '', canal:m.canal === 'delivery' ? 'delivery' : 'loja', preco: m.preco == null ? '' : m.preco,
+              itens:{ entrada:it.entrada||[], principal:it.principal||[], bebida:it.bebida||[], sobremesa:it.sobremesa||[], cafe:it.cafe||[] } };
+    tudo();
+  }
+  function setCanal(c){ atual.canal = c; renderSlots(); renderResultado(); }
+  function setNome(v){ atual.nome = v; }
+  function setPreco(v){ atual.preco = v; renderResultado(); }
+  function juntar(slot, id){ if(!id) return; if(!atual.itens[slot].includes(id)) atual.itens[slot].push(id); renderSlots(); renderResultado(); }
+  function tirar(slot, id){ atual.itens[slot] = atual.itens[slot].filter(x => x !== id); renderSlots(); renderResultado(); }
+
+  async function guardar(){
+    if(!(atual.nome || '').trim()){ showAlert('Dá um nome ao menu antes de guardar.'); return; }
+    const id = atual.id || uid();
+    const row = { id, nome: atual.nome.trim(), canal: atual.canal, itens: atual.itens, preco: parseFloat(atual.preco) > 0 ? parseFloat(atual.preco) : null, atualizado_em: new Date().toISOString() };
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/menus?on_conflict=id`, { method:'POST', headers:{ ...sbHeadersFn(), Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) });
+      if(!res.ok) throw new Error('menus');
+      atual.id = id; await carregar(); tudo();
+      showAlert('Menu guardado.');
+    }catch(e){
+      showAlert('Não foi possível guardar o menu. Se for a primeira vez, falta criar a tabela "menus" no Supabase (o SQL está em schema_completo.sql, secção Menus). O que montaste continua nesta página.');
+    }
+  }
+  async function apagar(){
+    if(!atual.id){ novo(); return; }
+    if(!(await showConfirm('Apagar o menu «' + (atual.nome || 'sem nome') + '»?'))) return;
+    try{ await sbDeleteRow('menus', atual.id); }catch(e){ showAlert('Não foi possível apagar o menu.'); return; }
+    atual = vazio(); await carregar(); tudo();
+  }
+
+  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, guardar, apagar };
+})();
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
 let grupoAtualOperacional = null;

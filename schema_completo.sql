@@ -315,3 +315,23 @@ create policy "ler impasto_lotes" on impasto_lotes for select using (auth.role()
 create policy "colaborador cria impasto_lotes" on impasto_lotes for insert with check (auth.role() = 'authenticated');
 create policy "colaborador atualiza impasto_lotes" on impasto_lotes for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin apaga impasto_lotes" on impasto_lotes for delete using (auth.jwt() ->> 'email' in (select email from admins));
+
+-- ============================================================
+-- Menus (almoço / delivery): menus guardados da aba Produção > Menus
+-- Só administradores criam, editam e apagam.
+-- ============================================================
+create table if not exists menus (
+  id text primary key,
+  nome text not null default '',
+  canal text not null default 'loja',
+  itens jsonb not null default '{}'::jsonb,
+  preco numeric,
+  atualizado_em timestamptz default now()
+);
+
+alter table menus enable row level security;
+
+create policy "ler menus" on menus for select using (auth.role() = 'authenticated');
+create policy "admin cria menus" on menus for insert with check (auth.jwt() ->> 'email' in (select email from admins));
+create policy "admin edita menus" on menus for update using (auth.jwt() ->> 'email' in (select email from admins));
+create policy "admin apaga menus" on menus for delete using (auth.jwt() ->> 'email' in (select email from admins));
