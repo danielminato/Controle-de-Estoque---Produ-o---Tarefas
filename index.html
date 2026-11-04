@@ -3583,7 +3583,9 @@ function newScenario(){
   editingId = null;
   editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
   editState.perfil = defaultPerfil(editState.months);
-  if(ivaLiquidoReal != null) editState.custos.impostos = Math.round(ivaLiquidoReal * 10) / 10;
+  // o IVA definido no Ponto de equilíbrio (ex.: 14%) manda; sem ele, usa o líquido real dos meses completos
+  const ivaBase = ivaManual != null ? ivaManual : ivaLiquidoReal;
+  if(ivaBase != null) editState.custos.impostos = Math.round(ivaBase * 10) / 10;
   document.getElementById('cenNome').value = '';
   loadCustosToForm(editState.custos);
   renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
@@ -3615,11 +3617,16 @@ function loadCustosToForm(c){
 }
 function atualizarDicaImpostos(){
   const el = document.getElementById('impostosDica'); if(!el) return;
-  el.innerHTML = ivaLiquidoReal == null ? '' : `IVA líquido real (Controle de IVA, IVA − crédito ÷ faturado): <b>${ivaLiquidoReal.toFixed(1).replace('.', ',')}%</b> · <a href="#" onclick="FX.usarIvaLiquido();return false;">usar</a>`;
+  const f = v => v.toFixed(1).replace('.', ',') + '%';
+  const partes = [];
+  if(ivaManual != null) partes.push(`IVA do Ponto de equilíbrio: <b>${f(ivaManual)}</b> · <a href="#" onclick="FX.usarIvaLiquido('manual');return false;">usar</a>`);
+  if(ivaLiquidoReal != null) partes.push(`IVA líquido real (meses completos): <b>${f(ivaLiquidoReal)}</b> · <a href="#" onclick="FX.usarIvaLiquido('auto');return false;">usar</a>`);
+  el.innerHTML = partes.join(' &nbsp;|&nbsp; ');
 }
-function usarIvaLiquido(){
-  if(ivaLiquidoReal == null) return;
-  document.getElementById('impostos').value = (Math.round(ivaLiquidoReal * 10) / 10);
+function usarIvaLiquido(qual){
+  const v = qual === 'manual' ? ivaManual : ivaLiquidoReal;
+  if(v == null) return;
+  document.getElementById('impostos').value = (Math.round(v * 10) / 10);
   readCustosFromForm(); renderExpenses(); computeAndRenderCards();
 }
 function readCustosFromForm(){
@@ -3858,8 +3865,13 @@ function computeAndRenderCards(){
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
 let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
 let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
+let ivaManual = null;        // IVA escrito à mão no Ponto de equilíbrio (config_financeiro.iva_pct), se existir
 async function carregarIvaLiquido(){
-  ivaLiquidoReal = null;
+  ivaLiquidoReal = null; ivaManual = null;
+  try{
+    const rc = await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
+    if(rc.ok){ const l = await rc.json(); if(l.length && l[0].valor != null && !isNaN(Number(l[0].valor))) ivaManual = Number(l[0].valor); }
+  }catch(e){ ivaManual = null; }
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/controle_iva?select=faturado_sistema,faturado_fora,iva,credito&ano=eq.${new Date().getFullYear()}`, { headers: sbHeadersFn() });
     if(!res.ok) return;
