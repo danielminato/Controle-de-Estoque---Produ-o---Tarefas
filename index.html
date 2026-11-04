@@ -5729,19 +5729,19 @@ const FINANCAS = (function(){
     function renderDiag(){
       const box = el('chDiag'), lims = el('chLimites');
       diagTexto = [];
-      lims.innerHTML = [['lim_folha', 'Limite equipa (% do fat. sem IVA)'], ['lim_prime', 'Limite CMV + equipa (%)'], ['lim_renda', 'Limite renda (% do fat. sem IVA)'], ['mix_almoco', '% do faturado que vem do almoço']]
+      lims.innerHTML = [['lim_folha', 'Limite equipa (% do faturamento; o IVA é retirado sozinho)'], ['lim_prime', 'Limite CMV + equipa (%)'], ['lim_renda', 'Limite renda (% do faturamento; o IVA é retirado sozinho)'], ['mix_almoco', '% do faturado que vem do almoço']]
         .map(([k, rot]) => `<div><label>${rot}</label><input type="number" step="1" value="${lim[k]}" onchange="FINANCAS.CH.limite('${k}',this.value)"></div>`).join('');
       if(semEscala()){ box.innerHTML = AVISO_ESCALA; return; }
       const itens = [];
       const add = (nivel, texto) => { itens.push([nivel, texto]); diagTexto.push(({ ok: '✔ ', aviso: '⚠ ', mau: '✖ ' }[nivel]) + texto); };
       if(M.fat <= 0){
-        add('aviso', `Sem faturado lançado em ${MESES_LONGO[mes-1]} no Controle de IVA, então não dá para comparar custos com faturamento. O custo por hora (${euro(M.custoHora)}) já é válido.`);
+        add('aviso', `Sem faturado lançado em ${MESES_LONGO[mes-1]} no Controle de IVA (o total com IVA, como está nos teus relatórios; o app retira o IVA sozinho), então não dá para comparar custos com faturamento. O custo por hora (${euro(M.custoHora)}) já é válido.`);
       }else if(M.margem <= 0){
         add('mau', 'CMV + outros custos + IVA somam 100% ou mais — revê os parâmetros no Ponto de equilíbrio.');
       }else{
         const fatSem = M.fat * (1 - M.ivaPct / 100);
         const folha = M.totalEquipa / fatSem * 100, prime = M.cmvPct + folha;
-        add(folha <= lim.lim_folha ? 'ok' : 'aviso', `Equipa = ${dec(folha)}% do faturamento sem IVA (referência: até ${lim.lim_folha}%).`);
+        add(folha <= lim.lim_folha ? 'ok' : 'aviso', `Equipa = ${dec(folha)}% do faturamento sem IVA (faturado ${euro(M.fat)} − IVA de ${dec(M.ivaPct)}% = ${euro(fatSem)}; referência: até ${lim.lim_folha}%).`);
         add(prime <= lim.lim_prime ? 'ok' : 'aviso', `CMV + equipa (prime cost) = ${dec(prime)}% (referência: até ${lim.lim_prime}%). CMV usado: ${dec(M.cmvPct)}%.`);
         const rendaItens = M.fixoItens.filter(i => /renda|alug/i.test(i.nome));
         if(rendaItens.length){
