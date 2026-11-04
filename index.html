@@ -3867,7 +3867,7 @@ function renderRealReal(r){
     const cx = ml + slot * i + slot / 2;
     if(E[i] > 0) s += `<rect x="${cx - bw - 1}" y="${y(E[i])}" width="${bw}" height="${H - mb - y(E[i])}" rx="2" style="fill:var(--terracotta);opacity:.28;stroke:var(--terracotta);"><title>${nm} · realizável ${fmtEUR(E[i])}</title></rect>`;
     if(R[i] > 0) s += `<rect x="${cx + 1}" y="${y(R[i])}" width="${bw}" height="${H - mb - y(R[i])}" rx="2" style="fill:var(--olive-dark);"><title>${nm} · real ${fmtEUR(R[i])}</title></rect>`;
-    if(MIN[i] > 0) s += `<line x1="${cx - bw - 4}" x2="${cx + bw + 4}" y1="${y(MIN[i])}" y2="${y(MIN[i])}" style="stroke:var(--danger-text);stroke-width:2;stroke-dasharray:3 2;"><title>${nm} · faturamento mínimo ${fmtEUR(MIN[i])}</title></line>`;
+    if(MIN[i] > 0) s += `<line x1="${cx - bw - 4}" x2="${cx + bw + 4}" y1="${y(MIN[i])}" y2="${y(MIN[i])}" style="stroke:var(--danger-text);stroke-width:2;stroke-dasharray:3 2;"><title>${nm} · faturamento mínimo (c/ IVA) ${fmtEUR(MIN[i])}</title></line>`;
     s += `<text x="${cx}" y="${H - 8}" text-anchor="middle" style="font-size:11px;fill:var(--ink-soft);">${nm}</text>`;
   });
   document.getElementById('realRealGrafico').innerHTML = s + '</svg>';
@@ -3877,7 +3877,7 @@ function renderRealReal(r){
   html += linha('Real (Controle de IVA)', i => `<td>${R[i] > 0 ? fmtEUR(R[i]) : '—'}</td>`);
   html += linha('Diferença (€)', i => { if(!(E[i] > 0 && R[i] > 0)) return '<td>—</td>'; const d = R[i] - E[i]; return `<td style="font-weight:700;color:${d >= 0 ? 'var(--ok)' : 'var(--danger)'};">${d >= 0 ? '+' : '−'}${fmtEUR(Math.abs(d))}</td>`; }, ' style="font-weight:700;"');
   html += linha('Diferença (%)', i => { if(!(E[i] > 0 && R[i] > 0)) return '<td>—</td>'; const d = (R[i] / E[i] - 1) * 100; return `<td style="color:${d >= 0 ? 'var(--ok)' : 'var(--danger)'};">${pct(d)}</td>`; });
-  html += linha('Faturamento mínimo', i => `<td style="color:var(--text-soft);">${MIN[i] > 0 ? fmtEUR(MIN[i]) : '—'}</td>`);
+  html += linha('Faturamento mínimo (c/ IVA)', i => `<td style="color:var(--text-soft);">${MIN[i] > 0 ? fmtEUR(MIN[i]) : '—'}</td>`);
   html += linha('Real cobre o mínimo?', i => `<td>${R[i] > 0 && MIN[i] > 0 ? (R[i] >= MIN[i] ? '<b style="color:var(--ok);">✔</b>' : '<b style="color:var(--danger);">✖</b>') : '—'}</td>`);
   document.getElementById('realRealTabela').innerHTML = html;
 }
@@ -3938,7 +3938,7 @@ function renderSimMes(){
     ${stat('Faturamento previsto', fmtEUR(p.total))}
     ${stat('Média por dia', fmtEUR(p.total / diasMes))}
     ${stat('Almoço / jantar', fmtEUR(p.alm) + ' / ' + fmtEUR(p.jan))}
-    ${stat('Faturamento mínimo', minimo != null ? fmtEUR(minimo) : '—')}
+    ${stat('Faturamento mínimo (c/ IVA)', minimo != null ? fmtEUR(minimo) : '—')}
     ${stat(paga ? 'Sobra' : 'Falta', temFat ? fmtEUR(Math.abs(dre.resultadoAntesDistribuicao)) : '—')}
     ${stat('Paga os custos?', temFat ? (paga ? '✔ sim' : '✖ não') : '—', temFat ? `background:${paga ? 'var(--ok-text)' : 'var(--danger-text)'};` : 'background:var(--ink-soft);')}
   </div>
@@ -3999,7 +3999,7 @@ function renderExpenses(){
   html += secao('O MÊS SE PAGA?');
   const temFat = dre.some(d=>d.receita > 0);
   const minimo = d => { const den = 1 - (d.cmvPct + c.impostos)/100; return den > 0 ? (d.despPessoal + d.despAdmin + d.despFinanceiras)/den : null; };
-  html += linha('Faturamento mínimo (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
+  html += linha('Faturamento mínimo, c/ IVA (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
   html += linha('<b>Se paga?</b> (antes da distribuição)', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoAntesDistribuicao >= 0; return `<b style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</b><div style="font-size:9px;color:var(--text-soft);">${s?'sobra ':'falta '}${fmtEUR(Math.abs(d.resultadoAntesDistribuicao))}</div>`; }));
   html += linha('Depois da distribuição de lucros?', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoLiquido >= 0; return `<span style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</span>`; }));
   t.innerHTML = html;
@@ -5888,7 +5888,7 @@ const FINANCAS = (function(){
       const box = el('chTurnos'), notas = el('chNotas');
       if(semEscala()){ box.innerHTML = ''; notas.innerHTML = ''; return; }
       const linha = (nome, x) => `<tr><td>${nome}</td><td>${x.dias}</td><td>${dec(x.horas, 0)} h</td><td>${dec(x.pessoasMedia)}</td><td>${euro(x.custoEquipa)}</td><td>${euro(x.custoEstrutura)}</td><td style="font-weight:700;">${euro(x.custoTotal)}</td><td style="font-weight:700;">${x.horas > 0 ? euro(x.custoHora) : '—'}</td><td>${x.fatMinHora != null && x.horas > 0 ? euro(x.fatMinHora) : '—'}</td><td style="color:${M.fat <= 0 ? 'var(--ink-soft)' : (x.fatMinHora != null && x.fatHora >= x.fatMinHora ? 'var(--ok)' : 'var(--danger)')};">${M.fat > 0 && x.horas > 0 ? euro(x.fatHora) : '—'}</td></tr>`;
-      box.innerHTML = '<table class="dre-table"><tr><th>Turno</th><th>Dias</th><th>Horas</th><th>Pessoas (média)</th><th>Equipa</th><th>Custos fixos</th><th>Custo total</th><th>Custo/hora</th><th>Fat. mínimo/hora</th><th>Fatura/hora (est.)</th></tr>'
+      box.innerHTML = '<table class="dre-table"><tr><th>Turno</th><th>Dias</th><th>Horas</th><th>Pessoas (média)</th><th>Equipa</th><th>Custos fixos</th><th>Custo total</th><th>Custo/hora</th><th>Fat. mínimo/hora (c/ IVA)</th><th>Fatura/hora (est., c/ IVA)</th></tr>'
         + TURNOS.map(([t, nome]) => linha(nome, M.T[t])).join('') + '</table>';
       const partes = [];
       partes.push(M.fat > 0 ? `Faturado em ${MESES_LONGO[mes-1]}: ${euro(M.fat)} (Controle de IVA), dividido ${lim.mix_almoco}% almoço / ${100 - lim.mix_almoco}% jantar.` : `Sem faturado lançado em ${MESES_LONGO[mes-1]} no Controle de IVA — lança lá para ver quanto cada hora fatura.`);
