@@ -3863,7 +3863,9 @@ async function carregarIvaLiquido(){
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/controle_iva?select=faturado_sistema,faturado_fora,iva,credito&ano=eq.${new Date().getFullYear()}`, { headers: sbHeadersFn() });
     if(!res.ok) return;
-    const linhas = await res.json();
+    const todas = await res.json();
+    // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
+    const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
     const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
     const liq = linhas.reduce((s,r)=>s + (Number(r.iva)||0) - (Number(r.credito)||0), 0);
     if(fat > 0) ivaLiquidoReal = liq / fat * 100;
@@ -5292,14 +5294,19 @@ const FINANCAS = (function(){
       const prazo = ['15 de maio', '15 de agosto', '15 de novembro', '15 de fevereiro de ' + (ano + 1)];
       const qAtual = hoje.getFullYear() === ano ? Math.floor(hoje.getMonth() / 3) : -1;
       const campo = (ms, c) => ms.map(m => `<td><input type="number" step="0.01" value="${g(m, c) ? g(m, c) : ''}" onchange="FINANCAS.IVA.editar(${m},'${c}',this.value)"></td>`).join('');
-      let totFat = 0, totIva = 0, totPag = 0, html = '';
+      let totFat = 0, totIva = 0, totPag = 0, totFatC = 0, totIvaC = 0, totCredC = 0, totMesesC = 0, html = '';
       for(let q = 0; q < 4; q++){
         const ms = [q*3+1, q*3+2, q*3+3];
         const soma = c => ms.reduce((s, m) => s + g(m, c), 0);
         const fat = ms.map(m => g(m, 'faturado_sistema') + g(m, 'faturado_fora'));
         const fatT = fat.reduce((a, b) => a + b, 0), ivaT = soma('iva'), credT = soma('credito');
-        const pagar = ivaT - credT, taxa = fatT > 0 ? ivaT / fatT : 0;
-        totFat += fatT; totIva += ivaT; totPag += pagar;
+        const pagar = ivaT - credT;
+        // as taxas só contam os meses completos (faturado e IVA lançados), para o arranque sem IVA não baixar a média
+        const completos = ms.filter((m, i) => fat[i] > 0 && g(m, 'iva') > 0);
+        const fatC = completos.reduce((s, m) => s + g(m, 'faturado_sistema') + g(m, 'faturado_fora'), 0);
+        const ivaC = completos.reduce((s, m) => s + g(m, 'iva'), 0), credC = completos.reduce((s, m) => s + g(m, 'credito'), 0);
+        const taxa = fatC > 0 ? ivaC / fatC : 0, taxaLiq = fatC > 0 ? (ivaC - credC) / fatC : 0;
+        totFat += fatT; totIva += ivaT; totPag += pagar; totFatC += fatC; totIvaC += ivaC; totCredC += credC; totMesesC += completos.length;
         html += `<section class="panel"${q === qAtual ? ' style="border-color:var(--terracotta-dark);"' : ''}>
           <h2>${q+1}.º trimestre (${MESES[q*3]}–${MESES[q*3+2]})${q === qAtual ? ' · atual' : ''}</h2>
           <p class="desc">Pagamento do IVA até ${prazo[q]}.</p>
@@ -5309,15 +5316,15 @@ const FINANCAS = (function(){
             <tr><td class="dia">Faturado fora do sistema</td>${campo(ms,'faturado_fora')}<td>${euro(soma('faturado_fora'))}</td></tr>
             <tr><td class="dia" style="font-weight:700;">Faturado total</td>${fat.map(v => `<td style="font-weight:700;">${euro(v)}</td>`).join('')}<td style="font-weight:700;">${euro(fatT)}</td></tr>
             <tr><td class="dia">IVA cobrado (sistema de faturação)</td>${campo(ms,'iva')}<td>${euro(ivaT)}</td></tr>
-            <tr><td class="dia">% IVA ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct(g(m,'iva') / fat[i]) : '—'}</td>`).join('')}<td>${fatT > 0 ? pct(taxa) : '—'}</td></tr>
+            <tr><td class="dia">% IVA ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct(g(m,'iva') / fat[i]) : '—'}</td>`).join('')}<td>${fatC > 0 ? pct(taxa) : '—'}</td></tr>
             <tr><td class="dia">Crédito de IVA a deduzir (aprox.)</td>${campo(ms,'credito')}<td>${euro(credT)}</td></tr>
             <tr><td class="dia" style="font-weight:700;">A separar no mês (IVA − crédito)</td>${ms.map(m => { const v = g(m,'iva') - g(m,'credito'); return `<td style="font-weight:700;${v < 0 ? 'color:var(--ok);' : ''}">${euro(v)}</td>`; }).join('')}<td style="font-weight:700;">${euro(pagar)}</td></tr>
-            <tr><td class="dia">% líquida (IVA − crédito) ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct((g(m,'iva') - g(m,'credito')) / fat[i]) : '—'}</td>`).join('')}<td>${fatT > 0 ? pct(pagar / fatT) : '—'}</td></tr>
+            <tr><td class="dia">% líquida (IVA − crédito) ÷ faturado</td>${ms.map((m, i) => `<td>${fat[i] > 0 ? pct((g(m,'iva') - g(m,'credito')) / fat[i]) : '—'}</td>`).join('')}<td>${fatC > 0 ? pct(taxaLiq) : '—'}</td></tr>
           </table>
           <div class="cards" style="margin-top:14px;">
             <div class="fx-stat highlight"><div class="label">${pagar < 0 ? 'Crédito a transportar' : 'Pagamento estimado'}</div><div class="value">${euro(Math.abs(pagar))}</div></div>
-            <div class="fx-stat"><div class="label">Taxa média de IVA</div><div class="value">${fatT > 0 ? pct(taxa) : '—'}</div></div>
-            <div class="fx-stat"><div class="label">Taxa líquida (IVA − crédito)</div><div class="value">${fatT > 0 ? pct(pagar / fatT) : '—'}</div></div>
+            <div class="fx-stat"><div class="label">Taxa média de IVA</div><div class="value">${fatC > 0 ? pct(taxa) : '—'}</div></div>
+            <div class="fx-stat"><div class="label">Taxa líquida (IVA − crédito)</div><div class="value">${fatC > 0 ? pct(taxaLiq) : '—'}</div></div>
             <div class="fx-stat"><div class="label">Média mensal a separar</div><div class="value">${euro(Math.max(pagar, 0) / 3)}</div></div>
           </div></section>`;
       }
@@ -5325,7 +5332,8 @@ const FINANCAS = (function(){
       resumo.innerHTML = `
         <div class="fx-stat"><div class="label">Faturado em ${ano}</div><div class="value">${euro(totFat)}</div></div>
         <div class="fx-stat"><div class="label">IVA cobrado em ${ano}</div><div class="value">${euro(totIva)}</div></div>
-        <div class="fx-stat"><div class="label">Taxa média no ano</div><div class="value">${totFat > 0 ? pct(totIva / totFat) : '—'}</div></div>
+        <div class="fx-stat"><div class="label">Taxa média no ano (${totMesesC} ${totMesesC === 1 ? 'mês completo' : 'meses completos'})</div><div class="value">${totFatC > 0 ? pct(totIvaC / totFatC) : '—'}</div></div>
+        <div class="fx-stat"><div class="label">Taxa líquida no ano (IVA − crédito)</div><div class="value">${totFatC > 0 ? pct((totIvaC - totCredC) / totFatC) : '—'}</div></div>
         <div class="fx-stat highlight"><div class="label">A pagar no ano (após créditos)</div><div class="value">${euro(totPag)}</div></div>`;
     }
     return { abrir, mudarAno, editar };
@@ -5334,7 +5342,7 @@ const FINANCAS = (function(){
   /* ================= PONTO DE EQUILÍBRIO ================= */
   const PE = (function(){
     let ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
-    let itens = [], origens = [], cfg = { cmv_pct: 30, outros_pct: 0, iva_pct: null }, ivaAuto = null, fatReal = 0;
+    let itens = [], origens = [], cfg = { cmv_pct: 30, outros_pct: 0, iva_pct: null }, ivaAuto = null, ivaMeses = 0, fatReal = 0;
     const st = m => { const el = document.getElementById('peStatus'); if(el) el.textContent = m; };
 
     async function abrir(){
@@ -5373,9 +5381,12 @@ const FINANCAS = (function(){
         todos.forEach(r => { const k = r.ano + '-' + r.mes; if(!vistos.has(k)){ vistos.add(k); origens.push({ ano: r.ano, mes: r.mes }); } });
         origens.sort((a, b) => b.ano - a.ano || b.mes - a.mes);
         const iv = await ler(`controle_iva?select=*&ano=eq.${ano}`);
-        const fat = iv.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
-        const ivaT = iv.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);   // IVA líquido: cobrado menos o crédito das compras
+        // só entram os meses completos (com faturado e IVA lançados); os meses de arranque sem IVA ficam de fora
+        const ivC = iv.filter(r => num(r.iva) > 0 && num(r.faturado_sistema) + num(r.faturado_fora) > 0);
+        const fat = ivC.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
+        const ivaT = ivC.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);   // IVA líquido: cobrado menos o crédito das compras
         ivaAuto = fat > 0 ? (ivaT / fat) * 100 : null;
+        ivaMeses = ivC.length;
         const rm = iv.find(r => r.mes === mes);
         fatReal = rm ? num(rm.faturado_sistema) + num(rm.faturado_fora) : 0;
         render();
@@ -5430,7 +5441,7 @@ const FINANCAS = (function(){
         <div><label>CMV (% do faturamento sem IVA)</label><input type="number" step="0.5" value="${cfg.cmv_pct}" onchange="FINANCAS.PE.config('cmv_pct',this.value)"></div>
         <div><label>Outros custos variáveis (%)</label><input type="number" step="0.5" value="${cfg.outros_pct}" onchange="FINANCAS.PE.config('outros_pct',this.value)"></div>
         <div><label>IVA líquido (% do faturado, já sem o crédito)</label><input type="number" step="0.1" value="${Number(ivaPct).toFixed(1)}" onchange="FINANCAS.PE.config('iva_pct',this.value)">
-          <div class="desc" style="margin:4px 0 0;">${ivaAuto != null ? 'Do Controle de IVA de ' + ano + ': ' + ivaAuto.toFixed(1).replace('.', ',') + '% (IVA − crédito ÷ faturado)' + (cfg.iva_pct != null && Math.abs(cfg.iva_pct - ivaAuto) > 0.05 ? ' · <a href="#" onclick="FINANCAS.PE.usarAutomatico();return false;">usar o automático</a>' : '') : 'Sem dados no Controle de IVA deste ano.'}</div></div>`;
+          <div class="desc" style="margin:4px 0 0;">${ivaAuto != null ? 'Do Controle de IVA de ' + ano + ': ' + ivaAuto.toFixed(1).replace('.', ',') + '% (IVA − crédito ÷ faturado, média dos ' + ivaMeses + (ivaMeses === 1 ? ' mês completo' : ' meses completos') + ', sem os meses sem IVA lançado)' + (cfg.iva_pct != null && Math.abs(cfg.iva_pct - ivaAuto) > 0.05 ? ' · <a href="#" onclick="FINANCAS.PE.usarAutomatico();return false;">usar o automático</a>' : '') : 'Sem dados no Controle de IVA deste ano.'}</div></div>`;
     }
     async function editar(id, campo, valor){
       const it = itens.find(i => i.id === id); if(!it) return;
@@ -5559,8 +5570,9 @@ const FINANCAS = (function(){
       const horasTotais = T.almoco.horas + T.jantar.horas;
       const estrutura = totalFixos + foraEscala;
       const estruturaHora = horasTotais > 0 ? estrutura / horasTotais : 0;
-      const fatAno = D.ivaAno.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
-      const ivaAnoT = D.ivaAno.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);
+      const ivaCompl = D.ivaAno.filter(r => num(r.iva) > 0 && num(r.faturado_sistema) + num(r.faturado_fora) > 0);   // só meses completos
+      const fatAno = ivaCompl.reduce((s, r) => s + num(r.faturado_sistema) + num(r.faturado_fora), 0);
+      const ivaAnoT = ivaCompl.reduce((s, r) => s + num(r.iva) - num(r.credito), 0);
       const ivaAuto = fatAno > 0 ? (ivaAnoT / fatAno) * 100 : null;
       const ivaPct = D.cfg.iva_pct != null ? D.cfg.iva_pct : (ivaAuto != null ? ivaAuto : 0);
       const cmvPct = D.cfg.cmv_pct != null ? D.cfg.cmv_pct : 30, outrosPct = num(D.cfg.outros_pct);
