@@ -934,8 +934,8 @@
       <p class="desc" id="chNotas" style="margin-top:10px;"></p>
     </section>
     <section class="panel">
-      <h2>Simulador: abrir mais um turno (ex.: de manhã)</h2>
-      <p class="desc">Começa com os valores do turno do almoço da Escala. Muda para testar. Só a equipa e os extras aumentam; renda e demais custos fixos continuam iguais.</p>
+      <h2>Quanto o almoço precisa vender para valer a pena abrir</h2>
+      <p class="desc">Já vem preenchido com o almoço da Escala (horas, dias, pessoas e custo por hora). Muda para testar, por exemplo menos pessoas ou menos dias. Conta só o que o almoço acrescenta (equipa e extras): a renda e os demais custos fixos pagam-se com ou sem almoço.</p>
       <div class="params-grid" id="chSimInputs"></div>
       <div class="cards" id="chSimResultado" style="margin-top:14px;"></div>
       <p class="desc" id="chSimTexto" style="margin-top:10px;font-size:13px;color:var(--ink);"></p>
@@ -5713,6 +5713,11 @@ const FINANCAS = (function(){
       if(fatNec == null || horasMes <= 0){ txt.textContent = 'Preenche os dados do turno para ver a conta.'; return; }
       const porHora = fatNec / horasMes;
       let t = `Para compensar, o turno teria de faturar pelo menos ${euro(porHora)} por hora (${euro(fatNec / diasMes)} por dia aberto)` + (M.fatHora > 0 ? `, o que é ${Math.round(porHora / M.fatHora * 100)}% do que o restaurante fatura hoje por hora aberta (${euro(M.fatHora)}).` : '.');
+      const al = M.T.almoco;
+      if(al.horas > 0 && al.fatMinHora != null){
+        t += ` Se o almoço tivesse de pagar também a sua parte da renda e dos custos fixos, o mínimo subia para ${euro(al.fatMinHora)} por hora (${euro(al.fatMinHora * M.dur.almoco)} por dia).`;
+        if(M.fat > 0) t += ` Estimativa do que o almoço fatura hoje: ${euro(al.fatHora)} por hora.`;
+      }
       if(sim.fatHora > 0){
         const res = sim.fatHora * horasMes * M.margem - custoExtra;
         t += ` Com ${euro(sim.fatHora)} por hora, o turno ${res >= 0 ? 'sobra' : 'perde'} ${euro(Math.abs(res))} por mês.`;
