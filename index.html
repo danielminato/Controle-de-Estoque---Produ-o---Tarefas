@@ -236,6 +236,9 @@
   .fx section.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;overflow-x:auto;}
   .fx .panel h2{font-weight:700;font-size:15px;margin:0 0 4px;color:var(--ink);}
   .fx .desc{font-size:12px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
+  .info-i{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;margin:0 0 0 4px;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--primary,var(--terracotta-dark));font-size:13px;line-height:1;cursor:pointer;vertical-align:middle;}
+  .info-i:hover,.info-i.on{background:var(--primary,var(--terracotta-dark));color:#fff;}
+  .info-box{margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--primary,var(--terracotta-dark));border-radius:6px;background:var(--bg,#f6f7fb);font-size:13px;line-height:1.55;color:var(--ink);font-weight:400;text-transform:none;letter-spacing:0;}
   .fx label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
   .fx input[type=checkbox],.fx input[type=radio]{width:16px;height:16px;}
   .fx input[type=color]{width:36px;padding:2px;height:32px;}
@@ -8849,6 +8852,57 @@ async function tentarLoginAutomatico(){
 const _emRecuperacao = !!(window.location.hash && window.location.hash.includes('type=recovery'));
 verificarRecuperacaoSenha();
 if(!_emRecuperacao) tentarLoginAutomatico();
+</script>
+<script>
+/* ---- Ícone ⓘ em cada tópico das áreas financeiras: explica a lógica e como aplicar ---- */
+(function(){
+  const T = (logica, aplicar) => `<div><b>Lógica:</b> ${logica}</div><div style="margin-top:6px;"><b>Como aplicar:</b> ${aplicar}</div>`;
+  const INFO = {
+    'Os seus cenários': T('um cenário é uma simulação completa do ano: o faturamento de cada mês mais os custos. Podes guardar vários (ex.: "Base" e "Inverno difícil") para ver como o resultado muda.', 'clica em "+ Novo cenário", dá-lhe um nome e preenche os painéis de cima para baixo. Guarda no fim. Para mexer num cenário existente, clica nele na lista.'),
+    'Comparação entre cenários': T('para cada cenário e cada mês, vê se o faturamento menos CMV e IVA cobre a equipa e os custos fixos. Quadrado verde = cobre; vermelho = faltaria dinheiro.', 'precisas de 2 ou mais cenários guardados. Compara o pior mês, o resultado do ano e a caixa livre, e passa o rato nos quadrados para ver o valor de cada mês.'),
+    'Resumo dos dias': T('ticket médio × giros × cadeiras dá o peso de cada dia da semana. O faturamento de cada mês (da Sazonalidade mensal) é repartido por esses pesos. Um giro é a casa cheia uma vez (clientes ÷ cadeiras). Esta tabela só distribui o mês pelos dias: mexer aqui não muda o total do mês.', 'confirma as cadeiras (dentro e fora) e o ticket de cada dia. Ajusta os giros de almoço e jantar. Na tabela de baixo vês quanto cada dia tem de faturar, em €, clientes ou giros. Giros ao jantar acima de 2,5 aparecem a vermelho: casa a rebentar, pouco realista.'),
+    'Sazonalidade mensal': T('é o faturamento de cada mês do ano. Nos meses <b>realizados</b> escreves o valor em €. Nos meses de <b>projeção</b> escreves a variação em % face ao melhor mês real (a referência de 100%).', 'marca "realizado" nos meses já fechados e escreve o faturado (com IVA). Nos meses futuros escreve a variação, por exemplo −30, ou usa o Simulador do mês logo abaixo para os prever com ticket e clientes.'),
+    'Simulador do mês': T('prevê o faturamento de um mês de duas formas. <b>Montar:</b> ticket × clientes por dia, no almoço e no jantar (segunda a quinta e sexta a domingo), pelos dias do calendário. <b>Partir de outro mês:</b> pega no almoço e no jantar de um mês de base e aplica uma variação em % a cada um. O resultado entra na tabela de sazonalidade, no DRE, no total anual e no "A operação se paga?".', 'escolhe o mês, escolhe a fonte e altera só o que mudou (por exemplo o ticket do almoço para 12 € no inverno). O painel diz quanto sobra ou falta e se o mês paga os custos. Atenção: com base "mês anterior" as variações acumulam-se de mês para mês; para vários meses seguidos usa uma base fixa.'),
+    'Estrutura de custos': T('o CMV e os impostos são percentagens da receita. O CMV padrão aplica-se a todos os meses (cada mês afina-se em "Despesas mensais"). "Impostos e taxas" é o IVA líquido médio, ou seja, a parte de cada euro faturado que vai para o Estado, e parte do valor do Ponto de equilíbrio. O salário base só conta quando os custos reais estão desligados.', 'confirma o IVA (podes usar a sugestão por baixo do campo) e o CMV médio. Se tens um menu de almoço mais barato, sobe o CMV dos meses em que ele vigora.'),
+    'Custos reais (da aba Ponto de equilíbrio)': T('com a caixa ligada, a equipa e os custos fixos de cada mês vêm do que lançaste no Ponto de equilíbrio. Os meses sem lançamento repetem o último mês lançado e aparecem como "projetado".', 'deixa ligada para o cenário acompanhar a realidade. Desliga só se quiseres simular com despesas estimadas à mão (nº de funcionários, administrativas, financeiras).'),
+    'Despesas mensais': T('mostra, mês a mês, entradas (faturamento), saídas (pessoal, administrativas, CMV, financeiras, IVA e distribuição de lucros) e o saldo. No fim diz se o mês se paga: o faturamento mínimo é (pessoal + administrativas + financeiras) ÷ (1 − CMV% − impostos%).', 'preenche nº de funcionários, administrativas, financeiras, distribuição de lucros e CMV de cada mês. Com os custos reais ligados, equipa e fixos vêm do Ponto de equilíbrio. Usa "Repetir os custos do mês" para copiar um mês para os seguintes.'),
+    'Resultado projetado': T('resume o ano do cenário: faturamento anual, resultado líquido (depois de IVA, CMV, custos e pró-labore), caixa antes e depois da distribuição de lucros e em quantos meses a operação se paga. O IVA sai da caixa no fim de cada trimestre.', 'olha primeiro "Meses em que a operação se paga" e depois a caixa livre. Se algum valor for negativo, volta ao Simulador do mês ou às despesas e testa ajustes.'),
+    'A operação se paga?': T('cada coluna é o custo do mês (equipa + custos fixos) e a linha é a margem disponível (faturamento − CMV − impostos). Se a linha está acima da coluna, o mês cobre os custos (verde); se não, falta dinheiro (vermelho).', 'procura os meses vermelhos e usa a tabela de baixo: ela mostra o faturamento mínimo e quanto sobra ou falta. Depois testa no Simulador do mês o que precisa mudar (mais clientes, ticket diferente, menos custo).'),
+    'Comparação com os outros cenários': T('põe o cenário em edição ao lado dos guardados, mês a mês, para ver quando cada um se paga.', 'usa-a para decidir qual hipótese é mais segura: compara o pior mês e a caixa livre de cada um.'),
+    'Controle de IVA': T('todo mês lanças o faturado no sistema, o faturado fora dele, o IVA cobrado e o crédito de IVA. O app soma por trimestre, calcula a taxa de IVA (bruta e líquida do crédito) e quanto separar por mês para pagar o trimestre. A taxa média do ano só conta meses completos (com faturado e IVA lançados).', 'preenche cada mês assim que fechares. O faturado aqui alimenta o Ponto de equilíbrio, o DRE, o Custo da hora e a comparação entre real e simulado.'),
+    'Ponto de equilíbrio': T('é o menor faturamento do mês que paga as contas: custos fixos e equipa ÷ [(1 − IVA%) × (1 − CMV% − outros%)]. De cada euro faturado, só sobra para as despesas fixas o que resta depois de tirar IVA e CMV.', 'escolhe o mês, lança a equipa e os custos fixos dele (ou usa "Puxar dados de" para copiar de outro mês) e compara o resultado com o faturado. Os parâmetros de IVA e CMV estão mais abaixo.'),
+    'Parâmetros do cálculo': T('IVA médio, CMV e outros custos variáveis (em % do faturamento). Valem para todos os meses. O IVA fica guardado (14%) e é editável; "usar automático" troca-o pela média líquida dos meses completos do Controle de IVA.', 'ajusta só quando a realidade mudar. Se mudares o IVA ou o CMV, o ponto de equilíbrio, o custo da hora e os cenários acompanham.'),
+    'DRE — resultado real do restaurante': T('demonstração do resultado calculada sozinha: faturado (Controle de IVA) menos IVA, CMV, equipa, custos fixos e despesas financeiras. Só os meses com faturado <b>e</b> custos lançados aparecem completos.', 'lê da esquerda para a direita: receita, margem depois de CMV, resultado operacional e resultado final. Para um mês aparecer completo, lança o faturado no Controle de IVA e os custos no Ponto de equilíbrio.'),
+    'Parâmetros da DRE': T('são as percentagens que a DRE usa quando não há valor lançado (por exemplo o CMV sobre a receita sem IVA). O IVA não entra aqui porque a receita já vem sem IVA.', 'ajusta o CMV para o valor real que o teu restaurante tem e confirma que a DRE bate com o que esperas.'),
+    'Custo da hora aberta': T('quanto custa o restaurante estar aberto, hora a hora: (equipa + custos fixos do mês) ÷ horas abertas. O faturamento mínimo por hora é esse custo dividido pelo que sobra de cada euro depois de IVA e CMV.', 'escolhe o mês. Compara o faturado por hora com o mínimo: se está abaixo, cada hora aberta perde dinheiro. Os números vêm da Escala, do Ponto de equilíbrio e do Controle de IVA.'),
+    'Horário de funcionamento': T('a duração de cada turno (hora de abertura e de fecho) define as horas abertas, que são o divisor do custo por hora. Vale também na Escala.', 'ajusta as horas reais de almoço e de jantar. Dias abertos e pessoas por turno editam-se em Escalas; salários e custos em Ponto de equilíbrio.'),
+    'Por turno': T('reparte o custo e o faturado entre almoço e jantar. Como o sistema ainda não separa por turno, o faturado é dividido pela percentagem do campo "% do faturado que vem do almoço" (mais abaixo).', 'acerta essa percentagem com o que sabes do almoço. Compara o custo por hora, o mínimo por hora e o que cada turno fatura.'),
+    'Quanto o almoço precisa vender para valer a pena abrir': T('conta só o que o almoço acrescenta (equipa e extras), porque a renda e os outros custos fixos pagam-se com ou sem almoço. O faturamento necessário é o custo extra ÷ o que sobra de cada euro depois de IVA e CMV. Mostra também o mínimo mais exigente, com a parte dos custos fixos.', 'já vem com os valores do almoço da Escala. Muda horas, dias, pessoas ou custo por pessoa-hora para testar cenários. Se preencheres o faturamento esperado por hora, diz quanto o turno ganha ou perde por mês.'),
+    'Diagnóstico automático': T('compara os números do mês com referências comuns do setor (equipa até 35% do faturamento sem IVA, CMV + equipa até 65%, renda até 10%). Cada limite é independente: não são fatias de um bolo, não somam 100. O IVA é retirado do faturado sozinho.', 'altera os limites se a tua realidade for diferente. Verde = dentro da referência, amarelo = atenção. Precisa do faturado do mês no Controle de IVA.'),
+    'Parecer do Claude': T('é uma opinião escrita num dia específico com os números desse dia. A página avisa quando os números mudaram desde então.', 'copia o resumo e cola no chat para debater. Escreve as tuas notas na caixa de texto. Pede um parecer novo quando os números mudarem.')
+  };
+  const MENUS_INFO = T('um menu junta partes (entrada, prato principal, bebida, sobremesa, café). Escolhes primeiro se é de loja ou de delivery. Cada item usa o custo e o preço de Receitas e Bebidas, e o preço do menu reparte-se pelos itens na proporção dos preços avulso. A app calcula o CMV, o retorno e, no delivery, a comissão, o IVA da comissão e a embalagem.', 'escolhe o canal, junta os itens e, se quiseres, escreve o preço do menu. Se faltar custo ou preço em algum item, aparece um aviso a vermelho a dizer o que falta. Com várias opções por parte, vês o pior caso, a média e o melhor caso.');
+  const INFO_ID = [];
+  function criar(alvoBotao, anchor, html){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'info-i'; b.setAttribute('aria-label', 'Como funciona'); b.textContent = 'ⓘ';
+    const box = document.createElement('div'); box.className = 'info-box'; box.innerHTML = html; box.hidden = true;
+    b.addEventListener('click', e => { e.stopPropagation(); box.hidden = !box.hidden; b.classList.toggle('on', !box.hidden); });
+    alvoBotao.appendChild(document.createTextNode(' ')); alvoBotao.appendChild(b);
+    anchor.insertAdjacentElement('afterend', box);
+  }
+  function iniciar(){
+    document.querySelectorAll('.view.fx h2').forEach(h => {
+      if(h.querySelector('.info-i')) return;
+      const html = INFO[h.textContent.trim()]; if(!html) return;
+      let topo = h; while(topo.parentElement && !topo.parentElement.matches('section.panel')) topo = topo.parentElement;
+      criar(h, topo, html);
+    });
+    const mn = document.querySelector('#view-menus > .save-note');
+    if(mn && !mn.querySelector('.info-i')) criar(mn, mn, MENUS_INFO);
+  }
+  iniciar();
+})();
 </script>
 </body>
 </html>
