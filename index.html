@@ -828,6 +828,14 @@
       <div style="overflow-x:auto;margin-top:10px;"><table class="grid-table" id="projecaoTabela"></table></div>
     </section>
     <section class="panel">
+      <h2>Real × Realizável</h2>
+      <p class="desc">Realizável é o que esperas faturar (o que pões no cenário e no Simulador do mês). Real é o faturado lançado no Controle de IVA. A linha tracejada vermelha é o faturamento mínimo do mês.</p>
+      <p class="desc" id="realRealResumo" style="font-size:13px;color:var(--ink);"></p>
+      <div id="realRealGrafico"></div>
+      <div class="desc" style="margin-top:6px;"><span style="display:inline-block;width:10px;height:10px;background:var(--terracotta);opacity:.4;border:1px solid var(--terracotta);border-radius:2px;"></span> Realizável (esperado) &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--olive-dark);border-radius:2px;"></span> Real (Controle de IVA) &nbsp; <span style="display:inline-block;width:14px;border-top:2px dashed var(--danger-text);vertical-align:middle;"></span> Faturamento mínimo</div>
+      <div style="overflow-x:auto;margin-top:10px;"><table class="grid-table" id="realRealTabela"></table></div>
+    </section>
+    <section class="panel">
       <h2>Comparação com os outros cenários</h2>
       <div id="comparacaoBox"></div>
     </section>
@@ -3468,7 +3476,8 @@ function migrarSazonalidade(months){
     valorEur: m.valorEur ?? (m.mult!==undefined ? null : 0),
     queda: m.queda ?? (m.mult!==undefined ? (100-m.mult) : 0),
     pctAlmoco: m.pctAlmoco ?? 10, pctDelivery: m.pctDelivery ?? 0, pctJantar: m.pctJantar ?? 90,
-    fonte: (m.fonte === 'montar' || m.fonte === 'partir') && m.sim ? m.fonte : 'manual', sim: m.sim || null
+    fonte: (m.fonte === 'montar' || m.fonte === 'partir') && m.sim ? m.fonte : 'manual', sim: m.sim || null,
+    esperado: m.esperado > 0 ? m.esperado : null     // o que se esperava faturar, guardado quando o mês passa a realizado
   }));
 }
 
@@ -3828,6 +3837,50 @@ function setBaseAlmoco(b, val){
   m.pctAlmoco = a; m.pctJantar = Math.max(0, 100 - a - (m.pctDelivery || 0));
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
+function setEsperado(i, val){
+  const v = parseFloat(val) || 0;
+  editState.months[i].esperado = v > 0 ? v : null;
+  computeAndRenderCards();
+}
+/* ---- Real × Realizável: o que se esperava faturar (simulador) contra o faturado real (Controle de IVA) ---- */
+// realizável = o que está no cenário para o mês; num mês já realizado, é a expectativa guardada (esperado)
+function realizavelMes(i){ const m = editState.months[i]; return m.real ? (m.esperado > 0 ? m.esperado : null) : receitaMesI(editState.months, i); }
+function realMes(i){ const f = faturadoControle[i]; if(f != null && f > 0) return f; const m = editState.months[i]; return m.real ? receitaMesI(editState.months, i) : null; }
+function renderRealReal(r){
+  if(!document.getElementById('realRealGrafico')) return;
+  const dre = r.monthlyDRE, c = editState.custos;
+  const E = MESES.map((_, i) => realizavelMes(i)), R = MESES.map((_, i) => realMes(i));
+  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + c.impostos) / 100; return den > 0 ? (d.despPessoal + d.despAdmin + d.despFinanceiras) / den : null; });
+  const pares = MESES.map((_, i) => i).filter(i => E[i] > 0 && R[i] > 0);
+  const sE = pares.reduce((s, i) => s + E[i], 0), sR = pares.reduce((s, i) => s + R[i], 0);
+  const pct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
+  let resumo;
+  if(!pares.length) resumo = 'Ainda não há nenhum mês com <b>realizável</b> e <b>real</b> ao mesmo tempo. O real vem do Controle de IVA; o realizável é o que está no cenário. Para um mês já fechado, escreve no Simulador do mês o que esperavas faturar.';
+  else resumo = `Nos ${pares.length} mês(es) com os dois valores: esperavas <b>${fmtEUR(sE)}</b> e faturaste <b>${fmtEUR(sR)}</b> → <b style="color:${sR >= sE ? 'var(--ok)' : 'var(--danger)'};">${pct((sR / sE - 1) * 100)}</b> (${sR >= sE ? 'acima' : 'abaixo'} do esperado em ${fmtEUR(Math.abs(sR - sE))}).`;
+  document.getElementById('realRealResumo').innerHTML = resumo;
+  const W = 760, H = 280, ml = 48, mr = 10, mt = 14, mb = 26;
+  const max = Math.max(1, ...E.filter(v => v > 0), ...R.filter(v => v > 0), ...MIN.filter(v => v > 0)) * 1.1;
+  const slot = (W - ml - mr) / 12, bw = slot * 0.34, y = v => mt + (H - mt - mb) * (1 - v / max);
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:${W}px;" role="img" aria-label="Real contra realizável por mês">`;
+  for(let k = 0; k <= 4; k++){ const v = max * k / 4; s += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line);stroke-width:1;"/><text x="${ml - 6}" y="${y(v) + 4}" text-anchor="end" style="font-size:10px;fill:var(--ink-soft);">${v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)}</text>`; }
+  MESES.forEach((nm, i) => {
+    const cx = ml + slot * i + slot / 2;
+    if(E[i] > 0) s += `<rect x="${cx - bw - 1}" y="${y(E[i])}" width="${bw}" height="${H - mb - y(E[i])}" rx="2" style="fill:var(--terracotta);opacity:.28;stroke:var(--terracotta);"><title>${nm} · realizável ${fmtEUR(E[i])}</title></rect>`;
+    if(R[i] > 0) s += `<rect x="${cx + 1}" y="${y(R[i])}" width="${bw}" height="${H - mb - y(R[i])}" rx="2" style="fill:var(--olive-dark);"><title>${nm} · real ${fmtEUR(R[i])}</title></rect>`;
+    if(MIN[i] > 0) s += `<line x1="${cx - bw - 4}" x2="${cx + bw + 4}" y1="${y(MIN[i])}" y2="${y(MIN[i])}" style="stroke:var(--danger-text);stroke-width:2;stroke-dasharray:3 2;"><title>${nm} · faturamento mínimo ${fmtEUR(MIN[i])}</title></line>`;
+    s += `<text x="${cx}" y="${H - 8}" text-anchor="middle" style="font-size:11px;fill:var(--ink-soft);">${nm}</text>`;
+  });
+  document.getElementById('realRealGrafico').innerHTML = s + '</svg>';
+  const linha = (rot, f, estilo) => `<tr><td class="dia"${estilo || ''}>${rot}</td>` + MESES.map((_, i) => f(i)).join('') + '</tr>';
+  let html = '<tr><td class="dia"></td>' + MESES.map(m => `<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
+  html += linha('Realizável (esperado)', i => `<td>${E[i] > 0 ? fmtEUR(E[i]) : '—'}</td>`);
+  html += linha('Real (Controle de IVA)', i => `<td>${R[i] > 0 ? fmtEUR(R[i]) : '—'}</td>`);
+  html += linha('Diferença (€)', i => { if(!(E[i] > 0 && R[i] > 0)) return '<td>—</td>'; const d = R[i] - E[i]; return `<td style="font-weight:700;color:${d >= 0 ? 'var(--ok)' : 'var(--danger)'};">${d >= 0 ? '+' : '−'}${fmtEUR(Math.abs(d))}</td>`; }, ' style="font-weight:700;"');
+  html += linha('Diferença (%)', i => { if(!(E[i] > 0 && R[i] > 0)) return '<td>—</td>'; const d = (R[i] / E[i] - 1) * 100; return `<td style="color:${d >= 0 ? 'var(--ok)' : 'var(--danger)'};">${pct(d)}</td>`; });
+  html += linha('Faturamento mínimo', i => `<td style="color:var(--text-soft);">${MIN[i] > 0 ? fmtEUR(MIN[i]) : '—'}</td>`);
+  html += linha('Real cobre o mínimo?', i => `<td>${R[i] > 0 && MIN[i] > 0 ? (R[i] >= MIN[i] ? '<b style="color:var(--ok);">✔</b>' : '<b style="color:var(--danger);">✖</b>') : '—'}</td>`);
+  document.getElementById('realRealTabela').innerHTML = html;
+}
 function copiarSim(i){
   const o = editState.months[i]; if(!o.sim || o.fonte !== 'montar') return;
   const alvos = editState.months.map((m, k) => k).filter(k => k > i && !editState.months[k].real);
@@ -3845,7 +3898,9 @@ function renderSimMes(){
   let html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' + MESES.map((nm, k) =>
     `<button class="${k === i ? 'btn-primary' : 'btn-ghost'}" style="padding:6px 10px;font-size:12px;" onclick="FX.setSimMes(${k})">${nm}<span style="font-size:10px;opacity:.8;">${marca(k)}</span></button>`).join('') + '</div>';
   if(m.real){
-    html += `<p class="desc" style="margin:0 0 10px;">${MESES_LONGO_FX[i]} está marcado como <b>realizado</b>: o faturamento é o que escreveste na tabela acima. Para simular, troca-o para "projeção" no botão por baixo do nome do mês.</p>`;
+    html += `<p class="desc" style="margin:0 0 10px;">${MESES_LONGO_FX[i]} está marcado como <b>realizado</b>: o faturamento é o que escreveste na tabela acima. Para simular, troca-o para "projeção" no botão por baixo do nome do mês.</p>
+      <div class="params-grid" style="margin-bottom:10px;"><div><label>Realizável: o que esperavas faturar (€)</label><input type="number" min="0" step="100" value="${m.esperado > 0 ? Math.round(m.esperado) : ''}" placeholder="ex.: 18000" onchange="FX.setEsperado(${i},this.value)"></div></div>
+      <p class="desc" style="margin:0 0 10px;">Serve para o gráfico Real × Realizável: compara o que esperavas com o faturado real lançado no Controle de IVA (${faturadoControle[i] > 0 ? fmtEUR(faturadoControle[i]) : 'ainda sem lançamento'}).</p>`;
   }else{
     const radio = (v, rot) => `<label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="simFonte" ${f === v ? 'checked' : ''} onchange="FX.setSimFonte(${i},'${v}')"> ${rot}</label>`;
     html += `<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;">${radio('manual', 'Manual (€ ou % na tabela acima)')}${radio('montar', 'Montar: ticket × clientes por dia')}${radio('partir', 'Partir de outro mês (± %)')}</div>`;
@@ -3895,7 +3950,7 @@ const MESES_LONGO_FX = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','J
 function toggleMonthReal(i){
   const m = editState.months[i], ref = getRefRevenue(), v = receitaMesI(editState.months, i);
   if(m.real){ m.real = false; m.modo = 'queda'; m.queda = ref > 0 ? (1 - v/ref) * 100 : 0; }
-  else { m.real = true; m.modo = 'eur'; m.valorEur = v; m.fonte = 'manual'; }
+  else { m.real = true; m.modo = 'eur'; m.valorEur = v; m.fonte = 'manual'; if(!(m.esperado > 0) && v > 0) m.esperado = v; }   // guarda a expectativa para o gráfico Real × Realizável
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
 document.getElementById('cmv').addEventListener('change', ()=>{ const v = parseFloat(document.getElementById('cmv').value)||0; editState.custos.cmv = v; editState.custos.cmvMes = Array(12).fill(v); renderExpenses(); computeAndRenderCards(); });
@@ -4015,23 +4070,26 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após pró-labore)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes();
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderRealReal(r);
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
 let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), origem:Array(12).fill('') };
+let faturadoControle = Array(12).fill(null);   // faturado real de cada mês (com IVA) lançado no Controle de IVA
 let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
 let ivaManual = null;        // IVA escrito à mão no Ponto de equilíbrio (config_financeiro.iva_pct), se existir
 async function carregarIvaLiquido(){
-  ivaLiquidoReal = null; ivaManual = null;
+  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null);
   try{
-    const rc = await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
+    const rc =await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
     if(rc.ok){ const l = await rc.json(); if(l.length && l[0].valor != null && !isNaN(Number(l[0].valor))) ivaManual = Number(l[0].valor); }
   }catch(e){ ivaManual = null; }
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/controle_iva?select=faturado_sistema,faturado_fora,iva,credito&ano=eq.${new Date().getFullYear()}`, { headers: sbHeadersFn() });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/controle_iva?select=mes,faturado_sistema,faturado_fora,iva,credito&ano=eq.${new Date().getFullYear()}`, { headers: sbHeadersFn() });
     if(!res.ok) return;
     const todas = await res.json();
+    // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
+    todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
     const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
     const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
@@ -4562,7 +4620,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
@@ -8868,6 +8926,7 @@ if(!_emRecuperacao) tentarLoginAutomatico();
     'Despesas mensais': T('mostra, mês a mês, entradas (faturamento), saídas (pessoal, administrativas, CMV, financeiras, IVA e distribuição de lucros) e o saldo. No fim diz se o mês se paga: o faturamento mínimo é (pessoal + administrativas + financeiras) ÷ (1 − CMV% − impostos%).', 'preenche nº de funcionários, administrativas, financeiras, distribuição de lucros e CMV de cada mês. Com os custos reais ligados, equipa e fixos vêm do Ponto de equilíbrio. Usa "Repetir os custos do mês" para copiar um mês para os seguintes.'),
     'Resultado projetado': T('resume o ano do cenário: faturamento anual, resultado líquido (depois de IVA, CMV, custos e pró-labore), caixa antes e depois da distribuição de lucros e em quantos meses a operação se paga. O IVA sai da caixa no fim de cada trimestre.', 'olha primeiro "Meses em que a operação se paga" e depois a caixa livre. Se algum valor for negativo, volta ao Simulador do mês ou às despesas e testa ajustes.'),
     'A operação se paga?': T('cada coluna é o custo do mês (equipa + custos fixos) e a linha é a margem disponível (faturamento − CMV − impostos). Se a linha está acima da coluna, o mês cobre os custos (verde); se não, falta dinheiro (vermelho).', 'procura os meses vermelhos e usa a tabela de baixo: ela mostra o faturamento mínimo e quanto sobra ou falta. Depois testa no Simulador do mês o que precisa mudar (mais clientes, ticket diferente, menos custo).'),
+    'Real × Realizável': T('compara o que esperavas faturar com o que faturaste. <b>Realizável</b> é o valor do cenário (o que pões na Sazonalidade ou no Simulador do mês); <b>Real</b> é o faturado lançado no Controle de IVA. A diferença mostra o quanto a expectativa se afastou da realidade, e a linha tracejada é o faturamento mínimo do mês.', 'para os meses futuros, simula no Simulador do mês. Quando um mês fechar, lança o faturado no Controle de IVA e marca o mês como "realizado": a expectativa que tinhas fica guardada. Para meses que já estavam fechados, escreve no Simulador do mês o que esperavas faturar. Se o real fica sempre abaixo, a tua expectativa está otimista; se fica acima, está conservadora.'),
     'Comparação com os outros cenários': T('põe o cenário em edição ao lado dos guardados, mês a mês, para ver quando cada um se paga.', 'usa-a para decidir qual hipótese é mais segura: compara o pior mês e a caixa livre de cada um.'),
     'Controle de IVA': T('todo mês lanças o faturado no sistema, o faturado fora dele, o IVA cobrado e o crédito de IVA. O app soma por trimestre, calcula a taxa de IVA (bruta e líquida do crédito) e quanto separar por mês para pagar o trimestre. A taxa média do ano só conta meses completos (com faturado e IVA lançados).', 'preenche cada mês assim que fechares. O faturado aqui alimenta o Ponto de equilíbrio, o DRE, o Custo da hora e a comparação entre real e simulado.'),
     'Ponto de equilíbrio': T('é o menor faturamento do mês que paga as contas: custos fixos e equipa ÷ [(1 − IVA%) × (1 − CMV% − outros%)]. De cada euro faturado, só sobra para as despesas fixas o que resta depois de tirar IVA e CMV.', 'escolhe o mês, lança a equipa e os custos fixos dele (ou usa "Puxar dados de" para copiar de outro mês) e compara o resultado com o faturado. Os parâmetros de IVA e CMV estão mais abaixo.'),
