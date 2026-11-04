@@ -1537,6 +1537,15 @@ function showAlert(message){
 let fornecedores = [];
 let areas = [];
 let produtos = [];
+// Classificação dos custos lançados no Ponto de equilíbrio: pessoal (salários, pró-labore, segurança social), financeira (empréstimo, juros), ocupação (renda) e administrativa (o resto)
+function classeCusto(grupo, nome){
+  if(grupo === 'equipa') return 'pessoal';
+  const n = (nome || '').toLowerCase();
+  if(/empr[eé]stimo|juros|financ|banco|leasing/.test(n)) return 'financeira';
+  if(/seguran[cç]a social|sal[aá]rio|pr[oó].?labore|\bss\b|\btsu\b/.test(n)) return 'pessoal';
+  if(/\brenda\b|arrendamento|aluguer|aluguel/.test(n)) return 'ocupacao';
+  return 'adm';
+}
 let grupos = [];
 let contagens = [];
 let checklistItens = [];
@@ -3440,6 +3449,7 @@ function defaultCustos(){
     cmv:25, cmvMes: Array(12).fill(25), impostos:20, salarioBase:1200, usarReais:true,
     ticketAlmoco:24, ticketDelivery:24, ticketJantar:24,
     pessoalCount: Array(12).fill(7),
+    ocupacao: Array(12).fill(0),
     admin: Array(12).fill(600),
     financeiras: Array(12).fill(150),
     distribuicao: Array(12).fill(0)
@@ -3448,7 +3458,7 @@ function defaultCustos(){
 // Migra cenários antigos (custos em formato plano) para o novo modelo de 12 colunas
 function migrarCustos(c){
   if(!c) return defaultCustos();
-  if(Array.isArray(c.pessoalCount) && c.ticketAlmoco!==undefined){ if(!Array.isArray(c.cmvMes)) c.cmvMes = Array(12).fill(c.cmv ?? 30); return c; } // já está no formato mais novo
+  if(Array.isArray(c.pessoalCount) && c.ticketAlmoco!==undefined){ if(!Array.isArray(c.cmvMes)) c.cmvMes = Array(12).fill(c.cmv ?? 30); if(!Array.isArray(c.ocupacao)) c.ocupacao = Array(12).fill(0); return c; } // já está no formato mais novo
   const salarioBase = c.salarioBase || 1200;
   const nFunc = Array.isArray(c.pessoalCount) ? c.pessoalCount : Array(12).fill(Math.round((c.pessoalFixo || 4500) / salarioBase) || 4);
   return {
@@ -3460,6 +3470,7 @@ function migrarCustos(c){
     ticketDelivery: c.ticketDelivery ?? 24,
     ticketJantar: c.ticketJantar ?? 24,
     pessoalCount: nFunc,
+    ocupacao: Array.isArray(c.ocupacao) ? c.ocupacao : Array(12).fill(0),
     admin: Array.isArray(c.admin) ? c.admin : Array(12).fill(c.admin ?? 600),
     financeiras: Array.isArray(c.financeiras) ? c.financeiras : Array(12).fill(c.financeiras ?? 150),
     distribuicao: Array.isArray(c.distribuicao) ? c.distribuicao : Array(12).fill(c.distribuicao ?? 0)
@@ -3850,7 +3861,7 @@ function renderRealReal(r){
   if(!document.getElementById('realRealGrafico')) return;
   const dre = r.monthlyDRE, c = editState.custos;
   const E = MESES.map((_, i) => realizavelMes(i)), R = MESES.map((_, i) => realMes(i));
-  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + c.impostos) / 100; return den > 0 ? (d.despPessoal + d.despAdmin + d.despFinanceiras) / den : null; });
+  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + c.impostos) / 100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras) / den : null; });
   const pares = MESES.map((_, i) => i).filter(i => E[i] > 0 && R[i] > 0);
   const sE = pares.reduce((s, i) => s + E[i], 0), sR = pares.reduce((s, i) => s + R[i], 0);
   const pct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
@@ -3931,7 +3942,7 @@ function renderSimMes(){
       html += '<p class="desc" style="margin:0 0 10px;">⚠️ Não há mês de base com faturamento: escolhe outro mês de base.</p>';
     }
   }
-  const custos = dre.despPessoal + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + editState.custos.impostos) / 100;
+  const custos = dre.despPessoal + dre.despOcupacao + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + editState.custos.impostos) / 100;
   const minimo = den > 0 ? custos / den : null, paga = dre.resultadoAntesDistribuicao >= 0, temFat = p.total > 0;
   const stat = (rot, val, estilo) => `<div class="fx-stat"${estilo ? ` style="${estilo}"` : ''}><div class="label">${rot}</div><div class="value">${val}</div></div>`;
   html += `<div class="cards" style="margin-top:6px;">
@@ -3942,7 +3953,7 @@ function renderSimMes(){
     ${stat(paga ? 'Sobra' : 'Falta', temFat ? fmtEUR(Math.abs(dre.resultadoAntesDistribuicao)) : '—')}
     ${stat('Paga os custos?', temFat ? (paga ? '✔ sim' : '✖ não') : '—', temFat ? `background:${paga ? 'var(--ok-text)' : 'var(--danger-text)'};` : 'background:var(--ink-soft);')}
   </div>
-  <p class="desc" style="margin:8px 0 0;">${MESES_LONGO_FX[i]}: custos ${fmtEUR(custos)} (equipa ${fmtEUR(dre.despPessoal)}, fixos ${fmtEUR(dre.despAdmin + dre.despFinanceiras)}), CMV ${dre.cmvPct}% e impostos ${editState.custos.impostos}% (IVA) sobre o faturamento. O CMV do mês ajusta-se em "Despesas mensais".</p>`;
+  <p class="desc" style="margin:8px 0 0;">${MESES_LONGO_FX[i]}: custos ${fmtEUR(custos)} (pessoal ${fmtEUR(dre.despPessoal)}, ocupação ${fmtEUR(dre.despOcupacao)}, administrativas ${fmtEUR(dre.despAdmin)}, financeiras ${fmtEUR(dre.despFinanceiras)}), CMV ${dre.cmvPct}% e impostos ${editState.custos.impostos}% (IVA) sobre o faturamento. O CMV do mês ajusta-se em "Despesas mensais".</p>`;
   box.innerHTML = html;
 }
 const MESES_LONGO_FX = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -3975,6 +3986,7 @@ function renderExpenses(){
   // 1) o que se preenche
   html += secao('CUSTOS A PREENCHER (por mês)');
   html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
+  html += `<tr${ig}><td class="dia">Despesas de Ocupação (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.ocupacao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('ocupacao',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Administrativas (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Retiradas de lucro, além do pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
@@ -3982,23 +3994,24 @@ function renderExpenses(){
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
-  const totSaidas = dre.map(d=>d.despPessoal + d.despAdmin + d.cmvValor + d.despFinanceiras + d.impostosValor + d.despDistribuicao);
+  const totSaidas = dre.map(d=>d.despPessoal + d.despOcupacao + d.despAdmin + d.cmvValor + d.despFinanceiras + d.impostosValor + d.despDistribuicao);
   html += secao('ENTRADAS');
   html += linha('Vendas (faturamento)', dre.map(d=>fmtEUR(d.receita)));
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += secao('SAÍDAS');
-  html += linha('Despesas com Pessoal', dre.map(d=>fmtEUR(d.despPessoal)));
+  html += linha('CMV — compras de mercadoria', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${d.cmvPct}%</div>`));
+  html += linha(`IVA${c.impostos ? ` (${c.impostos}%)` : ''}`, dre.map(d=>fmtEUR(d.impostosValor)));
+  html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
+  html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
-  html += linha('CMV — Custos de Mercadoria Vendida', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${d.cmvPct}%</div>`));
-  html += linha('Despesas Financeiras', dre.map(d=>fmtEUR(d.despFinanceiras)));
-  if(c.impostos) html += linha(`Impostos e taxas (${c.impostos}%)`, dre.map(d=>fmtEUR(d.impostosValor)));
-  html += linha('Distribuição de Lucros', dre.map(d=>fmtEUR(d.despDistribuicao)));
+  html += linha('Despesas Financeiras <span style="font-size:9px;font-weight:400;">(empréstimos, juros)</span>', dre.map(d=>fmtEUR(d.despFinanceiras)));
+  html += linha('Retiradas de lucro', dre.map(d=>fmtEUR(d.despDistribuicao)));
   html += linha('<b>Total de saídas</b>', totSaidas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += linha('<b>Saldo do período</b>', totEntradas.map((v,i)=>{ const s = v - totSaidas[i]; return `<b style="${ok(s)}">${fmtEUR(s)}</b>`; }));
   // 3) o mês paga-se ou não?
   html += secao('O MÊS SE PAGA?');
   const temFat = dre.some(d=>d.receita > 0);
-  const minimo = d => { const den = 1 - (d.cmvPct + c.impostos)/100; return den > 0 ? (d.despPessoal + d.despAdmin + d.despFinanceiras)/den : null; };
+  const minimo = d => { const den = 1 - (d.cmvPct + c.impostos)/100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras)/den : null; };
   html += linha('Faturamento mínimo, c/ IVA (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
   html += linha('<b>Se paga?</b> (antes da distribuição)', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoAntesDistribuicao >= 0; return `<b style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</b><div style="font-size:9px;color:var(--text-soft);">${s?'sobra ':'falta '}${fmtEUR(Math.abs(d.resultadoAntesDistribuicao))}</div>`; }));
   html += linha('Depois da distribuição de lucros?', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoLiquido >= 0; return `<span style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</span>`; }));
@@ -4019,8 +4032,8 @@ async function repetirCustos(){
   const c = editState.custos;
   const destinos = MESES.map((_,i)=>i).filter(i => i !== o && (alvo === 'todos' || i > o));
   if(!destinos.length) return;
-  if(!(await showConfirm(`Copiar os custos de ${MESES[o]} (${c.pessoalCount[o]} funcionários, administrativas ${fmtEUR(c.admin[o])}, financeiras ${fmtEUR(c.financeiras[o])}, distribuição ${fmtEUR(c.distribuicao[o])}, CMV ${c.cmvMes[o]}%) para ${destinos.length} mês(es)?`))) return;
-  destinos.forEach(i => { ['pessoalCount','admin','financeiras','distribuicao','cmvMes'].forEach(k => { c[k][i] = c[k][o]; }); });
+  if(!(await showConfirm(`Copiar os custos de ${MESES[o]} (${c.pessoalCount[o]} funcionários, ocupação ${fmtEUR(c.ocupacao[o])}, administrativas ${fmtEUR(c.admin[o])}, financeiras ${fmtEUR(c.financeiras[o])}, distribuição ${fmtEUR(c.distribuicao[o])}, CMV ${c.cmvMes[o]}%) para ${destinos.length} mês(es)?`))) return;
+  destinos.forEach(i => { ['pessoalCount','ocupacao','admin','financeiras','distribuicao','cmvMes'].forEach(k => { c[k][i] = c[k][o]; }); });
   renderExpenses(); computeAndRenderCards();
 }
 function updateExpense(campo, i, val){
@@ -4040,10 +4053,11 @@ function computeCenario(months, custos, reais){
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
     const despPessoal = usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
+    const despOcupacao = usar ? (reais.ocupacao?.[i] || 0) : (custos.ocupacao?.[i] || 0);
     const despAdmin = usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
     const despFinanceiras = usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
     const despDistribuicao = custos.distribuicao?.[i] || 0;
-    const totalOperacionais = despPessoal + despAdmin;
+    const totalOperacionais = despPessoal + despOcupacao + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
     const impostosValor = receita * (custos.impostos/100);
     const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
@@ -4051,10 +4065,10 @@ function computeCenario(months, custos, reais){
     ivaAccumQuarter += impostosValor;
     let impostosCash = 0;
     if(i%3===2){ impostosCash = ivaAccumQuarter; ivaAccumQuarter = 0; }
-    const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despAdmin - despFinanceiras) - impostosCash;
+    const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despOcupacao - despAdmin - despFinanceiras) - impostosCash;
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
-    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despAdmin, totalOperacionais, resultadoOperacional,
+    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, totalOperacionais, resultadoOperacional,
       impostosValor, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
@@ -4098,27 +4112,28 @@ async function carregarIvaLiquido(){
   }catch(e){ ivaLiquidoReal = null; }
 }
 async function carregarCustosReais(){
-  const vazio = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), financeiras:Array(12).fill(0), origem:Array(12).fill('') };
+  const vazio = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12).fill(0), ocupacao:Array(12).fill(0), financeiras:Array(12).fill(0), origem:Array(12).fill('') };
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/custos_fixos?select=ano,mes,grupo,nome,valor`, { headers: sbHeadersFn() });
     if(!res.ok){ custosReais = vazio; return; }
     const por = {};
     (await res.json()).forEach(r=>{
       const k = r.ano*12 + (r.mes-1);
-      const o = por[k] = por[k] || { pessoal:0, fixos:0, financeiras:0 };
+      const o = por[k] = por[k] || { pessoal:0, fixos:0, ocupacao:0, financeiras:0 };
       const v = Number(r.valor)||0;
-      if(r.grupo==='equipa') o.pessoal += v; else if(/empr[eé]stimo|juros|financ|banco|leasing/i.test(r.nome||'')) o.financeiras += v; else o.fixos += v;
+      const cl = classeCusto(r.grupo, r.nome);
+      if(cl === 'pessoal') o.pessoal += v; else if(cl === 'financeira') o.financeiras += v; else if(cl === 'ocupacao') o.ocupacao += v; else o.fixos += v;
     });
     const chaves = Object.keys(por).map(Number).sort((a,b)=>a-b);
     if(!chaves.length){ custosReais = vazio; return; }
     const ano = new Date().getFullYear();
-    const out = { disponivel:true, pessoal:[], fixos:[], financeiras:[], origem:[] };
+    const out = { disponivel:true, pessoal:[], fixos:[], ocupacao:[], financeiras:[], origem:[] };
     for(let i=0;i<12;i++){
       const alvo = ano*12 + i;
       let k = null; chaves.forEach(c=>{ if(c<=alvo) k = c; });   // o último mês lançado até esse mês
       const real = (k === alvo);
       if(k === null) k = chaves[0];
-      out.pessoal.push(por[k].pessoal); out.fixos.push(por[k].fixos); out.financeiras.push(por[k].financeiras); out.origem.push(real ? 'real' : 'projetado');
+      out.pessoal.push(por[k].pessoal); out.fixos.push(por[k].fixos); out.ocupacao.push(por[k].ocupacao); out.financeiras.push(por[k].financeiras); out.origem.push(real ? 'real' : 'projetado');
     }
     custosReais = out;
   }catch(e){ custosReais = vazio; }
@@ -4135,9 +4150,10 @@ function renderReais(){
     ? 'Cada mês usa a equipa e os custos fixos que lançaste no Ponto de equilíbrio ("real"). Os meses sem lançamento repetem o último mês lançado ("projetado"). Se mudares o Ponto de equilíbrio, este cenário acompanha.'
     : 'Desligado: o cenário usa as despesas estimadas abaixo. Os valores reais estão aqui só para referência.';
   let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Equipa</td>' + custosReais.pessoal.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Pessoal (salários, pró-labore, seg. social)</td>' + custosReais.pessoal.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Financeiras (empréstimo, juros)</td>' + custosReais.financeiras.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">Custos fixos (adm.)</td>' + custosReais.fixos.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Ocupação (renda)</td>' + custosReais.ocupacao.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
+  html += '<tr><td class="dia">Administrativas</td>' + custosReais.fixos.map(v=>`<td>${fmtEUR(v)}</td>`).join('') + '</tr>';
   html += '<tr><td class="dia" style="font-size:10px;color:var(--text-soft);">Origem</td>' + custosReais.origem.map(o=>`<td style="font-size:10px;color:${o==='real'?'var(--ok)':'var(--text-soft)'};">${o}</td>`).join('') + '</tr>';
   t.innerHTML = html;
 }
@@ -4152,7 +4168,7 @@ function resumoSePaga(dre){
 }
 function svgProjecao(dre){
   const W = 760, H = 270, ml = 46, mr = 10, mt = 12, mb = 24;
-  const custos = dre.map(d=>d.despPessoal + d.despAdmin + d.despFinanceiras);
+  const custos = dre.map(d=>d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras);
   const margem = dre.map(d=>d.receita - d.cmvValor - d.impostosValor);
   const max = Math.max(1, ...custos, ...margem) * 1.12;
   const slot = (W-ml-mr)/12, bw = slot*0.55;
@@ -4165,7 +4181,7 @@ function svgProjecao(dre){
   }
   dre.forEach((d,i)=>{
     s += `<rect x="${x(i)-bw/2}" y="${y(d.despPessoal)}" width="${bw}" height="${y(0)-y(d.despPessoal)}" style="fill:var(--olive-dark);"><title>${MESES[i]} · equipa ${fmtEUR(d.despPessoal)}</title></rect>`;
-    const fixos = d.despAdmin + d.despFinanceiras;
+    const fixos = d.despOcupacao + d.despAdmin + d.despFinanceiras;
     s += `<rect x="${x(i)-bw/2}" y="${y(d.despPessoal + fixos)}" width="${bw}" height="${y(0)-y(fixos)}" style="fill:var(--terracotta);"><title>${MESES[i]} · custos fixos ${fmtEUR(fixos)}</title></rect>`;
     s += `<text x="${x(i)}" y="${H-7}" text-anchor="middle" style="font-size:10px;fill:var(--ink-soft);">${MESES[i]}</text>`;
   });
@@ -4192,7 +4208,7 @@ function renderProjecao(r){
   const linha = (rotulo, f, extra) => `<tr><td class="dia"${extra||''}>${rotulo}</td>` + dre.map((d,i)=>f(d,i)).join('') + '</tr>';
   let html = '<tr><td class="dia"></td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   html += linha('Faturamento do cenário', d=>`<td>${fmtEUR(d.receita)}</td>`);
-  html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${denDe(d)>0 ? fmtEUR((d.despPessoal+d.despAdmin+d.despFinanceiras)/denDe(d)) : '—'}</td>`);
+  html += linha('Faturamento mínimo', d=>`<td style="color:var(--text-soft);">${denDe(d)>0 ? fmtEUR((d.despPessoal+d.despOcupacao+d.despAdmin+d.despFinanceiras)/denDe(d)) : '—'}</td>`);
   html += linha('Sobra / falta', d=>`<td style="font-weight:700;color:${d.resultadoAntesDistribuicao<0?'var(--danger)':'var(--ok)'};">${fmtEUR(d.resultadoAntesDistribuicao)}</td>`, ' style="font-weight:700;"');
   html += linha('Se paga?', (d,i)=>`<td style="font-weight:700;color:${s.meses[i]?'var(--ok)':'var(--danger)'};">${r.annualRevenue>0 ? (s.meses[i]?'✔':'✖') : '—'}</td>`);
   html += linha('Depois das retiradas', d=>`<td style="color:${d.resultadoLiquido<0?'var(--danger)':'var(--text-soft)'};">${fmtEUR(d.resultadoLiquido)}</td>`);
@@ -5651,8 +5667,11 @@ const FINANCAS = (function(){
           <div class="fx-stat" style="background:var(--ok-text);"><div class="label">Já pago no mês</div><div class="value">${euro(pagoTotal)}</div></div>
           <div class="fx-stat" style="background:var(--warn-text);"><div class="label">Falta pagar</div><div class="value">${euro(fixos - pagoTotal)}</div></div>
           ${fatReal > 0 ? `<div class="fx-stat" style="background:${fatReal >= minimo ? 'var(--ok-text)' : 'var(--danger-text)'};"><div class="label">Faturado no mês (Controle de IVA)</div><div class="value">${euro(fatReal)} · ${(fatReal / minimo * 100).toFixed(0)}%</div></div>` : ''}`;
+        const porClasse = cl => itens.filter(i => classeCusto(i.grupo, i.nome) === cl).reduce((s, i) => s + num(i.valor), 0);
+        const cat = (rot, v) => `<div class="fx-stat" style="background:var(--text-soft,#6b7280);"><div class="label">${rot}</div><div class="value">${euro(v)}</div></div>`;
+        resumo += cat('Pessoal (salários, pró-labore, seg. social)', porClasse('pessoal')) + cat('Ocupação (renda)', porClasse('ocupacao')) + cat('Administrativas', porClasse('adm')) + cat('Financeiras (empréstimos)', porClasse('financeira'));
         document.getElementById('peExplica').textContent =
-          `Cálculo: de cada 1 € faturado (com IVA) ficam ${(margem * 100).toFixed(1).replace('.', ',')} ¢ para pagar as despesas fixas, depois de tirar o IVA (${String(ivaPct.toFixed(1)).replace('.', ',')}%), o CMV e outros custos variáveis (${String(varPct.toFixed(1)).replace('.', ',')}%). Faturamento mínimo = despesas fixas ÷ ${(margem * 100).toFixed(1).replace('.', ',')}%.`;
+          `Estrutura: IVA (${String(ivaPct.toFixed(1)).replace('.', ',')}% do faturado), CMV = compras (${String(num(cfg.cmv_pct).toFixed(1)).replace('.', ',')}% do faturado sem IVA), e as despesas de pessoal, ocupação, administrativas e financeiras abaixo. Cálculo: de cada 1 € faturado (com IVA) ficam ${(margem * 100).toFixed(1).replace('.', ',')} ¢ para pagar as despesas fixas, depois de tirar o IVA (${String(ivaPct.toFixed(1)).replace('.', ',')}%), o CMV e outros custos variáveis (${String(varPct.toFixed(1)).replace('.', ',')}%). Faturamento mínimo = despesas fixas ÷ ${(margem * 100).toFixed(1).replace('.', ',')}%.`;
       }
       document.getElementById('peResumo').innerHTML = resumo;
       if(margem <= 0) document.getElementById('peExplica').textContent = '';
@@ -6052,31 +6071,32 @@ const FINANCAS = (function(){
       const temCustos = cs.length > 0;
       const receita = temFat ? fat - num(r.iva) : 0;
       const cmv = receita * par.cmv_pct / 100;
-      const pessoal = cs.filter(c => c.grupo === 'equipa').reduce((s, c) => s + num(c.valor), 0);
-      const fixosT = cs.filter(c => c.grupo !== 'equipa').reduce((s, c) => s + num(c.valor), 0);
-      const financeiras = cs.filter(c => c.grupo !== 'equipa' && FIN.test(c.nome)).reduce((s, c) => s + num(c.valor), 0);
-      const admin = fixosT - financeiras;
+      const soma = cl => cs.filter(c => classeCusto(c.grupo, c.nome) === cl).reduce((s, c) => s + num(c.valor), 0);
+      const pessoal = soma('pessoal'), ocupacao = soma('ocupacao'), financeiras = soma('financeira'), admin = soma('adm');
       const completo = temFat && temCustos;
-      const lucroBruto = receita - cmv, operacionais = pessoal + admin, resOp = lucroBruto - operacionais;
+      const lucroBruto = receita - cmv, operacionais = pessoal + ocupacao + admin, resOp = lucroBruto - operacionais;
       const impostos = receita * par.dre_impostos_pct / 100;
       const antes = resOp - impostos - financeiras, prolabore = par.dre_prolabore, liquido = antes - prolabore;
-      return { temFat, temCustos, completo, receita, cmv, lucroBruto, pessoal, admin, operacionais, resOp, impostos, financeiras, antes, prolabore, liquido };
+      const ivaVal = temFat ? num(r.iva) : 0; return { temFat, temCustos, completo, fat, ivaVal, receita, cmv, lucroBruto, pessoal, ocupacao, admin, operacionais, resOp, impostos, financeiras, antes, prolabore, liquido };
     }
     function render(){
       const ms = Array.from({ length: 12 }, (_, i) => mes(i + 1));
       const completos = ms.filter(m => m.completo);
       const tot = k => completos.reduce((s, m) => s + m[k], 0);
-      const totalM = { receita: tot('receita'), cmv: tot('cmv'), lucroBruto: tot('lucroBruto'), pessoal: tot('pessoal'), admin: tot('admin'), operacionais: tot('operacionais'), resOp: tot('resOp'), impostos: tot('impostos'), financeiras: tot('financeiras'), antes: tot('antes'), prolabore: tot('prolabore'), liquido: tot('liquido'), temFat: completos.length > 0, completo: completos.length > 0 };
+      const totalM = { fat: tot('fat'), ivaVal: tot('ivaVal'), receita: tot('receita'), cmv: tot('cmv'), lucroBruto: tot('lucroBruto'), pessoal: tot('pessoal'), ocupacao: tot('ocupacao'), admin: tot('admin'), operacionais: tot('operacionais'), resOp: tot('resOp'), impostos: tot('impostos'), financeiras: tot('financeiras'), antes: tot('antes'), prolabore: tot('prolabore'), liquido: tot('liquido'), temFat: completos.length > 0, completo: completos.length > 0 };
       const linhas = [
-        ['Receita de vendas', 'receita', 'forte', 'temFat'],
-        ['(−) CMV — Custo de Mercadoria Vendida', 'cmv', '', 'temFat'],
+        ['Faturamento (com IVA)', 'fat', 'forte', 'temFat'],
+        ['(−) IVA', 'ivaVal', '', 'temFat'],
+        ['= Receita líquida (sem IVA)', 'receita', 'sub', 'temFat'],
+        ['(−) CMV — compras de mercadoria', 'cmv', '', 'temFat'],
         ['= Lucro bruto', 'lucroBruto', 'sub verde', 'temFat'],
         ['(−) DESPESAS OPERACIONAIS', null, 'cab'],
-        ['Despesas com pessoal', 'pessoal', 'rec', 'completo'],
+        ['Despesas com pessoal (salários, pró-labore, seg. social)', 'pessoal', 'rec', 'completo'],
+        ['Despesas de ocupação (renda)', 'ocupacao', 'rec', 'completo'],
         ['Despesas administrativas', 'admin', 'rec', 'completo'],
         ['Total operacionais', 'operacionais', '', 'completo'],
         ['= Resultado operacional', 'resOp', 'sub', 'completo'],
-        ['(−) Impostos e taxas', 'impostos', '', 'completo'],
+        ['(−) Outros impostos e taxas', 'impostos', '', 'completo'],
         ['(−) Despesas financeiras', 'financeiras', '', 'completo'],
         ['= Resultado antes da distribuição', 'antes', 'sub', 'completo'],
         ['(−) Retiradas de lucro (além do pró-labore)', 'prolabore', '', 'completo'],
@@ -6102,7 +6122,7 @@ const FINANCAS = (function(){
         'Receita = faturado sem IVA (faturado no sistema + fora do sistema − IVA cobrado). O IVA tem relatório próprio.',
         `CMV estimado em ${String(par.cmv_pct).replace('.', ',')}% da receita; quando houver compras lançadas, passa a ser o CMV real.`,
         'O pró-labore do Daniel e da Fernanda já está em Despesas com pessoal (grupo Equipa). A linha de retiradas de lucro é só para o que tirares além disso: deixa em 0 se não houve retirada.',
-        'Despesas financeiras = itens dos custos fixos com nome de empréstimo, juros, banco ou leasing; os outros custos fixos ficam em administrativas.',
+        'Como os custos são separados: Despesas com pessoal = equipa (salários, pró-labore) e segurança social; financeiras = empréstimo, juros, banco, leasing; ocupação = renda/arrendamento; administrativas = todo o resto. CMV = as compras.',
         semCustos.length ? `Meses com faturado mas sem custos lançados (${semCustos.join(', ')}) aparecem só até o lucro bruto: lança ou puxa os custos desses meses no Ponto de equilíbrio para completar.` : ''
       ].filter(Boolean).join('<br>');
       el('dreParams').innerHTML = `
