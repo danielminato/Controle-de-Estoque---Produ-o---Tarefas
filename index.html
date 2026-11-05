@@ -3808,7 +3808,7 @@ function renderMonths(){
   html += '<tr><td class="dia">Faturamento (€)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">realizado: escreve · projeção: calculado</div></td>' + editState.months.map((m,i)=>
     m.real
       ? `<td><input type="number" value="${receitaDoMes(m,refRevenue).toFixed(2)}" step="0.01" style="width:96px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.updateMonthEur(${i},this.value)"></td>`
-      : `<td style="font-weight:700;">${fmtEUR(receitaMesI(editState.months, i))}</td>`).join('') + '</tr>';
+      : `<td style="font-weight:700;">${fmtEUR(receitaMesI(editState.months, i))}${realDisponivel(i) ? `<div style="font-weight:400;"><button class="btn-ghost" style="padding:2px 6px;font-size:10px;margin-top:4px;color:var(--ok);" title="Passar o mês a realizado com o faturado lançado no Controle de IVA; a projeção atual fica guardada como o realizável" onclick="FX.usarRealControle(${i})">usar o real: ${fmtEUR(faturadoControle[i])}</button></div>` : ''}</td>`).join('') + '</tr>';
   // 3) diferença para o melhor mês do ano (que a app descobre sozinha)
   html += `<tr><td class="dia">Diferença vs melhor mês (%)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">− cai · + sobe${refMes ? ' · melhor mês: ' + fmtEUR(refRevenue) + ' (' + refMes + ')' : ''}</div></td>` + editState.months.map((m,i)=>{
     if(m.real){
@@ -3957,6 +3957,16 @@ function renderSimMes(){
   box.innerHTML = html;
 }
 const MESES_LONGO_FX = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// meses já fechados com faturado lançado no Controle de IVA, mas ainda como projeção no cenário
+function realDisponivel(i){ const m = editState.months[i]; return !m.real && faturadoControle[i] > 0 && i < new Date().getMonth(); }
+// passa o mês a realizado com o faturado do Controle de IVA; o que estava projetado fica como realizável
+function usarRealControle(i){
+  const m = editState.months[i]; if(!(faturadoControle[i] > 0)) return;
+  const proj = receitaMesI(editState.months, i);
+  if(!m.real && !(m.esperado > 0) && proj > 0) m.esperado = proj;
+  m.real = true; m.modo = 'eur'; m.valorEur = Math.round(faturadoControle[i] * 100) / 100; m.fonte = 'manual';
+  renderMonths(); renderExpenses(); computeAndRenderCards();
+}
 // trocar um mês entre realizado (€ escrito) e projeção (% escrita), mantendo o valor atual
 function toggleMonthReal(i){
   const m = editState.months[i], ref = getRefRevenue(), v = receitaMesI(editState.months, i);
@@ -4638,7 +4648,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
