@@ -6011,9 +6011,26 @@ const FINANCAS = (function(){
       return { ano, mes, fat: Math.round(M.fat), equipa: Math.round(M.totalEquipa), fixos: Math.round(M.totalFixos), horas: Math.round(M.horasTotais),
         custoHora: +M.custoHora.toFixed(2), fatMinHora: M.fatMinHora != null ? +M.fatMinHora.toFixed(2) : null, folhaPct: folha != null ? +folha.toFixed(1) : null };
     }
+    // um mês conta como fechado quando tem faturado, IVA e crédito lançados no Controle de IVA
+    function mesFechado(){
+      const ms = (D && D.ivaAno ? D.ivaAno : []).filter(r => num(r.faturado_sistema) + num(r.faturado_fora) > 0 && num(r.iva) > 0 && num(r.credito) > 0).map(r => r.mes);
+      return ms.length ? Math.max(...ms) : null;
+    }
+    function faixaFechado(p){
+      const f = mesFechado(); if(!f) return '';
+      const snap = (p && p.snapshot) || null;
+      const velho = !p || !p.texto || !snap || snap.ano < ano || (snap.ano === ano && snap.mes < f);
+      if(!velho) return '';
+      const quando = snap && snap.mes ? `${MESES_LONGO[snap.mes - 1]} de ${snap.ano}` : 'nenhum mês';
+      return `<div style="border:1px solid var(--ok);border-radius:6px;padding:10px 12px;margin-bottom:10px;"><div style="font-weight:700;color:var(--ok);">✔ ${MESES_LONGO[f - 1]} fechou (faturado, IVA e crédito lançados)</div><div class="desc" style="margin:4px 0 8px;">O parecer atual é de ${quando}. Copia o pedido, cola no chat com o Claude e ele escreve o parecer de ${MESES_LONGO[f - 1]} com os pontos de atenção.</div><button class="btn-primary" onclick="FINANCAS.CH.pedirParecer(${f})">Copiar pedido de parecer de ${MESES_LONGO[f - 1]}</button></div>`;
+    }
+    async function pedirParecer(m){
+      if(mes !== m){ mes = m; el('chMes').value = m; await carregar(); }
+      await copiar(true);
+    }
     function renderParecer(){
-      const box = el('chParecer'), p = D && D.parecer;
-      if(!p || !p.texto){ box.innerHTML = '<p class="desc">Ainda não há parecer. Pede no chat: "Claude, escreve o parecer do custo da hora".</p>' + notasHtml(); return; }
+      const box = el('chParecer'), p = D && D.parecer, faixa = faixaFechado(p);
+      if(!p || !p.texto){ box.innerHTML = faixa + '<p class="desc">Ainda não há parecer. Pede no chat: "Claude, escreve o parecer do custo da hora".</p>' + notasHtml(); return; }
       const snap = p.snapshot || {}, atual = instantaneo();
       let aviso;
       if(!atual || semEscala()){ aviso = ''; }
@@ -6028,9 +6045,9 @@ const FINANCAS = (function(){
           : '<div class="desc" style="color:var(--ok);">✔ Os números atuais coincidem com os do parecer.</div>';
       }
       const data = p.atualizado_em ? new Date(p.atualizado_em).toLocaleDateString('pt-PT') : '';
-      box.innerHTML = `${aviso}<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin-top:8px;">${esc(p.texto)}</div><p class="desc" style="margin-top:8px;">Escrito pelo Claude em ${data}, com base nos números daquele dia.</p>` + notasHtml();
+      box.innerHTML = `${faixa}${aviso}<div style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin-top:8px;">${esc(p.texto)}</div><p class="desc" style="margin-top:8px;">Escrito pelo Claude em ${data}, com base nos números daquele dia.</p>` + notasHtml();
     }
-    async function copiar(){
+    async function copiar(pedido){
       if(semEscala() || !M){ st('Sem dados de Escala neste mês.'); return; }
       const T = M.T;
       const linhas = [
@@ -6041,7 +6058,7 @@ const FINANCAS = (function(){
         ...TURNOS.map(([t, n]) => `${n}: ${T[t].dias} dias, ${dec(T[t].horas, 0)} h, ${dec(T[t].pessoasMedia)} pessoas, custo/hora ${euro(T[t].custoHora)}, mínimo/hora ${T[t].fatMinHora != null ? euro(T[t].fatMinHora) : '—'}, fatura/hora (est.) ${euro(T[t].fatHora)}`),
         'Diagnóstico automático:', ...diagTexto.map(t => '- ' + t),
         ...(D.notas && D.notas.texto ? ['Notas do Daniel:', D.notas.texto] : []),
-        'Quero debater isto contigo: o que farias e porquê? Contesta o que não fizer sentido.'
+        pedido ? `O mês de ${MESES_LONGO[mes-1]} fechou. Claude, escreve o parecer do custo da hora deste mês com os pontos de atenção (o que está bom, o que preocupa, o que fazer a seguir), compara com o parecer anterior e dá-me o SQL para gravar em parecer_claude (id custo_hora, com o snapshot do mês).` : 'Quero debater isto contigo: o que farias e porquê? Contesta o que não fizer sentido.'
       ].join('\n');
       try{ await navigator.clipboard.writeText(linhas); st('Copiado ✓ — cola no chat com o Claude.'); }
       catch(e){
@@ -6050,7 +6067,7 @@ const FINANCAS = (function(){
         ta.remove();
       }
     }
-    return { abrir, mudar, simular, limite, copiar, instantaneo, horario, guardarNota };
+    return { abrir, mudar, simular, limite, copiar, pedirParecer, instantaneo, horario, guardarNota };
   })();
 
   /* ================= DRE REAL ================= */
