@@ -2880,7 +2880,7 @@ function renderEstoque(){
 
   const filtroGrupoSel = document.getElementById('filtroGrupo');
   const currentGrupo = filtroGrupoSel.value;
-  filtroGrupoSel.innerHTML = '<option value="">Escolhe um grupo</option>' + grupos.map(g => `<option value="${g.id}">${g.nome}</option>`).join('');
+  filtroGrupoSel.innerHTML = '<option value="">Escolhe um grupo</option><option value="__sem">⚠ Sem fornecedor / sem grupo (para completar)</option>' + grupos.map(g => `<option value="${g.id}">${g.nome}</option>`).join('');
   filtroGrupoSel.value = currentGrupo;
 
   let totalAComprar = 0, valorTotal = 0, abaixoMinimo = 0;
@@ -2923,6 +2923,25 @@ function renderEstoque(){
     const grupoId = filtroGrupoSel.value;
     if(!grupoId){
       content.innerHTML = '<div class="empty">Escolhe um grupo de compra acima para ver só o que falta comprar dele.</div>';
+      return;
+    }
+    if(grupoId === '__sem'){
+      // produtos que ficam de fora das listas de compra: sem fornecedor definido, ou com um fornecedor que não está em nenhum grupo
+      const fornecedoresEmGrupo = new Set(grupos.flatMap(x => x.fornecedorIds || []));
+      const semFornecedor = linhas.filter(l => !l.fornecedorCompraId || !fornecedores.some(f => f.id === l.fornecedorCompraId));
+      const semGrupo = linhas.filter(l => l.fornecedorCompraId && fornecedores.some(f => f.id === l.fornecedorCompraId) && !fornecedoresEmGrupo.has(l.fornecedorCompraId));
+      const tabela = (lista, comFornecedor) => `<table><thead><tr><th>Produto</th><th>Categoria</th><th>Área(s)</th>${comFornecedor ? '<th>Fornecedor</th>' : ''}<th>Em estoque</th><th>Mínima</th><th>A comprar</th><th></th></tr></thead><tbody>${[...lista].sort((a, b) => (a.p.categoria || '').localeCompare(b.p.categoria || '') || a.p.nome.localeCompare(b.p.nome)).map(l => `
+        <tr>
+          <td>${l.p.nome}</td><td>${l.p.categoria || '—'}</td><td>${areaBadges(l.p.areaIds)}</td>
+          ${comFornecedor ? `<td>${(fornecedores.find(f => f.id === l.fornecedorCompraId) || {}).nome || '—'}</td>` : ''}
+          <td>${l.p.qtdAtual || 0}</td><td>${l.p.qtdMinima || 0}</td><td>${l.aComprar > 0 ? '<strong>' + l.aComprar + '</strong>' : '—'}</td>
+          <td><button class="icon-btn" onclick="openProdutoModal('${l.p.id}')">editar</button></td>
+        </tr>`).join('')}</tbody></table>`;
+      content.innerHTML = `<div class="save-note" style="margin-bottom:14px;">Produtos que ficam de fora das listas de compra por grupo. Abre "editar" e escolhe um fornecedor (ou põe o fornecedor num grupo de compra) para passarem a aparecer.</div>
+        <h3 style="margin-bottom:8px;">Sem fornecedor definido (${semFornecedor.length})</h3>
+        ${semFornecedor.length ? '<div class="card" style="margin-bottom:18px;">' + tabela(semFornecedor, false) + '</div>' : '<div class="empty" style="margin-bottom:18px;">Todos os produtos ativos têm fornecedor. ✔</div>'}
+        <h3 style="margin-bottom:8px;">Com fornecedor, mas em nenhum grupo de compra (${semGrupo.length})</h3>
+        ${semGrupo.length ? '<div class="card">' + tabela(semGrupo, true) + '</div>' : '<div class="empty">Todos os fornecedores usados estão num grupo. ✔</div>'}`;
       return;
     }
     const g = grupos.find(x => x.id === grupoId);
