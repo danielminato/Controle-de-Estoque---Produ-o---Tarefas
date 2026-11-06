@@ -437,9 +437,11 @@
         <button class="btn secondary" id="btnImportar" onclick="importSeedData()">Importar produtos da planilha</button>
         <button class="btn secondary" onclick="autoPreencherEmbalagens()">Auto-preencher embalagens</button>
         <button class="btn secondary" onclick="renumerarCodigos()">Renumerar códigos (1 a N)</button>
+        <button class="btn secondary" onclick="procurarDuplicados()">Procurar duplicados</button>
         <button class="btn" onclick="openProdutoModal()">+ Novo produto</button>
       </div>
     </div>
+    <div id="prodDuplicados" style="display:none;margin-bottom:16px;"></div>
     <table>
       <thead><tr>
         <th class="sortable" onclick="setProdSort('codigo')">Cód. <span id="sortIcon-codigo"></span></th>
@@ -2748,6 +2750,58 @@ function addPrecoRow(fornecedorId, preco, indice){
   document.getElementById('precosList').appendChild(wrap);
 }
 
+// ---------- Procurar produtos duplicados (nomes que partilham a mesma palavra) ----------
+function palavrasDoProduto(nome){
+  const parar = new Set(['com','sem','para','por','dos','das','del','the','uma','uns','mais','tipo','kit']);
+  return [...new Set(String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 3 && !/^\d/.test(w) && !/^(kg|gr|ml|cl|lt|un|und)$/.test(w) && !parar.has(w))
+    .map(w => w.length > 4 && w.endsWith('s') ? w.slice(0, -1) : w))];
+}
+function procurarDuplicados(){
+  const box = document.getElementById('prodDuplicados');
+  if(box.style.display === 'block'){ box.style.display = 'none'; return; }
+  const e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const ativos = produtos.filter(produtoAtivo).map(p => ({ p, w: palavrasDoProduto(p.nome) }));
+  // 1) muito parecidos: as palavras de um estão todas no outro (ex.: "Azeite" e "Azeite extra virgem")
+  const pai = ativos.map((_, i) => i);
+  const raiz = i => pai[i] === i ? i : (pai[i] = raiz(pai[i]));
+  for(let i = 0; i < ativos.length; i++) for(let j = i + 1; j < ativos.length; j++){
+    const a = ativos[i].w, b = ativos[j].w;
+    if(!a.length || !b.length) continue;
+    const [curto, longo] = a.length <= b.length ? [a, b] : [b, a];
+    if(curto.every(w => longo.includes(w))) pai[raiz(i)] = raiz(j);
+  }
+  const clusters = {};
+  ativos.forEach((_, i) => { (clusters[raiz(i)] = clusters[raiz(i)] || []).push(ativos[i]); });
+  const parecidos = Object.values(clusters).filter(c => c.length > 1);
+  const emParecidos = new Set(parecidos.flat().map(x => x.p.id));
+  // 2) partilham uma palavra
+  const porPalavra = {};
+  ativos.forEach(x => x.w.forEach(w => { (porPalavra[w] = porPalavra[w] || []).push(x); }));
+  const partilham = Object.entries(porPalavra).filter(([, l]) => l.length > 1 && !l.every(x => emParecidos.has(x.p.id) && parecidos.some(c => l.every(y => c.includes(y)))))
+    .sort((a, b) => a[1].length - b[1].length || a[0].localeCompare(b[0]));
+  const linha = x => {
+    const mp = melhorPreco(x.p), f = fornecedores.find(f => f.id === (x.p.fornecedorEscolhidoId || (mp ? mp.fornecedorId : '')));
+    return `<tr><td>${x.p.codigo != null ? e(x.p.codigo) : ''}</td><td><strong>${e(x.p.nome)}</strong></td><td>${e(x.p.categoria || '—')}</td><td>${f ? e(f.nome) : 'sem fornecedor'}</td><td>${x.p.qtdMinima || 0}</td><td><button class="icon-btn" onclick="openProdutoModal('${x.p.id}')">editar</button></td></tr>`;
+  };
+  const tabela = lista => `<table><thead><tr><th>Cód.</th><th>Produto</th><th>Categoria</th><th>Fornecedor</th><th>Mínima</th><th></th></tr></thead><tbody>${[...lista].sort((a, b) => a.p.nome.localeCompare(b.p.nome)).map(linha).join('')}</tbody></table>`;
+  let html = `<div class="card"><div class="row between" style="margin-bottom:8px;"><h3 style="font-size:16px;">Possíveis duplicados</h3><button class="btn secondary" onclick="procurarDuplicados()">Fechar</button></div>
+    <div class="save-note" style="margin-bottom:12px;">Compara só os nomes dos produtos ativos, ignorando acentos, maiúsculas, plural e medidas (kg, ml, 500g…). É uma pista: abre "editar" para juntar ou apagar o que for repetido.</div>`;
+  if(!parecidos.length && !partilham.length){
+    html += '<div class="empty">Não encontrei nomes repetidos nem a partilhar palavras. ✔</div>';
+  }
+  if(parecidos.length){
+    html += `<h4 style="margin:6px 0;">Muito parecidos (${parecidos.length} grupo${parecidos.length > 1 ? 's' : ''})</h4>` + parecidos.sort((a, b) => b.length - a.length)
+      .map(c => `<div style="margin-bottom:14px;">${tabela(c)}</div>`).join('');
+  }
+  if(partilham.length){
+    html += `<h4 style="margin:14px 0 6px;">Partilham a mesma palavra (${partilham.length})</h4>` + partilham
+      .map(([w, l]) => `<details style="margin-bottom:8px;"><summary style="cursor:pointer;font-weight:600;">“${e(w)}” — ${l.length} produtos</summary><div style="margin-top:6px;">${tabela(l)}</div></details>`).join('');
+  }
+  box.innerHTML = html + '</div>';
+  box.style.display = 'block';
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function openProdutoModal(id){
   document.getElementById('produtoModalTitle').textContent = id ? 'Editar produto' : 'Novo produto';
   document.getElementById('produtoId').value = id || '';
