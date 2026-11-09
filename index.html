@@ -4038,7 +4038,7 @@ function guardarPrevisto(){
     prev[fechChave(i)] = { rec: d.receita, cmvPct: d.cmvPct, cmv: d.cmvValor, iva: d.impostosValor, pes: d.despPessoal, ocu: d.despOcupacao, adm: d.despAdmin,
       fin: d.despFinanceiras, ret: d.despDistribuicao, com: d.despComissao, res: d.resultadoLiquido, em: new Date().toISOString(),
       // pressupostos do delivery, para calibrar com o real
-      delv: pp.del || 0, tk: tkD, piz: tkD > 0 ? (pp.del || 0) / tkD : 0, comPct: dp.com, ivaComPct: dp.ivaCom, cmvDel: dp.cmv };
+      delv: pp.del || 0, tk: tkD, piz: tkD > 0 ? (pp.del || 0) / tkD : 0, comPct: dp.com, ivaComPct: dp.ivaCom, cmvDel: dp.cmv, kDel: dp.k };
   });
 }
 let fechCenId = null;
@@ -4066,13 +4066,15 @@ function fechDelHtml(i, f){
   const sel = cands.find(c => c.id === fechCenId) || cands[0], P = sel ? sel.custos.previsto[k] : null;
   const nf = (v, d) => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
   if(!(f.delv > 0 || f.piz > 0 || f.com > 0 || f.dcm > 0)) return '<p class="desc" style="margin:0;">Preenche as vendas de delivery, as pizzas vendidas e o custo cobrado pelas plataformas (linha "Plataformas de delivery" da tabela acima), com os extratos das plataformas, para ver como a realidade se compara com os parâmetros.</p>';
-  const tkR = f.piz > 0 ? f.delv / f.piz : 0, comEf = f.delv > 0 ? f.com / f.delv * 100 : 0, cmvR = (f.delv > 0 && f.dcm > 0) ? f.dcm / f.delv * 100 : 0, pctFat = f.rec > 0 ? f.delv / f.rec * 100 : 0;
-  const ref = P ? { delv: P.delv, piz: P.piz, tk: P.tk, comEf: P.comPct * (1 + P.ivaComPct / 100), com: P.com, cmv: P.cmvDel, pctFat: P.rec > 0 ? P.delv / P.rec * 100 : 0, nome: 'previsto do cenário «' + String(sel.nome).replace(/[<>&"]/g, '') + '»' }
-    : DEL ? { delv: null, piz: null, tk: DEL.preco, comEf: DEL.com * (1 + DEL.ivaCom / 100), com: null, cmv: DEL.cmv, pctFat: null, nome: 'parâmetros atuais (Receitas)' } : null;
+  // CMV real do delivery = custo da comida ÷ valor líquido s/ IVA (o que sobra do preço publicado depois da comissão e dos IVAs), como nas Receitas
+  const kRef = P ? (P.kDel || 0.5584) : (DEL ? (1 - DEL.com / 100 * (1 + DEL.ivaCom / 100)) / (1 + DEL.iva / 100) : 0.5584);
+  const tkR = f.piz > 0 ? f.delv / f.piz : 0, comEf = f.delv > 0 ? f.com / f.delv * 100 : 0, cmvR = (f.delv > 0 && f.dcm > 0) ? f.dcm / (f.delv * kRef) * 100 : 0, pctFat = f.rec > 0 ? f.delv / f.rec * 100 : 0;
+  const ref = P ? { delv: P.delv, piz: P.piz, tk: P.tk, comEf: P.comPct * (1 + P.ivaComPct / 100), com: P.com, cmv: P.cmvDel / kRef, pctFat: P.rec > 0 ? P.delv / P.rec * 100 : 0, nome: 'previsto do cenário «' + String(sel.nome).replace(/[<>&"]/g, '') + '»' }
+    : DEL ? { delv: null, piz: null, tk: DEL.preco, comEf: DEL.com * (1 + DEL.ivaCom / 100), com: null, cmv: DEL.cmvReal, pctFat: null, nome: 'parâmetros atuais (Receitas)' } : null;
   if(!ref) return '<p class="desc" style="margin:0;">Sem referência para comparar: não há previsto guardado nem pizzas de delivery nas Receitas.</p>';
   const linhas = [['Vendas de delivery (€)', ref.delv, f.delv, v => fmtEUR(v)], ['% do faturamento total', ref.pctFat, pctFat, v => nf(v, 1) + '%'], ['Pizzas vendidas', ref.piz, f.piz, v => nf(v, 0)],
     ['Ticket médio da pizza (€)', ref.tk, tkR, v => nf(v, 2) + ' €'], ['Comissão efetiva (% das vendas, c/ IVA da comissão)', ref.comEf, comEf, v => nf(v, 1) + '%'],
-    ['Custo das plataformas (€)', ref.com, f.com, v => fmtEUR(v)], ['CMV do delivery (% do preço c/ IVA)', ref.cmv, cmvR, v => nf(v, 1) + '%']]
+    ['Custo das plataformas (€)', ref.com, f.com, v => fmtEUR(v)], ['CMV real do delivery (% do valor líquido s/ IVA)', ref.cmv, cmvR, v => nf(v, 1) + '%']]
     .filter(([, a, b]) => a != null && b > 0);
   let h = `<div style="font-size:12px;color:var(--text-soft);margin-bottom:6px;">Referência: ${ref.nome}</div><div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Previsto</td><td style="font-weight:700;">Real</td><td style="font-weight:700;">Diferença</td></tr>`;
   linhas.forEach(([nome, a, b, fm]) => { const d = b - a; h += `<tr><td class="dia">${nome}</td><td style="color:var(--text-soft);">${fm(a)}</td><td>${fm(b)}</td><td style="font-weight:700;">${Math.abs(d) < 0.05 ? '—' : (d > 0 ? '+' : '') + fm(d)}</td></tr>`; });
@@ -4354,7 +4356,7 @@ function renderFatMes(){
     // custo das plataformas de delivery: comissão + IVA da comissão, sobre as vendas de delivery (preço final c/ IVA); nº de pizzas pelo ticket médio
     const dRev = bl.pp.del, comE = dRev * bl.com / 100, ivaE = comE * bl.ivaCom / 100, tkD = DELr ? DELr.preco : 0, nPiz = tkD > 0 ? dRev / tkD : 0, comPiz = tkD * bl.com / 100;
     const platHtml = dRev > 0
-      ? `<br><b>Plataformas de delivery:</b> ${fmtEUR(dRev)} de vendas${tkD > 0 ? ` (≈ ${nf(nPiz, 0)} pizzas ao ticket médio de ${nf(tkD, 2)} €)` : ''} → comissão de ${nf(bl.com, 0)}% = ${fmtEUR(comE)} + IVA de ${nf(bl.ivaCom, 0)}% sobre a comissão = ${fmtEUR(ivaE)} → <b>${fmtEUR(comE + ivaE)}</b> (${nf(bl.com * (1 + bl.ivaCom / 100), 1)}% das vendas de delivery${tkD > 0 ? `; por pizza ${nf(comPiz, 2)} € + ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(comPiz * (1 + bl.ivaCom / 100), 2)} €` : ''}). Está em linha própria nas saídas.`
+      ? `<br><b>Plataformas de delivery:</b> ${fmtEUR(dRev)} de vendas${tkD > 0 ? ` (≈ ${nf(nPiz, 0)} pizzas ao ticket médio de ${nf(tkD, 2)} €)` : ''} → comissão de ${nf(bl.com, 0)}% = ${fmtEUR(comE)} + IVA de ${nf(bl.ivaCom, 0)}% sobre a comissão = ${fmtEUR(ivaE)} → <b>${fmtEUR(comE + ivaE)}</b> (${nf(bl.com * (1 + bl.ivaCom / 100), 1)}% das vendas de delivery${tkD > 0 ? `; por pizza ${nf(comPiz, 2)} € + ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(comPiz * (1 + bl.ivaCom / 100), 2)} €` : ''}). Está em linha própria nas saídas.${tkD > 0 ? `<br><b>Como se forma o preço de uma pizza de ${nf(tkD, 2)} €:</b> valor líquido s/ IVA ${nf(tkD * bl.k, 2)} € + IVA do prato de ${nf(bl.ivaPrato, 0)}% (${nf(tkD * bl.k * bl.ivaPrato / 100, 2)} €) + comissão ${nf(comPiz, 2)} € + IVA da comissão ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(tkD, 2)} €. O CMV real (${nf(bl.cDelNet, 1)}%) é o custo da pizza ÷ esse valor líquido; sobre o preço publicado dá ${nf(bl.cDel, 1)}%, que é a base usada na média do mês.` : ''}`
       : '<br>Sem vendas de delivery neste mês: sem custo de plataforma.';
     blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b>${(m.promo || 0) > 0 ? ` (com a promoção sobe para <b>${cp(promoCmv)}</b>)` : ''}. ${platHtml}</p>`;
   }
@@ -4372,7 +4374,7 @@ function renderFatMes(){
       <div><label>Jantar (resto, %)</label><input type="number" value="${Math.round(m.pctJantar || 0)}" disabled style="width:90px;"></div>
       <div><label>Sex–Dom pesam (× um dia Seg–Qui)</label>${num('', c.pesoFds, 0.1, `FX.fatSetCfg('pesoFds',this.value)`)}</div>
       <div><label>Cadeiras (1 giro = casa cheia)</label>${num('', c.cadeiras, 1, `FX.fatSetCfg('cadeiras',this.value)`)}</div>
-      <div><label>CMV do delivery (% do preço, c/ IVA)</label>${num('', Math.round(dpar.cmv * 10) / 10, 0.5, `FX.fatSetCfg('cmvDelOv',this.value)`)}<div style="font-size:10px;color:var(--text-soft);margin-top:3px;">${DELr ? `média de ${DELr.n} pizzas de delivery das Receitas (de ${nf(DELr.cmvMin, 1)}% a ${nf(DELr.cmvMax, 1)}%)` : 'sem pizzas de delivery nas Receitas'}</div></div>
+      <div><label>CMV real do delivery (% do valor líquido s/ IVA)</label>${num('', Math.round(dpar.cmvNet * 10) / 10, 0.5, `FX.fatSetCfg('cmvDelOv',this.value)`)}<div style="font-size:10px;color:var(--text-soft);margin-top:3px;">${DELr ? `média de ${DELr.n} pizzas de delivery das Receitas, o "CMV real" delas (de ${nf(DELr.cmvRealMin, 1)}% a ${nf(DELr.cmvRealMax, 1)}%). Sobre o preço publicado equivale a ${nf(dpar.cmv, 1)}%` : 'sem pizzas de delivery nas Receitas'}</div></div>
       <div><label>Comissão da plataforma (% do delivery)</label>${num('', Math.round(dpar.com * 10) / 10, 1, `FX.fatSetCfg('comDelivery',this.value)`)}</div>
       <div><label>IVA da comissão (%)</label>${num('', Math.round(dpar.ivaCom * 10) / 10, 1, `FX.fatSetCfg('ivaComDelivery',this.value)`)}</div>
       <div><label>Promoção neste mês: desconto (%)</label>${num('', m.promo || 0, 1, `FX.fatSetPromo(${i},this.value)`)}<div style="font-size:10px;color:${promoCmv > tetoCmv ? 'var(--danger)' : 'var(--text-soft)'};margin-top:3px;">${(m.promo || 0) > 0 ? 'CMV do mês sobe para ' + nf(promoCmv, 1) + '%' + (promoCmv > tetoCmv ? ' ⚠ passa o teto de ' + nf(tetoCmv, 0) + '%' : '') : 'sobe o CMV: o custo é o mesmo, a receita é menor'}${fechDe(i) ? '' : ' · desconto máximo dentro do teto: ' + nf(descMax, 0) + '%'}</div></div>
@@ -4658,14 +4660,19 @@ function updateExpense(campo, i, val){
 // parâmetros do delivery numa projeção: o que escreveste, ou a média das pizzas de delivery das Receitas
 function delParams(custos, DEL, MED){
   const ov = (k, auto) => (custos[k] != null && !isNaN(custos[k])) ? custos[k] : auto;
-  return { cmv: ov('cmvDelOv', DEL ? DEL.cmv : (MED ? MED.cmv : 25)), com: ov('comDelivery', DEL ? DEL.com : 30), ivaCom: ov('ivaComDelivery', DEL ? DEL.ivaCom : 23) };
+  const com = ov('comDelivery', DEL ? DEL.com : 30), ivaCom = ov('ivaComDelivery', DEL ? DEL.ivaCom : 23), ivaPrato = DEL ? DEL.iva : 13;
+  // preço publicado (c/ IVA) = valor líquido s/ IVA + IVA do prato + comissão + IVA da comissão  →  líquido = preço × k
+  const k = (1 - com / 100 * (1 + ivaCom / 100)) / (1 + ivaPrato / 100);
+  // o CMV que escreves é o "CMV real" (custo ÷ valor líquido s/ IVA, como nas Receitas); sobre o preço publicado equivale a ×k
+  const gross = (custos.cmvDelOv != null && !isNaN(custos.cmvDelOv)) ? custos.cmvDelOv * k : (DEL ? DEL.cmv : (MED ? MED.cmv : 25));
+  return { cmv: gross, cmvNet: k > 0 ? gross / k : gross, k, com, ivaCom, ivaPrato };
 }
 // CMV de um mês projetado = média ponderada: almoço (menu, se tiver), jantar (CMV da sala dos meses fechados) e delivery (média das pizzas)
 function cmvMisto(months, i, custos, MED, DEL){
   const pp = partesMes(months, i), tot = pp.total, dp = delParams(custos, DEL, MED), dif = custos.ticketIgual === false;
   const cAlm = dif ? (custos.cmvAlm || 0) : MED.cmv, cJan = dif ? (custos.cmvJan != null ? custos.cmvJan : MED.cmv) : MED.cmv;
   const pct = tot > 0 ? (pp.alm * cAlm + pp.jan * cJan + pp.del * dp.cmv) / tot : MED.cmv;
-  return { pct, pp, cAlm, cJan, cDel: dp.cmv, com: dp.com, ivaCom: dp.ivaCom };
+  return { pct, pp, cAlm, cJan, cDel: dp.cmv, cDelNet: dp.cmvNet, k: dp.k, ivaPrato: dp.ivaPrato, com: dp.com, ivaCom: dp.ivaCom };
 }
 // IVA do mês: mês fechado = o IVA real desse mês; projeção = a média real do ano (até escreveres outro valor)
 function ivaPctDe(custos, i){
@@ -8123,11 +8130,14 @@ function mediaDelivery(){
     const util = porcoesUteis(ex.porcoes || 1, ex.perdaPct || 0) || (ex.porcoes || 1);
     const custo = custoTotal / util + (ex.incluirCaixaPizza ? custoCaixaPizza() / util : 0);
     if(!(custo > 0)) return;
-    L.push({ cmv: custo / R * 100, com: Number(ex.deliveryTaxaPct) || 0, ivaCom: Number(ex.deliveryIvaTaxaPct) || 0, R });
+    // o CMV real da receita: custo ÷ valor líquido s/ IVA (o que sobra do preço publicado depois da comissão, do IVA da comissão e do IVA do prato)
+    const rr = calcularRetornoReal(custo, R, { ivaPct: ex.ivaPct, participacaoPct: 0, comissaoPct: ex.deliveryTaxaPct, ivaComissaoPct: ex.deliveryIvaTaxaPct });
+    L.push({ cmv: custo / R * 100, cmvReal: rr.cmvReal, com: Number(ex.deliveryTaxaPct) || 0, ivaCom: Number(ex.deliveryIvaTaxaPct) || 0, iva: Number(ex.ivaPct) || 13, R });
   });
   if(!L.length) return null;
   const avg = k => L.reduce((s, x) => s + x[k], 0) / L.length;
-  return { n: L.length, cmv: avg('cmv'), cmvMin: Math.min(...L.map(x => x.cmv)), cmvMax: Math.max(...L.map(x => x.cmv)), com: avg('com'), ivaCom: avg('ivaCom'), preco: avg('R') };
+  return { n: L.length, cmv: avg('cmv'), cmvMin: Math.min(...L.map(x => x.cmv)), cmvMax: Math.max(...L.map(x => x.cmv)), cmvReal: avg('cmvReal'),
+    cmvRealMin: Math.min(...L.map(x => x.cmvReal)), cmvRealMax: Math.max(...L.map(x => x.cmvReal)), com: avg('com'), ivaCom: avg('ivaCom'), iva: avg('iva'), preco: avg('R') };
 }
 function custoCaixaPizza(){
   const caixa = produtos.find(p => p.nome && p.nome.toLowerCase().includes('caixa de pizza'));
