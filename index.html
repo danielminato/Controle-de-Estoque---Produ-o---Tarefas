@@ -784,6 +784,11 @@
       <div style="overflow-x:auto;"><table class="grid-table" id="fatMesTabela"></table></div>
       <div id="fatMesDetalhe" style="margin-top:16px;"></div>
     </section>
+    <section class="panel" id="panelFech">
+      <h2>Fechamento do mês</h2>
+      <p class="desc">Quando o mês fecha, escolhe-o aqui e escreve os números da outra app (receita, CMV, pessoal, ocupação, administrativas, financeiras, retiradas). O <b>IVA entra sozinho</b> a partir do Controle de IVA, como despesa. Os meses fechados passam a usar estes valores reais no cenário, e cada mês é comparado com o anterior.</p>
+      <div id="fechForm"></div>
+    </section>
     <section class="panel" style="display:none;">
       <h2>Resumo dos dias</h2>
       <p class="desc">Ticket médio por dia da semana, cadeiras e giros (quantas vezes a casa enche em cada serviço). Os giros vêm calculados a partir do faturamento do melhor mês, com o almoço a pesar cerca de 20%; podes mexer em qualquer valor.</p>
@@ -3491,7 +3496,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido()]); renderComparacaoLista(); showView('list'); }
+  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido(), carregarFechamentos()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
   function invalidarEscalas(){ escLoaded = false; }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -3926,6 +3931,111 @@ function fatSetCfg(k, val){
   else c[k] = Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
   renderExpenses(); computeAndRenderCards();
 }
+/* ---- Fechamento do mês: números da outra app + IVA do Controle de IVA ---- */
+var fechamentos = {};   // { 'AAAA-MM': { rec, cmv, pes, ocu, adm, fin, ret, cli } } guardado em config_financeiro (fech_AAAA_MM_campo)
+let fechSel = null;
+const FECH_VAZIO = () => ({ rec:0, cmv:0, pes:0, ocu:0, adm:0, fin:0, ret:0, cli:0 });
+const FECH_LINHAS = [
+  ['rec', 'Receita de vendas (com IVA)', 1], ['cmv', 'CMV — compras de mercadoria', 0], ['iva', 'IVA (despesa, do Controle de IVA)', 0],
+  ['pes', 'Pessoal (salários, pró-labore, seg. social)', 0], ['ocu', 'Ocupação (renda)', 0], ['adm', 'Administrativas', 0],
+  ['fin', 'Financeiras (empréstimos, juros)', 0], ['ret', 'Retiradas de lucro (além do pró-labore)', 0], ['res', 'Resultado líquido', 1]
+];
+function fechChave(i){ return new Date().getFullYear() + '-' + String(i + 1).padStart(2, '0'); }
+function fechDe(i){ const f = fechamentos[fechChave(i)]; return (f && f.rec > 0) ? f : null; }
+async function carregarFechamentos(){
+  fechamentos = {};
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=chave,valor&chave=like.fech_*`, { headers: sbHeadersFn() });
+    if(!res.ok) return;
+    (await res.json()).forEach(r => {
+      const m = /^fech_(\d{4})_(\d{2})_([a-z]+)$/.exec(r.chave || '');
+      if(!m) return;
+      const k = m[1] + '-' + m[2];
+      (fechamentos[k] = fechamentos[k] || FECH_VAZIO())[m[3]] = Number(r.valor) || 0;
+    });
+  }catch(e){ fechamentos = {}; }
+}
+function fechIva(i, rec){ return ivaEurMes[i] != null ? { v: ivaEurMes[i], real: true } : { v: rec * ivaPctDe(editState.custos, i) / 100, real: false }; }
+function fechResultado(f, iva){ return f.rec - f.cmv - iva - f.pes - f.ocu - f.adm - f.fin - f.ret; }
+function fechLerForm(){
+  const g = id => { const e = document.getElementById(id); return e ? Math.max(0, parseFloat(String(e.value).replace(',', '.')) || 0) : 0; };
+  return { rec:g('fc_rec'), cmv:g('fc_cmv'), pes:g('fc_pes'), ocu:g('fc_ocu'), adm:g('fc_adm'), fin:g('fc_fin'), ret:g('fc_ret'), cli:g('fc_cli') };
+}
+function fechSelMes(i){ fechSel = i; renderFech(); }
+function fechCalc(){
+  const i = fechSel, f = fechLerForm(), ivaI = fechIva(i, f.rec), P = i > 0 ? fechDe(i - 1) : null, ivaP = P ? fechIva(i - 1, P.rec).v : 0;
+  const cur = { rec:f.rec, cmv:f.cmv, iva:ivaI.v, pes:f.pes, ocu:f.ocu, adm:f.adm, fin:f.fin, ret:f.ret, res:fechResultado(f, ivaI.v) };
+  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, ret:P.ret, res:fechResultado(P, ivaP) } : null;
+  const nf1 = v => v.toFixed(1).replace('.', ',');
+  FECH_LINHAS.forEach(([k, , boa]) => {
+    const pc = document.getElementById('fc_pc_' + k), vr = document.getElementById('fc_vr_' + k);
+    if(pc) pc.textContent = k === 'res' || f.rec > 0 ? nf1(cur[k] / (f.rec || 1) * 100) + '%' : '—';
+    if(vr){
+      if(!prev){ vr.textContent = '—'; vr.style.color = ''; return; }
+      if(k === 'res'){ const d = cur[k] - prev[k]; vr.textContent = (d > 0 ? '+' : '') + fmtEUR(d); vr.style.color = d >= 0 ? 'var(--ok)' : 'var(--danger)'; return; }
+      const d = prev[k] > 0 ? (cur[k] / prev[k] - 1) * 100 : 0, sobeBom = !!boa;
+      if(!(prev[k] > 0) || !(cur[k] > 0)){ vr.textContent = '—'; vr.style.color = ''; return; }
+      vr.textContent = (d > 0 ? '+' : '') + nf1(d) + '%';
+      vr.style.color = Math.abs(d) < 0.05 ? '' : ((d > 0) === sobeBom ? 'var(--ok)' : 'var(--danger)');
+    }
+  });
+  const r = document.getElementById('fc_res'); if(r){ r.textContent = fmtEUR(cur.res); r.style.color = cur.res >= 0 ? 'var(--ok)' : 'var(--danger)'; }
+  const iv = document.getElementById('fc_iva'); if(iv) iv.textContent = fmtEUR(ivaI.v);
+  const tk = document.getElementById('fc_tk'); if(tk) tk.textContent = f.cli > 0 && f.rec > 0 ? `Ticket médio real: ${fmtEUR(f.rec / f.cli)} por cliente` : '';
+}
+function renderFech(){
+  const box = document.getElementById('fechForm'); if(!box || !editState) return;
+  if(fechSel == null) fechSel = Math.max(0, new Date().getMonth() - 1);
+  const i = fechSel, F = fechDe(i), P = i > 0 ? fechDe(i - 1) : null;
+  const rec0 = F ? F.rec : (faturadoControle[i] || 0), val = k => F ? F[k] : 0;
+  const ivaI = fechIva(i, rec0), ivaP = P ? fechIva(i - 1, P.rec).v : 0;
+  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, ret:P.ret, res:fechResultado(P, ivaP) } : null;
+  let h = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' + MESES.map((m, k) => `<button class="btn-ghost" style="padding:4px 10px;font-weight:700;${k === i ? 'background:var(--cream,#f5efe6);' : ''}" onclick="FX.fechSelMes(${k})">${m}${fechDe(k) ? ' ✓' : ''}</button>`).join('') + '</div>';
+  h += `<div style="font-weight:700;margin-bottom:6px;">${MESES_LONGO_FX[i]} ${new Date().getFullYear()} ${F ? '<span style="color:var(--ok);font-weight:400;">· fechado</span>' : '<span style="color:var(--text-soft);font-weight:400;">· ainda não fechado</span>'}</div>`;
+  h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% da receita</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
+  FECH_LINHAS.forEach(([k, nome]) => {
+    let celula;
+    if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'real (Controle de IVA)' : 'estimado (média do ano)'}</div>`;
+    else if(k === 'res') celula = '<span id="fc_res" style="font-weight:700;"></span>';
+    else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
+    h += `<tr><td class="dia">${nome}</td><td>${celula}</td><td id="fc_pc_${k}" style="color:var(--text-soft);"></td><td style="color:var(--text-soft);">${prev ? fmtEUR(prev[k]) : '—'}</td><td id="fc_vr_${k}"></td></tr>`;
+  });
+  h += '</table></div>';
+  h += `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;"><label style="margin:0;">Clientes atendidos no mês (opcional) <input type="number" min="0" id="fc_cli" value="${val('cli') || ''}" style="width:90px;" oninput="FX.fechCalc()"></label><span id="fc_tk" style="font-size:12px;color:var(--text-soft);"></span></div>`;
+  h += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="FX.fechSalvar()">Fechar ${MESES_LONGO_FX[i]}</button>${F ? '<button class="btn-ghost" onclick="FX.fechLimpar()">Reabrir o mês</button>' : ''}</div>`;
+  h += `<p class="desc" style="margin-top:10px;">A receita vem preenchida com o faturado do Controle de IVA${faturadoControle[i] ? ' (' + fmtEUR(faturadoControle[i]) + ')' : ''}; troca pelo valor da outra app se for diferente. O CMV passa a ser o real do mês e as despesas deste mês no cenário passam a ser estas.</p>`;
+  box.innerHTML = h;
+  fechCalc();
+}
+async function fechSalvar(){
+  const i = fechSel, f = fechLerForm();
+  if(!(f.rec > 0)){ showAlert('Escreve a receita de vendas do mês.'); return; }
+  const mm = String(i + 1).padStart(2, '0'), ano = new Date().getFullYear();
+  const rows = Object.keys(f).map(k => ({ chave: `fech_${ano}_${mm}_${k}`, valor: f[k] }));
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?on_conflict=chave`, { method:'POST', headers:{ ...sbHeadersFn(), Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
+    if(!r.ok) throw new Error('erro ' + r.status);
+    fechamentos[fechChave(i)] = f;
+    // o mês passa a realizado, com a receita do fechamento
+    const mi = editState.months[i];
+    if(mi){ const proj = receitaMesI(editState.months, i); if(!mi.real && !(mi.esperado > 0) && proj > 0) mi.esperado = proj; mi.real = true; mi.modo = 'eur'; mi.valorEur = Math.round(f.rec * 100) / 100; mi.fonte = 'manual'; }
+    renderMonths(); renderExpenses();
+    computeAndRenderCards(); renderFech();
+    showAlert(MESES_LONGO_FX[i] + ' fechado e guardado ✓');
+  }catch(e){ showAlert('Não consegui guardar o fechamento (' + e.message + ').'); }
+}
+async function fechLimpar(){
+  const i = fechSel;
+  if(!(await showConfirm('Reabrir ' + MESES_LONGO_FX[i] + '? Os números do fechamento deste mês são apagados e o mês volta às estimativas.'))) return;
+  const mm = String(i + 1).padStart(2, '0'), ano = new Date().getFullYear();
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?chave=like.fech_${ano}_${mm}_*`, { method:'DELETE', headers:{ ...sbHeadersFn(), Prefer:'return=minimal' } });
+    if(!r.ok) throw new Error('erro ' + r.status);
+    delete fechamentos[fechChave(i)];
+    renderExpenses();
+    computeAndRenderCards(); renderFech();
+  }catch(e){ showAlert('Não consegui reabrir o mês (' + e.message + ').'); }
+}
 function renderFatMes(){
   const tb = document.getElementById('fatMesTabela'), det = document.getElementById('fatMesDetalhe');
   if(!tb || !det) return;
@@ -4261,18 +4371,20 @@ function computeCenario(months, custos, reais){
     const receita = receitaMesI(months, i);
     let cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
     if(custos.ticketIgual === false && !m.real && receita > 0){ const pp = partesMes(months, i); cmvPct = (pp.alm * (custos.cmvAlm || 0) + (pp.jan + pp.del) * (custos.cmvJan || 0)) / (pp.total || 1); }
+    const F = fechDe(i);   // mês fechado: valores reais colados da outra app
+    if(F) cmvPct = F.cmv / F.rec * 100;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
-    const despPessoal = usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
-    const despOcupacao = usar ? (reais.ocupacao?.[i] || 0) : (custos.ocupacao?.[i] || 0);
-    const despAdmin = usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
-    const despFinanceiras = usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
-    const despDistribuicao = custos.distribuicao?.[i] || 0;
+    const despPessoal = F ? F.pes : usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
+    const despOcupacao = F ? F.ocu : usar ? (reais.ocupacao?.[i] || 0) : (custos.ocupacao?.[i] || 0);
+    const despAdmin = F ? F.adm : usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
+    const despFinanceiras = F ? F.fin : usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
+    const despDistribuicao = F ? F.ret : (custos.distribuicao?.[i] || 0);
     const totalOperacionais = despPessoal + despOcupacao + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
     const ivaPct = ivaPctDe(custos, i);
-    const impostosValor = receita * (ivaPct/100);
+    const impostosValor = (F && ivaEurMes[i] != null) ? ivaEurMes[i] : receita * (ivaPct/100);   // mês fechado: o IVA real em €
     const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
     const resultadoLiquido = resultadoAntesDistribuicao - despDistribuicao;
     ivaAccumQuarter += impostosValor;
@@ -4297,7 +4409,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após retiradas)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderFatMes(); renderRealReal(r);
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderFatMes(); if(!document.getElementById('fechForm').firstChild) renderFech(); renderRealReal(r);
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
@@ -4305,9 +4417,10 @@ let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12)
 let faturadoControle = Array(12).fill(null);   // faturado real de cada mês (com IVA) lançado no Controle de IVA
 let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
 let ivaManual = null;        // IVA escrito à mão no Ponto de equilíbrio (config_financeiro.iva_pct), se existir
+var ivaEurMes = Array(12).fill(null);   // IVA a pagar (€) de cada mês fechado, do Controle de IVA
 var ivaPctMes = Array(12).fill(null);   // IVA real de cada mês fechado, em % do faturado (Controle de IVA)
 async function carregarIvaLiquido(){
-  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null); ivaPctMes = Array(12).fill(null);
+  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null); ivaPctMes = Array(12).fill(null); ivaEurMes = Array(12).fill(null);
   try{
     const rc =await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
     if(rc.ok){ const l = await rc.json(); if(l.length && l[0].valor != null && !isNaN(Number(l[0].valor))) ivaManual = Number(l[0].valor); }
@@ -4318,7 +4431,7 @@ async function carregarIvaLiquido(){
     const todas = await res.json();
     // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
     todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
-    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0) ivaPctMes[k] = (iv - (Number(r.credito)||0)) / f * 100; });
+    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0){ ivaPctMes[k] = (iv - (Number(r.credito)||0)) / f * 100; ivaEurMes[k] = iv - (Number(r.credito)||0); } });
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
     const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
     const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
@@ -4853,7 +4966,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
