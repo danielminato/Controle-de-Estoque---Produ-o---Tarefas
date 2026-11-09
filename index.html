@@ -3972,11 +3972,11 @@ function fatSetCfg(k, val){
 /* ---- Fechamento do mês: números da outra app + IVA do Controle de IVA ---- */
 var fechamentos = {};   // { 'AAAA-MM': { rec, cmv, pes, ocu, adm, fin, ret, cli } } guardado em config_financeiro (fech_AAAA_MM_campo)
 let fechSel = null;
-const FECH_VAZIO = () => ({ rec:0, cmv:0, pes:0, ocu:0, adm:0, fin:0, ret:0, cli:0 });
+const FECH_VAZIO = () => ({ rec:0, cmv:0, pes:0, ocu:0, adm:0, fin:0, ret:0, cli:0, com:0 });
 const FECH_LINHAS = [
   ['rec', 'Faturado total (sistema + fora)', 1], ['cmv', 'CMV — compras de mercadoria', 0], ['iva', 'IVA (despesa, do Controle de IVA)', 0],
   ['pes', 'Pessoal (salários, pró-labore, seg. social)', 0], ['ocu', 'Ocupação (renda)', 0], ['adm', 'Administrativas', 0],
-  ['fin', 'Financeiras (empréstimos, juros)', 0], ['ret', 'Retiradas de lucro (além do pró-labore)', 0], ['res', 'Resultado líquido', 1]
+  ['fin', 'Financeiras (empréstimos, juros)', 0], ['com', 'Plataformas de delivery (comissão + IVA)', 0], ['ret', 'Retiradas de lucro (além do pró-labore)', 0], ['res', 'Resultado líquido', 1]
 ];
 function fechChave(i){ return new Date().getFullYear() + '-' + String(i + 1).padStart(2, '0'); }
 // a receita do mês é sempre a da página de IVA (faturado no sistema + fora); a da outra app só serve se o mês não tiver faturado lançado
@@ -3995,10 +3995,10 @@ async function carregarFechamentos(){
   }catch(e){ fechamentos = {}; }
 }
 function fechIva(i, rec){ return { v: rec * ivaPctDe(editState.custos, i) / 100, real: ivaPctMes[i] != null }; }
-function fechResultado(f, iva){ return f.rec - f.cmv - iva - f.pes - f.ocu - f.adm - f.fin - f.ret; }
+function fechResultado(f, iva){ return f.rec - f.cmv - iva - f.pes - f.ocu - f.adm - f.fin - (f.com || 0) - f.ret; }
 function fechLerForm(){
   const g = id => { const e = document.getElementById(id); return e ? Math.max(0, parseFloat(String(e.value).replace(',', '.')) || 0) : 0; };
-  return { rec:g('fc_rec'), cmv:g('fc_cmv'), pes:g('fc_pes'), ocu:g('fc_ocu'), adm:g('fc_adm'), fin:g('fc_fin'), ret:g('fc_ret'), cli:g('fc_cli') };
+  return { rec:g('fc_rec'), cmv:g('fc_cmv'), pes:g('fc_pes'), ocu:g('fc_ocu'), adm:g('fc_adm'), fin:g('fc_fin'), ret:g('fc_ret'), cli:g('fc_cli'), com:g('fc_com') };
 }
 // médias dos meses fechados (só os que têm fechamento, nunca ÷12): € por mês e CMV = soma ÷ soma da receita
 function fechMedias(){
@@ -4045,7 +4045,7 @@ function fechPrevHtml(i, cur){
   const sel = cands.find(c => c.id === fechCenId) || cands[0], P = sel.custos.previsto[k];
   const nf1 = v => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const linhas = [['Faturamento total', P.rec, cur.rec, 1], ['CMV (% do faturamento)', P.cmvPct, cur.rec > 0 ? cur.cmv / cur.rec * 100 : 0, 0, 1], ['CMV (€)', P.cmv, cur.cmv, 0], ['IVA', P.iva, cur.iva, 0],
-    ['Pessoal', P.pes, cur.pes, 0], ['Ocupação', P.ocu, cur.ocu, 0], ['Administrativas', P.adm, cur.adm, 0], ['Financeiras', P.fin, cur.fin, 0], ['Retiradas de lucro', P.ret, cur.ret, 0], ['Resultado líquido', P.res, cur.res, 1]];
+    ['Pessoal', P.pes, cur.pes, 0], ['Ocupação', P.ocu, cur.ocu, 0], ['Administrativas', P.adm, cur.adm, 0], ['Financeiras', P.fin, cur.fin, 0], ['Plataformas de delivery (comissão + IVA)', P.com || 0, cur.com || 0, 0], ['Retiradas de lucro', P.ret, cur.ret, 0], ['Resultado líquido', P.res, cur.res, 1]];
   const cel = v => 0;
   let h = `<h3 style="font-size:15px;margin:0 0 6px;">Previsto × real</h3><div style="margin-bottom:8px;font-size:13px;">Previsto do cenário <select onchange="FX.fechSetCen(this.value)">${cands.map(c => `<option value="${c.id}" ${c.id === sel.id ? 'selected' : ''}>${String(c.nome).replace(/[<>&"]/g, '')}</option>`).join('')}</select> <span style="color:var(--text-soft);">guardado a ${new Date(P.em).toLocaleDateString('pt-PT')}</span></div>`;
   h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Previsto</td><td style="font-weight:700;">Real</td><td style="font-weight:700;">Diferença</td></tr>';
@@ -4058,8 +4058,8 @@ function fechPrevHtml(i, cur){
 function fechSelMes(i){ fechSel = i; renderFech(); }
 function fechCalc(){
   const i = fechSel, f = fechLerForm(), ivaI = fechIva(i, f.rec), P = i > 0 ? fechDe(i - 1) : null, ivaP = P ? fechIva(i - 1, P.rec).v : 0;
-  const cur = { rec:f.rec, cmv:f.cmv, iva:ivaI.v, pes:f.pes, ocu:f.ocu, adm:f.adm, fin:f.fin, ret:f.ret, res:fechResultado(f, ivaI.v) };
-  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, ret:P.ret, res:fechResultado(P, ivaP) } : null;
+  const cur = { rec:f.rec, cmv:f.cmv, iva:ivaI.v, pes:f.pes, ocu:f.ocu, adm:f.adm, fin:f.fin, com:f.com, ret:f.ret, res:fechResultado(f, ivaI.v) };
+  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, com:P.com || 0, ret:P.ret, res:fechResultado(P, ivaP) } : null;
   const nf1 = v => v.toFixed(1).replace('.', ',');
   FECH_LINHAS.forEach(([k, , boa]) => {
     const pc = document.getElementById('fc_pc_' + k), vr = document.getElementById('fc_vr_' + k);
@@ -4084,7 +4084,7 @@ function renderFech(){
   const i = fechSel, F = fechDe(i), P = i > 0 ? fechDe(i - 1) : null;
   const rec0 = F ? F.rec : (faturadoControle[i] || 0), val = k => F ? F[k] : 0;
   const ivaI = fechIva(i, rec0), ivaP = P ? fechIva(i - 1, P.rec).v : 0;
-  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, ret:P.ret, res:fechResultado(P, ivaP) } : null;
+  const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, com:P.com || 0, ret:P.ret, res:fechResultado(P, ivaP) } : null;
   let h = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' + MESES.map((m, k) => `<button class="btn-ghost" style="padding:4px 10px;font-weight:700;${k === i ? 'background:var(--cream,#f5efe6);' : ''}" onclick="FX.fechSelMes(${k})">${m}${fechDe(k) ? ' ✓' : ''}</button>`).join('') + '</div>';
   h += `<div style="font-weight:700;margin-bottom:6px;">${MESES_LONGO_FX[i]} ${new Date().getFullYear()} ${F ? '<span style="color:var(--ok);font-weight:400;">· fechado</span>' : '<span style="color:var(--text-soft);font-weight:400;">· ainda não fechado</span>'}</div>`;
   h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% da receita</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
@@ -4319,7 +4319,12 @@ function renderFatMes(){
   if(fechDe(i)) blendHtml = '<p class="desc" style="margin:0 0 10px;">Mês fechado: o CMV, o IVA e os custos são os reais do fechamento. As contas de delivery, promoção e menu só valem nos meses projetados.</p>';
   else if(MEDr){
     const bl = cmvMisto(editState.months, i, c, MEDr, DELr), t = bl.pp.total || 1, sh = v => nf(v / t * 100, 0) + '%', cp = v => nf(v, 1) + '%';
-    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b>${(m.promo || 0) > 0 ? ` (com a promoção sobe para <b>${cp(promoCmv)}</b>)` : ''}. O delivery custa ainda <b>comissão ${nf(bl.com, 0)}% + IVA da comissão ${nf(bl.ivaCom, 0)}% = ${nf(bl.com * (1 + bl.ivaCom / 100), 1)}%</b> das vendas de delivery, em linha própria nas saídas.</p>`;
+    // custo das plataformas de delivery: comissão + IVA da comissão, sobre as vendas de delivery (preço final c/ IVA); nº de pizzas pelo ticket médio
+    const dRev = bl.pp.del, comE = dRev * bl.com / 100, ivaE = comE * bl.ivaCom / 100, tkD = DELr ? DELr.preco : 0, nPiz = tkD > 0 ? dRev / tkD : 0, comPiz = tkD * bl.com / 100;
+    const platHtml = dRev > 0
+      ? `<br><b>Plataformas de delivery:</b> ${fmtEUR(dRev)} de vendas${tkD > 0 ? ` (≈ ${nf(nPiz, 0)} pizzas ao ticket médio de ${nf(tkD, 2)} €)` : ''} → comissão de ${nf(bl.com, 0)}% = ${fmtEUR(comE)} + IVA de ${nf(bl.ivaCom, 0)}% sobre a comissão = ${fmtEUR(ivaE)} → <b>${fmtEUR(comE + ivaE)}</b> (${nf(bl.com * (1 + bl.ivaCom / 100), 1)}% das vendas de delivery${tkD > 0 ? `; por pizza ${nf(comPiz, 2)} € + ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(comPiz * (1 + bl.ivaCom / 100), 2)} €` : ''}). Está em linha própria nas saídas.`
+      : '<br>Sem vendas de delivery neste mês: sem custo de plataforma.';
+    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b>${(m.promo || 0) > 0 ? ` (com a promoção sobe para <b>${cp(promoCmv)}</b>)` : ''}. ${platHtml}</p>`;
   }
   const avisos = [];
   if(seats > 0){
@@ -4581,7 +4586,7 @@ function renderExpenses(){
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
   html += linha('Despesas Financeiras <span style="font-size:9px;font-weight:400;">(empréstimos, juros)</span>', dre.map(d=>fmtEUR(d.despFinanceiras)));
-  if(dre.some(d=>d.despComissao > 0)) html += linha('Comissão do delivery <span style="font-size:9px;font-weight:400;">(comissão + IVA da comissão)</span>', dre.map(d=>fmtEUR(d.despComissao)));
+  if(dre.some(d=>d.despComissao > 0)) html += linha('Plataformas de delivery <span style="font-size:9px;font-weight:400;">(comissão + IVA da comissão)</span>', dre.map(d=>fmtEUR(d.despComissao)));
   html += linha('Retiradas de lucro', dre.map(d=>fmtEUR(d.despDistribuicao)));
   html += linha('<b>Total de saídas</b>', totSaidas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += linha('<b>Saldo do período</b>', totEntradas.map((v,i)=>{ const s = v - totSaidas[i]; return `<b style="${ok(s)}">${fmtEUR(s)}</b>`; }));
@@ -4653,7 +4658,7 @@ function computeCenario(months, custos, reais){
     // promoção do mês: o custo da comida é o mesmo mas a receita é menor, por isso o CMV % sobe (CMV ÷ (1 − desconto))
     if(!F && m.promo > 0) cmvPct = cmvPct / (1 - Math.min(90, m.promo) / 100);
     // comissão do delivery: % das vendas de delivery (só nos meses projetados; nos fechados já está nos custos reais)
-    const ppc = F ? null : partesMes(months, i), dpar = delParams(custos, DEL, MED), despComissao = ppc ? (ppc.del || 0) * (dpar.com / 100) * (1 + dpar.ivaCom / 100) : 0;
+    const ppc = F ? null : partesMes(months, i), dpar = delParams(custos, DEL, MED), despComissao = F ? (F.com || 0) : ppc ? (ppc.del || 0) * (dpar.com / 100) * (1 + dpar.ivaCom / 100) : 0;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
