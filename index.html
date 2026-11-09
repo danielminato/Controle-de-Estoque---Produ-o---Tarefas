@@ -798,7 +798,7 @@
       <p class="desc">CMV e impostos são taxas proporcionais à receita (o CMV de cada mês afina-se em "Despesas mensais"). Os tickets e os giros por dia da semana estão em "Resumo dos dias".</p>
       <div class="params-grid">
         <div><label>CMV padrão (% receita, aplica a todos os meses)</label><input type="number" id="cmv" step="0.5"></div>
-        <div><label>Impostos e taxas (% receita)</label><input type="number" id="impostos" step="0.5"><div class="desc" id="impostosDica" style="margin:4px 0 0;"></div></div>
+        <div><label>IVA a pagar (% do faturado, nas projeções)</label><input type="number" id="impostos" step="0.5"><div class="desc" id="impostosDica" style="margin:4px 0 0;"></div></div>
         <div><label>Salário base por funcionário (€/mês)</label><input type="number" id="salarioBase" step="50"></div>
         <div style="display:none;"><label>Ticket médio Almoço (€)</label><input type="number" id="ticketAlmoco" step="0.5"></div>
         <div style="display:none;"><label>Ticket médio Delivery (€)</label><input type="number" id="ticketDelivery" step="0.5"></div>
@@ -3694,7 +3694,7 @@ function newScenario(){
   editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
   editState.perfil = defaultPerfil(editState.months);
   // o IVA definido no Ponto de equilíbrio (ex.: 14%) manda; sem ele, usa o líquido real dos meses completos
-  const ivaBase = ivaManual != null ? ivaManual : ivaLiquidoReal;
+  const ivaBase = ivaLiquidoReal != null ? ivaLiquidoReal : ivaManual;
   if(ivaBase != null) editState.custos.impostos = Math.round(ivaBase * 10) / 10;
   document.getElementById('cenNome').value = '';
   loadCustosToForm(editState.custos);
@@ -3730,12 +3730,14 @@ function atualizarDicaImpostos(){
   const f = v => v.toFixed(1).replace('.', ',') + '%';
   const partes = [];
   if(ivaManual != null) partes.push(`IVA do Ponto de equilíbrio: <b>${f(ivaManual)}</b> · <a href="#" onclick="FX.usarIvaLiquido('manual');return false;">usar</a>`);
-  if(ivaLiquidoReal != null) partes.push(`IVA líquido real (meses completos): <b>${f(ivaLiquidoReal)}</b> · <a href="#" onclick="FX.usarIvaLiquido('auto');return false;">usar</a>`);
+  if(ivaLiquidoReal != null) partes.push(`Média real do ano (meses com IVA lançado): <b>${f(ivaLiquidoReal)}</b> · ${editState.custos.ivaAuto !== false ? '<b>a ser usada nas projeções</b>' : '<a href="#" onclick="FX.usarIvaLiquido(\'auto\');return false;">usar nas projeções</a>'}`);
+  partes.push('Meses já fechados usam o IVA real do próprio mês (Controle de IVA).');
   el.innerHTML = partes.join(' &nbsp;|&nbsp; ');
 }
 function usarIvaLiquido(qual){
   const v = qual === 'manual' ? ivaManual : ivaLiquidoReal;
   if(v == null) return;
+  editState.custos.ivaAuto = (qual !== 'manual');
   document.getElementById('impostos').value = (Math.round(v * 10) / 10);
   readCustosFromForm(); renderExpenses(); computeAndRenderCards();
 }
@@ -3934,7 +3936,7 @@ function renderRealReal(r){
   if(!document.getElementById('realRealGrafico')) return;
   const dre = r.monthlyDRE, c = editState.custos;
   const E = MESES.map((_, i) => realizavelMes(i)), R = MESES.map((_, i) => realMes(i));
-  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + c.impostos) / 100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras) / den : null; });
+  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + d.ivaPct) / 100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras) / den : null; });
   const pares = MESES.map((_, i) => i).filter(i => E[i] > 0 && R[i] > 0);
   const sE = pares.reduce((s, i) => s + E[i], 0), sR = pares.reduce((s, i) => s + R[i], 0);
   const pct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
@@ -4015,7 +4017,7 @@ function renderSimMes(){
       html += '<p class="desc" style="margin:0 0 10px;">⚠️ Não há mês de base com faturamento: escolhe outro mês de base.</p>';
     }
   }
-  const custos = dre.despPessoal + dre.despOcupacao + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + editState.custos.impostos) / 100;
+  const custos = dre.despPessoal + dre.despOcupacao + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + dre.ivaPct) / 100;
   const minimo = den > 0 ? custos / den : null, paga = dre.resultadoAntesDistribuicao >= 0, temFat = p.total > 0;
   const stat = (rot, val, estilo) => `<div class="fx-stat"${estilo ? ` style="${estilo}"` : ''}><div class="label">${rot}</div><div class="value">${val}</div></div>`;
   html += `<div class="cards" style="margin-top:6px;">
@@ -4026,7 +4028,7 @@ function renderSimMes(){
     ${stat(paga ? 'Sobra' : 'Falta', temFat ? fmtEUR(Math.abs(dre.resultadoAntesDistribuicao)) : '—')}
     ${stat('Paga os custos?', temFat ? (paga ? '✔ sim' : '✖ não') : '—', temFat ? `background:${paga ? 'var(--ok-text)' : 'var(--danger-text)'};` : 'background:var(--ink-soft);')}
   </div>
-  <p class="desc" style="margin:8px 0 0;">${MESES_LONGO_FX[i]}: custos ${fmtEUR(custos)} (pessoal ${fmtEUR(dre.despPessoal)}, ocupação ${fmtEUR(dre.despOcupacao)}, administrativas ${fmtEUR(dre.despAdmin)}, financeiras ${fmtEUR(dre.despFinanceiras)}), CMV ${dre.cmvPct}% e impostos ${editState.custos.impostos}% (IVA) sobre o faturamento. O CMV do mês ajusta-se em "Despesas mensais".</p>`;
+  <p class="desc" style="margin:8px 0 0;">${MESES_LONGO_FX[i]}: custos ${fmtEUR(custos)} (pessoal ${fmtEUR(dre.despPessoal)}, ocupação ${fmtEUR(dre.despOcupacao)}, administrativas ${fmtEUR(dre.despAdmin)}, financeiras ${fmtEUR(dre.despFinanceiras)}), CMV ${dre.cmvPct}% e IVA ${dre.ivaPct.toFixed(1).replace('.', ',')}% sobre o faturamento. O CMV do mês ajusta-se em "Despesas mensais".</p>`;
   box.innerHTML = html;
 }
 const MESES_LONGO_FX = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -4048,7 +4050,7 @@ function toggleMonthReal(i){
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
 document.getElementById('cmv').addEventListener('change', ()=>{ const v = parseFloat(document.getElementById('cmv').value)||0; editState.custos.cmv = v; editState.custos.cmvMes = Array(12).fill(v); renderExpenses(); computeAndRenderCards(); });
-document.getElementById('impostos').addEventListener('change', computeAndRenderCards);
+document.getElementById('impostos').addEventListener('change', ()=>{ editState.custos.ivaAuto = false; atualizarDicaImpostos(); computeAndRenderCards(); });
 document.getElementById('salarioBase').addEventListener('change', ()=>{ readCustosFromForm(); renderExpenses(); computeAndRenderCards(); });
 ['ticketAlmoco','ticketDelivery','ticketJantar'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{ readCustosFromForm(); renderMonths(); });
@@ -4083,7 +4085,7 @@ function renderExpenses(){
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += secao('SAÍDAS');
   html += linha('CMV — compras de mercadoria', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${d.cmvPct}%</div>`));
-  html += linha(`IVA${c.impostos ? ` (${c.impostos}%)` : ''}`, dre.map(d=>fmtEUR(d.impostosValor)));
+  html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : ' média'}</div>`));
   html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
@@ -4094,7 +4096,7 @@ function renderExpenses(){
   // 3) o mês paga-se ou não?
   html += secao('O MÊS SE PAGA?');
   const temFat = dre.some(d=>d.receita > 0);
-  const minimo = d => { const den = 1 - (d.cmvPct + c.impostos)/100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras)/den : null; };
+  const minimo = d => { const den = 1 - (d.cmvPct + d.ivaPct)/100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras)/den : null; };
   html += linha('Faturamento mínimo, c/ IVA (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
   html += linha('<b>Se paga?</b> (antes da distribuição)', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoAntesDistribuicao >= 0; return `<b style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</b><div style="font-size:9px;color:var(--text-soft);">${s?'sobra ':'falta '}${fmtEUR(Math.abs(d.resultadoAntesDistribuicao))}</div>`; }));
   html += linha('Depois da distribuição de lucros?', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoLiquido >= 0; return `<span style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</span>`; }));
@@ -4124,6 +4126,12 @@ function updateExpense(campo, i, val){
   renderExpenses(); computeAndRenderCards();
 }
 
+// IVA do mês: mês fechado = o IVA real desse mês; projeção = a média real do ano (até escreveres outro valor)
+function ivaPctDe(custos, i){
+  if(ivaPctMes[i] != null) return ivaPctMes[i];
+  if(custos.ivaAuto !== false && ivaLiquidoReal != null) return ivaLiquidoReal;
+  return custos.impostos;
+}
 function computeCenario(months, custos, reais){
   const usar = custos.usarReais !== false && !!reais && reais.disponivel;
   const refRevenue = refDe(months).valor;
@@ -4142,7 +4150,8 @@ function computeCenario(months, custos, reais){
     const despDistribuicao = custos.distribuicao?.[i] || 0;
     const totalOperacionais = despPessoal + despOcupacao + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
-    const impostosValor = receita * (custos.impostos/100);
+    const ivaPct = ivaPctDe(custos, i);
+    const impostosValor = receita * (ivaPct/100);
     const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
     const resultadoLiquido = resultadoAntesDistribuicao - despDistribuicao;
     ivaAccumQuarter += impostosValor;
@@ -4152,7 +4161,7 @@ function computeCenario(months, custos, reais){
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
     monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, totalOperacionais, resultadoOperacional,
-      impostosValor, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
+      impostosValor, ivaPct, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
     cashCumulative: monthlyDRE[11].cashCumulative, cashCumulativeBeforeDist: monthlyDRE[11].cashCumulativeBeforeDist };
@@ -4175,8 +4184,9 @@ let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12)
 let faturadoControle = Array(12).fill(null);   // faturado real de cada mês (com IVA) lançado no Controle de IVA
 let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
 let ivaManual = null;        // IVA escrito à mão no Ponto de equilíbrio (config_financeiro.iva_pct), se existir
+var ivaPctMes = Array(12).fill(null);   // IVA real de cada mês fechado, em % do faturado (Controle de IVA)
 async function carregarIvaLiquido(){
-  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null);
+  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null); ivaPctMes = Array(12).fill(null);
   try{
     const rc =await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
     if(rc.ok){ const l = await rc.json(); if(l.length && l[0].valor != null && !isNaN(Number(l[0].valor))) ivaManual = Number(l[0].valor); }
@@ -4187,6 +4197,7 @@ async function carregarIvaLiquido(){
     const todas = await res.json();
     // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
     todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
+    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0) ivaPctMes[k] = (iv - (Number(r.credito)||0)) / f * 100; });
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
     const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
     const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
@@ -4287,7 +4298,7 @@ function renderProjecao(r){
       : `<b>Se paga em ${s.n} de 12 meses.</b> Não se paga em: ${nao.join(', ')}. Pior mês: ${MESES[s.piorI]} (${fmtEUR(s.pior.resultadoAntesDistribuicao)}).`;
   }
   document.getElementById('projecaoGrafico').innerHTML = svgProjecao(dre);
-  const denDe = d => 1 - (d.cmvPct + editState.custos.impostos)/100;
+  const denDe = d => 1 - (d.cmvPct + d.ivaPct)/100;
   const linha = (rotulo, f, extra) => `<tr><td class="dia"${extra||''}>${rotulo}</td>` + dre.map((d,i)=>f(d,i)).join('') + '</tr>';
   let html = '<tr><td class="dia"></td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   html += linha('Faturamento do cenário', d=>`<td>${fmtEUR(d.receita)}</td>`);
@@ -6086,7 +6097,7 @@ const FINANCAS = (function(){
     }
     // um mês conta como fechado quando tem faturado, IVA e crédito lançados no Controle de IVA
     function mesFechado(){
-      const ms = (D && D.ivaAno ? D.ivaAno : []).filter(r => num(r.faturado_sistema) + num(r.faturado_fora) > 0 && num(r.iva) > 0 && num(r.credito) > 0).map(r => r.mes);
+      const ms = (D && D.ivaAno ? D.ivaAno : []).filter(r => num(r.faturado_sistema) + num(r.faturado_fora) > 0 && num(r.iva) > 0).map(r => r.mes);
       return ms.length ? Math.max(...ms) : null;
     }
     function faixaFechado(p){
@@ -6095,7 +6106,7 @@ const FINANCAS = (function(){
       const velho = !p || !p.texto || !snap || snap.ano < ano || (snap.ano === ano && snap.mes < f);
       if(!velho) return '';
       const quando = snap && snap.mes ? `${MESES_LONGO[snap.mes - 1]} de ${snap.ano}` : 'nenhum mês';
-      return `<div style="border:1px solid var(--ok);border-radius:6px;padding:10px 12px;margin-bottom:10px;"><div style="font-weight:700;color:var(--ok);">✔ ${MESES_LONGO[f - 1]} fechou (faturado, IVA e crédito lançados)</div><div class="desc" style="margin:4px 0 8px;">O parecer atual é de ${quando}. Copia o pedido, cola no chat com o Claude e ele escreve o parecer de ${MESES_LONGO[f - 1]} com os pontos de atenção.</div><button class="btn-primary" onclick="FINANCAS.CH.pedirParecer(${f})">Copiar pedido de parecer de ${MESES_LONGO[f - 1]}</button></div>`;
+      return `<div style="border:1px solid var(--ok);border-radius:6px;padding:10px 12px;margin-bottom:10px;"><div style="font-weight:700;color:var(--ok);">✔ ${MESES_LONGO[f - 1]} fechou (faturado e IVA lançados)</div><div class="desc" style="margin:4px 0 8px;">O parecer atual é de ${quando}. Copia o pedido, cola no chat com o Claude e ele escreve o parecer de ${MESES_LONGO[f - 1]} com os pontos de atenção.</div><button class="btn-primary" onclick="FINANCAS.CH.pedirParecer(${f})">Copiar pedido de parecer de ${MESES_LONGO[f - 1]}</button></div>`;
     }
     async function pedirParecer(m){
       if(mes !== m){ mes = m; el('chMes').value = m; await carregar(); }
