@@ -3742,7 +3742,7 @@ function atualizarDicaImpostos(){
   const partes = [];
   if(ivaManual != null) partes.push(`IVA do Ponto de equilíbrio: <b>${f(ivaManual)}</b> · <a href="#" onclick="FX.usarIvaLiquido('manual');return false;">usar</a>`);
   if(ivaLiquidoReal != null) partes.push(`Média real do ano (meses com IVA lançado): <b>${f(ivaLiquidoReal)}</b> · ${editState.custos.ivaAuto !== false ? '<b>a ser usada nas projeções</b>' : '<a href="#" onclick="FX.usarIvaLiquido(\'auto\');return false;">usar nas projeções</a>'}`);
-  partes.push('Meses já fechados usam o IVA real do próprio mês (Controle de IVA).');
+  partes.push('IVA real de cada mês = IVA cobrado no sistema de faturação ÷ faturado no sistema (Controle de IVA); meses já lançados usam o do próprio mês.');
   el.innerHTML = partes.join(' &nbsp;|&nbsp; ');
 }
 function usarIvaLiquido(qual){
@@ -3955,7 +3955,7 @@ async function carregarFechamentos(){
     });
   }catch(e){ fechamentos = {}; }
 }
-function fechIva(i, rec){ return ivaEurMes[i] != null ? { v: ivaEurMes[i], real: true } : { v: rec * ivaPctDe(editState.custos, i) / 100, real: false }; }
+function fechIva(i, rec){ return { v: rec * ivaPctDe(editState.custos, i) / 100, real: ivaPctMes[i] != null }; }
 function fechResultado(f, iva){ return f.rec - f.cmv - iva - f.pes - f.ocu - f.adm - f.fin - f.ret; }
 function fechLerForm(){
   const g = id => { const e = document.getElementById(id); return e ? Math.max(0, parseFloat(String(e.value).replace(',', '.')) || 0) : 0; };
@@ -3995,7 +3995,7 @@ function renderFech(){
   h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% da receita</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
   FECH_LINHAS.forEach(([k, nome]) => {
     let celula;
-    if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'real (Controle de IVA)' : 'estimado (média do ano)'}</div>`;
+    if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'IVA real do mês: ' + (ivaPctMes[i] || 0).toFixed(1).replace('.', ',') + '% (cobrado ÷ faturado no sistema)' : 'estimado (média do ano)'}</div>`;
     else if(k === 'res') celula = '<span id="fc_res" style="font-weight:700;"></span>';
     else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
     h += `<tr><td class="dia">${nome}</td><td>${celula}</td><td id="fc_pc_${k}" style="color:var(--text-soft);"></td><td style="color:var(--text-soft);">${prev ? fmtEUR(prev[k]) : '—'}</td><td id="fc_vr_${k}"></td></tr>`;
@@ -4384,7 +4384,7 @@ function computeCenario(months, custos, reais){
     const totalOperacionais = despPessoal + despOcupacao + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
     const ivaPct = ivaPctDe(custos, i);
-    const impostosValor = (F && ivaEurMes[i] != null) ? ivaEurMes[i] : receita * (ivaPct/100);   // mês fechado: o IVA real em €
+    const impostosValor = receita * (ivaPct/100);   // a % real do IVA aplica-se à receita do mês
     const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
     const resultadoLiquido = resultadoAntesDistribuicao - despDistribuicao;
     ivaAccumQuarter += impostosValor;
@@ -4431,10 +4431,11 @@ async function carregarIvaLiquido(){
     const todas = await res.json();
     // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
     todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
-    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0){ ivaPctMes[k] = iv / f * 100; ivaEurMes[k] = iv; } });   // o IVA do sistema, sem descontar crédito (despesa do mês)
+    // IVA real do mês = IVA cobrado no sistema de faturação ÷ faturado no sistema (sem o faturado fora, sem descontar crédito)
+    todas.forEach(r => { const k = Number(r.mes) - 1, fs = Number(r.faturado_sistema)||0, iv = Number(r.iva)||0; if(k >= 0 && k < 12 && fs > 0 && iv > 0){ ivaPctMes[k] = iv / fs * 100; ivaEurMes[k] = iv; } });
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
-    const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
-    const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
+    const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) > 0);
+    const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0), 0);
     const liq = linhas.reduce((s,r)=>s + (Number(r.iva)||0), 0);
     if(fat > 0) ivaLiquidoReal = liq / fat * 100;
   }catch(e){ ivaLiquidoReal = null; }
