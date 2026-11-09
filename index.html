@@ -757,11 +757,6 @@
   <div class="view fx" id="view-cenarios">
 <!-- LISTA DE CENÁRIOS -->
   <div id="listView">
-    <section class="panel" id="panelPlano27">
-      <h2>Plano 2027</h2>
-      <p class="desc">Parte do que já aconteceu em 2026: cada mês de 2027 começa <b>igual ao mesmo mês de 2026</b> (o mínimo esperado). Por cima, ligas as <b>ações-hipótese</b> que proponho para corrigir o que está pior. Todas as médias usam <b>só os meses que têm informação</b>, nunca divididas por 12.</p>
-      <div id="plano27Box"><p class="desc">A carregar…</p></div>
-    </section>
     <section class="panel">
       <div class="row" style="justify-content:space-between;margin-bottom:14px;">
         <h2 style="margin:0;">Os seus cenários</h2>
@@ -907,6 +902,15 @@
       <div class="params-grid" id="peParams"></div>
     </section>
     <p class="status" id="peStatus"></p>
+  </div>
+
+  <!-- PLANO 2027 -->
+  <div class="view fx" id="view-plano27">
+    <section class="panel" id="panelPlano27">
+      <h2>Plano 2027</h2>
+      <p class="desc">Parte do que já aconteceu em 2026: cada mês de 2027 começa <b>igual ao mesmo mês de 2026</b> (o mínimo esperado). Por cima, ligas as <b>ações-hipótese</b> que proponho para corrigir o que está pior. Todas as médias usam <b>só os meses que têm informação</b>, nunca divididas por 12.</p>
+      <div id="plano27Box"><p class="desc">A carregar…</p></div>
+    </section>
   </div>
 
   <!-- DRE -->
@@ -3501,7 +3505,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido(), carregarFechamentos(), carregarPlano27()]); renderPlano27(); renderComparacaoLista(); showView('list'); }
+  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido(), carregarFechamentos()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
   function invalidarEscalas(){ escLoaded = false; }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -4115,6 +4119,11 @@ function p27Toggle(k){ p27Set(k, p27V(k) ? 0 : 1); }
 function p27Reset(k){
   delete p27.p[k]; renderPlano27();
   fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?chave=eq.plano27_${k}`, { method:'DELETE', headers:{ ...sbHeadersFn(), Prefer:'return=minimal' } }).catch(() => {});
+}
+async function abrirPlano27(){
+  const box = document.getElementById('plano27Box'); if(box && !box.firstChild) box.innerHTML = '<p class="desc">A carregar…</p>';
+  await Promise.all([carregarIvaLiquido(), carregarPlano27()]);
+  renderPlano27();
 }
 function renderPlano27(){
   const box = document.getElementById('plano27Box'); if(!box) return;
@@ -5099,7 +5108,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirPlano27, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
@@ -6674,6 +6683,7 @@ const NAV_AREAS = {
     { view: 'equilibrio', label: 'Ponto de equilíbrio' },
     { view: 'custohora', label: 'Custo da hora' },
     { view: 'cenarios', label: 'Cenários' },
+    { view: 'plano27', label: 'Plano 2027' },
   ]},
   operacional: { label: 'Operacional', grupos: [
     { key: 'estoque', label: 'Estoque', tabs: [
@@ -6726,6 +6736,7 @@ function ativarView(view){
   if(view === 'dre') FINANCAS.DRE.abrir();
   if(view === 'escalas') FX.abrirEscalas();
   if(view === 'cenarios') FX.abrirCenarios();
+  if(view === 'plano27') FX.abrirPlano27();
 }
 
 function renderNav(){
