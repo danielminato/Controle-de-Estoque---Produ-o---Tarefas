@@ -784,11 +784,6 @@
       <div style="overflow-x:auto;"><table class="grid-table" id="fatMesTabela"></table></div>
       <div id="fatMesDetalhe" style="margin-top:16px;"></div>
     </section>
-    <section class="panel" id="panelFech">
-      <h2>Fechamento do mês</h2>
-      <p class="desc">Quando o mês fecha, escolhe-o aqui e escreve os números da outra app (receita, CMV, pessoal, ocupação, administrativas, financeiras, retiradas). O <b>IVA entra sozinho</b> a partir do Controle de IVA, como despesa. Os meses fechados passam a usar estes valores reais no cenário, e cada mês é comparado com o anterior.</p>
-      <div id="fechForm"></div>
-    </section>
     <section class="panel" style="display:none;">
       <h2>Resumo dos dias</h2>
       <p class="desc">Ticket médio por dia da semana, cadeiras e giros (quantas vezes a casa enche em cada serviço). Os giros vêm calculados a partir do faturamento do melhor mês, com o almoço a pesar cerca de 20%; podes mexer em qualquer valor.</p>
@@ -804,7 +799,7 @@
       <p class="desc">Escolhe um mês e diz como queres prever o faturamento dele: <b>montando</b> (ticket × clientes por dia, almoço e jantar separados) ou <b>partindo de outro mês</b> com uma subida ou queda em % no almoço e no jantar. O resultado alimenta a tabela acima, o resultado anual e os gráficos, e diz logo se o mês paga os custos.</p>
       <div id="simMes"></div>
     </section>
-    <section class="panel">
+    <section class="panel" style="display:none;">
       <h2>Estrutura de custos</h2>
       <p class="desc">CMV e impostos são taxas proporcionais à receita (o CMV de cada mês afina-se em "Despesas mensais"). Os tickets, o peso do fim de semana e as cadeiras estão em "Faturamento mês a mês".</p>
       <div class="params-grid">
@@ -816,7 +811,7 @@
         <div style="display:none;"><label>Ticket médio Jantar (€)</label><input type="number" id="ticketJantar" step="0.5"></div>
       </div>
     </section>
-    <section class="panel">
+    <section class="panel" style="display:none;">
       <h2>Custos reais (da aba Ponto de equilíbrio)</h2>
       <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="cenUsarReais" onchange="FX.alternarReais()"> Usar a equipa e os custos fixos reais no lugar das despesas estimadas abaixo</label>
       <p class="desc" id="reaisDesc"></p>
@@ -840,7 +835,7 @@
       <div class="desc" style="margin-top:6px;"><span style="display:inline-block;width:10px;height:10px;background:var(--olive-dark);border-radius:2px;"></span> Equipa &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--terracotta);border-radius:2px;"></span> Custos fixos (adm.) &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--ok-text);border-radius:50%;"></span> Margem disponível (faturamento − CMV − impostos)</div>
       <div style="overflow-x:auto;margin-top:10px;"><table class="grid-table" id="projecaoTabela"></table></div>
     </section>
-    <section class="panel">
+    <section class="panel" style="display:none;">
       <h2>Real × Realizável</h2>
       <p class="desc">Realizável é o que esperas faturar (o que pões no cenário e no Simulador do mês). Real é o faturado lançado no Controle de IVA. A linha tracejada vermelha é o faturamento mínimo do mês.</p>
       <p class="desc" id="realRealResumo" style="font-size:13px;color:var(--ink);"></p>
@@ -902,6 +897,15 @@
       <div class="params-grid" id="peParams"></div>
     </section>
     <p class="status" id="peStatus"></p>
+  </div>
+
+  <!-- FECHAMENTO DO MÊS -->
+  <div class="view fx" id="view-fechamento">
+    <section class="panel" id="panelFech">
+      <h2>Fechamento do mês</h2>
+      <p class="desc">Quando o mês fecha, escolhe-o aqui e escreve os números da outra app (CMV, pessoal, ocupação, administrativas, financeiras, retiradas). A <b>receita</b> e o <b>IVA</b> vêm sozinhos da página de IVA. Os meses fechados passam a valer como reais nos cenários e no Plano 2027, e cada mês é comparado com o anterior.</p>
+      <div id="fechForm"></div>
+    </section>
   </div>
 
   <!-- PLANO 2027 -->
@@ -3971,6 +3975,33 @@ function fechLerForm(){
   const g = id => { const e = document.getElementById(id); return e ? Math.max(0, parseFloat(String(e.value).replace(',', '.')) || 0) : 0; };
   return { rec:g('fc_rec'), cmv:g('fc_cmv'), pes:g('fc_pes'), ocu:g('fc_ocu'), adm:g('fc_adm'), fin:g('fc_fin'), ret:g('fc_ret'), cli:g('fc_cli') };
 }
+// médias dos meses fechados (só os que têm fechamento, nunca ÷12): € por mês e CMV = soma ÷ soma da receita
+function fechMedias(){
+  const ms = []; for(let i = 0; i < 12; i++){ const F = fechDe(i); if(F) ms.push(F); }
+  const n = ms.length; if(!n) return null;
+  const s = k => ms.reduce((a, F) => a + F[k], 0), sRec = s('rec');
+  return { n, pes: s('pes') / n, ocu: s('ocu') / n, adm: s('adm') / n, fin: s('fin') / n, ret: s('ret') / n, cmv: sRec > 0 ? s('cmv') / sRec * 100 : 0 };
+}
+function updateProj(campo, i, val){
+  const c = editState.custos; c.proj = c.proj || {}; c.proj[campo] = c.proj[campo] || Array(12).fill(null);
+  c.proj[campo][i] = (val === '' || val == null) ? null : Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
+  renderExpenses(); computeAndRenderCards();
+}
+function resetProj(){ editState.custos.proj = null; renderExpenses(); computeAndRenderCards(); }
+function projRowsHtml(c, MED){
+  const nf = (v, d) => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
+  const fila = (rot, campo, step) => `<tr><td class="dia">${rot}</td>` + MESES.map((_, i) => {
+    const F = fechDe(i);
+    if(F){ const v = campo === 'cmv' ? F.cmv / F.rec * 100 : F[campo]; return `<td style="color:var(--text-soft);" title="Mês fechado: valor real">${campo === 'cmv' ? nf(v, 1) + '%' : fmtEUR(v)}<div style="font-size:9px;">✓ real</div></td>`; }
+    const ov = c.proj && c.proj[campo] ? c.proj[campo][i] : null, v = ov != null ? ov : MED[campo];
+    return `<td><input type="number" min="0" step="${step}" value="${campo === 'cmv' ? Math.round(v * 10) / 10 : Math.round(v)}" style="${ov != null ? 'font-weight:700;' : ''}" onchange="FX.updateProj('${campo}',${i},this.value)"></td>`;
+  }).join('') + '</tr>';
+  return secao(`CUSTOS (meses fechados = real; projeções = média dos ${MED.n} meses fechados, podes alterar)`) +
+    fila('Pessoal (salários, pró-labore, seg. social) €', 'pes', 10) + fila('Ocupação (renda) €', 'ocu', 10) + fila('Administrativas €', 'adm', 10) +
+    fila('Financeiras (empréstimos, juros) €', 'fin', 10) + fila('Retiradas de lucro, além do pró-labore €', 'ret', 10) + fila('CMV (% da receita)', 'cmv', 0.5) +
+    `<tr><td class="dia" colspan="13" style="text-align:left;"><button class="btn-ghost" onclick="FX.resetProj()">Voltar tudo à média</button></td></tr>`;
+}
 function fechSelMes(i){ fechSel = i; renderFech(); }
 function fechCalc(){
   const i = fechSel, f = fechLerForm(), ivaI = fechIva(i, f.rec), P = i > 0 ? fechDe(i - 1) : null, ivaP = P ? fechIva(i - 1, P.rec).v : 0;
@@ -4119,6 +4150,11 @@ function p27Toggle(k){ p27Set(k, p27V(k) ? 0 : 1); }
 function p27Reset(k){
   delete p27.p[k]; renderPlano27();
   fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?chave=eq.plano27_${k}`, { method:'DELETE', headers:{ ...sbHeadersFn(), Prefer:'return=minimal' } }).catch(() => {});
+}
+async function abrirFechamento(){
+  const box = document.getElementById('fechForm'); if(box && !box.firstChild) box.innerHTML = '<p class="desc">A carregar…</p>';
+  await Promise.all([carregarIvaLiquido(), carregarFechamentos()]);
+  renderFech();
 }
 async function abrirPlano27(){
   const box = document.getElementById('plano27Box'); if(box && !box.firstChild) box.innerHTML = '<p class="desc">A carregar…</p>';
@@ -4440,6 +4476,7 @@ function renderExpenses(){
   const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
   let html = '<tr><td class="dia">Mês</td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   // 1) o que se preenche
+  const iniSec = html.length, MEDx = fechMedias();
   html += secao('CUSTOS A PREENCHER (por mês)');
   html += `<tr${ig}><td class="dia">Nº funcionários${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.pessoalCount.map((n,i)=>`<td><input type="number" min="0" value="${n}" onchange="FX.updateExpense('pessoalCount',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas de Ocupação (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.ocupacao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('ocupacao',${i},this.value)"></td>`).join('') + '</tr>';
@@ -4447,6 +4484,7 @@ function renderExpenses(){
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Retiradas de lucro, além do pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr><td class="dia">CMV (% do faturamento)${c.ticketIgual === false ? '<div style="font-size:9px;font-weight:400;color:var(--text-soft);">projeções: média do CMV do almoço e do jantar</div>' : ''}</td>` + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
+  if(MEDx) html = html.slice(0, iniSec) + projRowsHtml(c, MEDx);
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
@@ -4505,23 +4543,26 @@ function ivaPctDe(custos, i){
 }
 function computeCenario(months, custos, reais){
   const usar = custos.usarReais !== false && !!reais && reais.disponivel;
-  const refRevenue = refDe(months).valor;
+  const refRevenue = refDe(months).valor, MED = fechMedias();
   let monthlyDRE = [], ivaAccumQuarter=0, cashCumulative=0, cashCumulativeBeforeDist=0;
   MESES.forEach((mes,i)=>{
     const m = months[i];
     const F = fechDe(i);   // mês fechado: receita da página de IVA e valores reais da outra app
     const receita = F ? F.rec : receitaMesI(months, i);
+    // mês projetado: custos = média dos meses fechados (ou o valor que escreveste nesse mês)
+    const pj = k => { const o = custos.proj && custos.proj[k] ? custos.proj[k][i] : null; return o != null ? o : MED[k]; };
     let cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
     if(custos.ticketIgual === false && !m.real && receita > 0){ const pp = partesMes(months, i); cmvPct = (pp.alm * (custos.cmvAlm || 0) + (pp.jan + pp.del) * (custos.cmvJan || 0)) / (pp.total || 1); }
+    if(MED && !F){ const o = custos.proj && custos.proj.cmv ? custos.proj.cmv[i] : null; if(o != null) cmvPct = o; else if(!(custos.ticketIgual === false && !m.real && receita > 0)) cmvPct = MED.cmv; }
     if(F) cmvPct = F.cmv / F.rec * 100;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
-    const despPessoal = F ? F.pes : usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
-    const despOcupacao = F ? F.ocu : usar ? (reais.ocupacao?.[i] || 0) : (custos.ocupacao?.[i] || 0);
-    const despAdmin = F ? F.adm : usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
-    const despFinanceiras = F ? F.fin : usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
-    const despDistribuicao = F ? F.ret : (custos.distribuicao?.[i] || 0);
+    const despPessoal = F ? F.pes : MED ? pj('pes') : usar ? reais.pessoal[i] : (custos.salarioBase||0) * (custos.pessoalCount?.[i]||0);
+    const despOcupacao = F ? F.ocu : MED ? pj('ocu') : usar ? (reais.ocupacao?.[i] || 0) : (custos.ocupacao?.[i] || 0);
+    const despAdmin = F ? F.adm : MED ? pj('adm') : usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
+    const despFinanceiras = F ? F.fin : MED ? pj('fin') : usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
+    const despDistribuicao = F ? F.ret : MED ? pj('ret') : (custos.distribuicao?.[i] || 0);
     const totalOperacionais = despPessoal + despOcupacao + despAdmin;
     const resultadoOperacional = lucroBruto - totalOperacionais;
     const ivaPct = ivaPctDe(custos, i);
@@ -4550,7 +4591,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após retiradas)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderFatMes(); if(!document.getElementById('fechForm').firstChild) renderFech(); renderRealReal(r);
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderFatMes(); renderRealReal(r);
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
@@ -5108,7 +5149,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirPlano27, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirFechamento, abrirPlano27, updateProj, resetProj, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
@@ -6682,6 +6723,7 @@ const NAV_AREAS = {
     { view: 'iva', label: 'Controle de IVA' },
     { view: 'equilibrio', label: 'Ponto de equilíbrio' },
     { view: 'custohora', label: 'Custo da hora' },
+    { view: 'fechamento', label: 'Fechamento do mês' },
     { view: 'cenarios', label: 'Cenários' },
     { view: 'plano27', label: 'Plano 2027' },
   ]},
@@ -6737,6 +6779,7 @@ function ativarView(view){
   if(view === 'escalas') FX.abrirEscalas();
   if(view === 'cenarios') FX.abrirCenarios();
   if(view === 'plano27') FX.abrirPlano27();
+  if(view === 'fechamento') FX.abrirFechamento();
 }
 
 function renderNav(){
