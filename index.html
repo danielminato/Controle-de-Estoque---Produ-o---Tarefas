@@ -3949,7 +3949,7 @@ var fechamentos = {};   // { 'AAAA-MM': { rec, cmv, pes, ocu, adm, fin, ret, cli
 let fechSel = null;
 const FECH_VAZIO = () => ({ rec:0, cmv:0, pes:0, ocu:0, adm:0, fin:0, ret:0, cli:0 });
 const FECH_LINHAS = [
-  ['rec', 'Receita de vendas (com IVA)', 1], ['cmv', 'CMV — compras de mercadoria', 0], ['iva', 'IVA (despesa, do Controle de IVA)', 0],
+  ['rec', 'Faturado total (sistema + fora)', 1], ['cmv', 'CMV — compras de mercadoria', 0], ['iva', 'IVA (despesa, do Controle de IVA)', 0],
   ['pes', 'Pessoal (salários, pró-labore, seg. social)', 0], ['ocu', 'Ocupação (renda)', 0], ['adm', 'Administrativas', 0],
   ['fin', 'Financeiras (empréstimos, juros)', 0], ['ret', 'Retiradas de lucro (além do pró-labore)', 0], ['res', 'Resultado líquido', 1]
 ];
@@ -4036,7 +4036,15 @@ function renderFech(){
   h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% da receita</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
   FECH_LINHAS.forEach(([k, nome]) => {
     let celula;
-    if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'IVA real do mês: ' + (ivaPctMes[i] || 0).toFixed(1).replace('.', ',') + '% (cobrado ÷ faturado no sistema)' : 'estimado (média do ano)'}</div>`;
+    if(k === 'rec' && fatSisMes[i] != null){
+      // faturamento no mesmo esquema da página de IVA: sistema, fora do sistema e total
+      const tot = fatSisMes[i] + fatForaMes[i], pS = i > 0 ? fatSisMes[i - 1] : null, pF = i > 0 ? fatForaMes[i - 1] : null;
+      const vr = (c, p) => (p > 0 && c > 0) ? ((c / p - 1) * 100 > 0 ? '+' : '') + ((c / p - 1) * 100).toFixed(1).replace('.', ',') + '%' : '—';
+      [['Faturado no sistema (c/ IVA)', fatSisMes[i], pS], ['Faturado fora do sistema', fatForaMes[i], pF]].forEach(([n2, v2, p2]) => {
+        h += `<tr><td class="dia" style="font-weight:400;">${n2}</td><td>${fmtEUR(v2)}</td><td style="color:var(--text-soft);">${tot > 0 ? (v2 / tot * 100).toFixed(1).replace('.', ',') + '%' : '—'}</td><td style="color:var(--text-soft);">${p2 != null ? fmtEUR(p2) : '—'}</td><td style="color:var(--text-soft);">${vr(v2, p2)}</td></tr>`;
+      });
+    }
+    if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'IVA real do mês: ' + (ivaPctMes[i] || 0).toFixed(1).replace('.', ',') + '% = ' + fmtEUR(ivaEurMes[i]) + ' cobrado ÷ ' + fmtEUR(fatSisMes[i]) + ' faturado no sistema' : 'estimado (média do ano)'}</div>`;
     else if(k === 'res') celula = '<span id="fc_res" style="font-weight:700;"></span>';
     else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" ${k === 'rec' && faturadoControle[i] > 0 ? 'readonly title="Vem da página de IVA"' : ''} value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
     h += `<tr><td class="dia">${nome}</td><td>${celula}</td><td id="fc_pc_${k}" style="color:var(--text-soft);"></td><td style="color:var(--text-soft);">${prev ? fmtEUR(prev[k]) : '—'}</td><td id="fc_vr_${k}"></td></tr>`;
@@ -4599,10 +4607,11 @@ let custosReais = { disponivel:false, pessoal:Array(12).fill(0), fixos:Array(12)
 let faturadoControle = Array(12).fill(null);   // faturado real de cada mês (com IVA) lançado no Controle de IVA
 let ivaLiquidoReal = null;   // (IVA cobrado - crédito) ÷ faturado do ano, do Controle de IVA
 let ivaManual = null;        // IVA escrito à mão no Ponto de equilíbrio (config_financeiro.iva_pct), se existir
+var fatSisMes = Array(12).fill(null), fatForaMes = Array(12).fill(null);   // faturado no sistema / fora do sistema de cada mês (página de IVA)
 var ivaEurMes = Array(12).fill(null);   // IVA a pagar (€) de cada mês fechado, do Controle de IVA
 var ivaPctMes = Array(12).fill(null);   // IVA real de cada mês fechado, em % do faturado (Controle de IVA)
 async function carregarIvaLiquido(){
-  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null); ivaPctMes = Array(12).fill(null); ivaEurMes = Array(12).fill(null);
+  ivaLiquidoReal = null; ivaManual = null; faturadoControle = Array(12).fill(null); ivaPctMes = Array(12).fill(null); ivaEurMes = Array(12).fill(null); fatSisMes = Array(12).fill(null); fatForaMes = Array(12).fill(null);
   try{
     const rc =await fetch(`${SUPABASE_URL}/rest/v1/config_financeiro?select=valor&chave=eq.iva_pct`, { headers: sbHeadersFn() });
     if(rc.ok){ const l = await rc.json(); if(l.length && l[0].valor != null && !isNaN(Number(l[0].valor))) ivaManual = Number(l[0].valor); }
@@ -4613,6 +4622,7 @@ async function carregarIvaLiquido(){
     const todas = await res.json();
     // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
     todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
+    todas.forEach(r => { const k = Number(r.mes) - 1, fs = Number(r.faturado_sistema) || 0, fo = Number(r.faturado_fora) || 0; if(k >= 0 && k < 12 && fs + fo > 0){ fatSisMes[k] = fs; fatForaMes[k] = fo; } });
     // IVA real do mês = IVA cobrado no sistema de faturação ÷ faturado no sistema (sem o faturado fora, sem descontar crédito)
     todas.forEach(r => { const k = Number(r.mes) - 1, fs = Number(r.faturado_sistema)||0, iv = Number(r.iva)||0; if(k >= 0 && k < 12 && fs > 0 && iv > 0){ ivaPctMes[k] = iv / fs * 100; ivaEurMes[k] = iv; } });
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
