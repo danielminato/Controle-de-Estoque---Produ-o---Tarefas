@@ -819,7 +819,7 @@
     </section>
     <section class="panel">
       <h2>Despesas mensais</h2>
-      <p class="desc">Preenche os custos de cada mês (nº de funcionários × salário base = despesa com pessoal). Por baixo vês o resultado do mês, na ordem do DRE: entradas, saídas e saldo do período. Podes repetir os custos de um mês noutros meses.</p>
+      <p class="desc">Os meses fechados mostram os valores reais. Nos meses projetados os custos partem da <b>média dos meses fechados</b> e podes escrever outro valor em cada mês (inclusive o CMV, que sobe numa promoção). Por baixo vês o resultado do mês, na ordem do DRE: entradas, saídas e saldo do período.</p>
       <div id="repetirCustos" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div style="overflow-x:auto;"><table class="grid-table" id="expensesTable"></table></div>
     </section>
@@ -3509,7 +3509,7 @@ const FX = (function(){
     document.getElementById('listView').classList.toggle('hidden', v !== 'list');
     document.getElementById('editorView').classList.toggle('hidden', v !== 'editor');
   }
-  async function abrirCenarios(){ await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido(), carregarFechamentos()]); renderComparacaoLista(); showView('list'); }
+  async function abrirCenarios(){ menusLoja = null; menusLojaPronto = false; await Promise.all([loadScenarios(), carregarCustosReais(), carregarIvaLiquido(), carregarFechamentos()]); renderComparacaoLista(); showView('list'); }
   function abrirEscalas(){ if(!escLoaded) loadEscalaData(); }
   function invalidarEscalas(){ escLoaded = false; }
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -3906,7 +3906,8 @@ function cfgFat(){
   if(c.ticketAlm == null) c.ticketAlm = 12;
   if(c.ticketJan == null) c.ticketJan = c.ticketMedio;
   if(c.cmvAlm == null) c.cmvAlm = 35;
-  if(c.cmvJan == null) c.cmvJan = c.cmv || 25;
+  if(c.comDelivery == null) c.comDelivery = 30;   // a plataforma de delivery cobra 30% por venda
+  if(c.cmvJan == null){ const md = fechMedias(); c.cmvJan = md ? Math.round(md.cmv * 10) / 10 : (c.cmv || 25); }
   if(!(c.pesoFds > 0)) c.pesoFds = 1.7;
   if(!(c.cadeiras > 0)) c.cadeiras = ((p.cadDentro||0) + (p.cadFora||0)) || 22;
   return c;
@@ -3924,6 +3925,31 @@ function simplificarMeses(){
   });
 }
 function setFatMes(i){ fatMesSel = i; renderFatMes(); }
+// promoção do mês: desconto % (o CMV desse mês sobe porque a receita desce e o custo da comida é o mesmo)
+function fatSetPromo(i, val){ editState.months[i].promo = Math.min(90, Math.max(0, parseFloat(String(val).replace(',', '.')) || 0)); renderExpenses(); computeAndRenderCards(); }
+// menu de almoço: vem de Produção › Menus (preço e CMV médio das combinações possíveis)
+let menusLoja = null, menusLojaPronto = false;
+function menuPickerHtml(c){
+  if(menusLoja === null){
+    menusLoja = [];
+    if(typeof MENUS !== 'undefined') MENUS.resumos('loja').then(r => { menusLoja = r; menusLojaPronto = true; renderFatMes(); }).catch(() => { menusLojaPronto = true; renderFatMes(); });
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+  const pc = v => (v || 0).toFixed(1).replace('.', ',') + '%';
+  const ops = menusLoja.map(x => `<option value="${esc(x.id)}" ${x.id === c.menuAlmocoId ? 'selected' : ''}>${esc(x.nome || '(sem nome)')}${x.ok ? ' · ' + fmtEUR(x.preco) + ' · CMV ' + pc(x.cmv) : ' ⚠ ' + esc(x.aviso)}</option>`).join('');
+  const sel = menusLoja.find(x => x.id === c.menuAlmocoId && x.ok);
+  const nota = !menusLojaPronto ? 'A procurar os menus guardados…'
+    : !menusLoja.length ? 'Ainda não há menus de loja guardados em Produção › Menus.'
+    : sel ? `Menu «${esc(sel.nome)}»: preço ${fmtEUR(sel.preco)}, CMV médio ${pc(sel.cmv)}${sel.n > 1 ? ` (de ${pc(sel.cmvMin)} a ${pc(sel.cmvMax)}, conforme as ${sel.n} combinações)` : ''}. Já preenchi o ticket e o CMV do almoço.`
+    : 'Escolhe um menu para preencher o ticket e o CMV do almoço, ou escreve os valores à mão.';
+  return `<div style="grid-column:1/-1;"><label>Menu do almoço (de Produção › Menus)</label><select onchange="FX.usarMenuAlmoco(this.value)" style="max-width:420px;"><option value="">— escolher um menu —</option>${ops}</select><div style="font-size:11px;color:var(--text-soft);margin-top:4px;">${nota}</div></div>`;
+}
+function usarMenuAlmoco(id){
+  const c = cfgFat(), x = (menusLoja || []).find(y => y.id === id);
+  if(!x || !x.ok){ c.menuAlmocoId = null; renderFatMes(); return; }
+  c.menuAlmocoId = id; c.ticketAlm = Math.round(x.preco * 100) / 100; c.cmvAlm = Math.round(x.cmv * 10) / 10;
+  renderExpenses(); computeAndRenderCards();
+}
 function fatSet(i, val){ const m = editState.months[i]; m.valorEur = Math.max(0, parseFloat(val) || 0); m.modo = 'eur'; m.fonte = 'manual'; renderExpenses(); computeAndRenderCards(); }
 function fatSetPct(i, val){
   if(i === 0) return;
@@ -4254,6 +4280,7 @@ function renderFatMes(){
   const A = tp('Almoço', p.alm, tkA), J = tp('Jantar', p.jan, tkJ);
   const tot = p.total, dias = n.sem + n.fds, mediaDia = dias ? tot / dias : 0;
   const cmvEf = (!c.ticketIgual && !m.real && tot > 0) ? (p.alm * c.cmvAlm + (p.jan + p.del) * c.cmvJan) / tot : ((editState.custos.cmvMes && editState.custos.cmvMes[i] != null) ? editState.custos.cmvMes[i] : c.cmv);
+  const promoCmv = computeCenario(editState.months, editState.custos, custosReais).monthlyDRE[i].cmvPct;
   const avisos = [];
   if(seats > 0){
     if(J.gF > 2.5) avisos.push(`⚠ No jantar de sexta a domingo pede ${nf(J.gF, 1)} giros: ${nf(J.clF, 0)} clientes para ${seats} cadeiras. Confirma se é possível encher a casa tantas vezes.`);
@@ -4268,6 +4295,8 @@ function renderFatMes(){
       <div><label>Jantar (resto, %)</label><input type="number" value="${Math.round(m.pctJantar || 0)}" disabled style="width:90px;"></div>
       <div><label>Sex–Dom pesam (× um dia Seg–Qui)</label>${num('', c.pesoFds, 0.1, `FX.fatSetCfg('pesoFds',this.value)`)}</div>
       <div><label>Cadeiras (1 giro = casa cheia)</label>${num('', c.cadeiras, 1, `FX.fatSetCfg('cadeiras',this.value)`)}</div>
+      <div><label>Comissão do delivery (% das vendas de delivery)</label>${num('', c.comDelivery, 1, `FX.fatSetCfg('comDelivery',this.value)`)}</div>
+      <div><label>Promoção neste mês: desconto (%)</label>${num('', m.promo || 0, 1, `FX.fatSetPromo(${i},this.value)`)}<div style="font-size:10px;color:var(--text-soft);margin-top:3px;">${(m.promo || 0) > 0 ? 'CMV do mês sobe para ' + nf(promoCmv, 1) + '%' : 'sobe o CMV: o custo é o mesmo, a receita é menor'}</div></div>
     </div>
     <div class="panel" style="margin:0 0 10px;padding:12px 14px;">
       <div style="font-weight:700;margin-bottom:6px;">O ticket médio do almoço é igual ao do jantar?</div>
@@ -4276,7 +4305,7 @@ function renderFatMes(){
       <div class="params-grid" style="margin-top:10px;">
         ${c.ticketIgual
           ? `<div><label>Ticket médio (€, com IVA)</label>${num('', c.ticketMedio, 0.5, `FX.fatSetCfg('ticketMedio',this.value)`)}</div>`
-          : `<div><label>Ticket do almoço (€)</label>${num('', c.ticketAlm, 0.5, `FX.fatSetCfg('ticketAlm',this.value)`)}</div>
+          : `${menuPickerHtml(c)}<div><label>Ticket do almoço (€)</label>${num('', c.ticketAlm, 0.5, `FX.fatSetCfg('ticketAlm',this.value)`)}</div>
              <div><label>CMV do almoço (%)</label>${num('', c.cmvAlm, 0.5, `FX.fatSetCfg('cmvAlm',this.value)`)}</div>
              <div><label>Ticket do jantar (€)</label>${num('', c.ticketJan, 0.5, `FX.fatSetCfg('ticketJan',this.value)`)}</div>
              <div><label>CMV do jantar (%)</label>${num('', c.cmvJan, 0.5, `FX.fatSetCfg('cmvJan',this.value)`)}</div>`}
@@ -4351,7 +4380,7 @@ function renderRealReal(r){
   if(!document.getElementById('realRealGrafico')) return;
   const dre = r.monthlyDRE, c = editState.custos;
   const E = MESES.map((_, i) => realizavelMes(i)), R = MESES.map((_, i) => realMes(i));
-  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + d.ivaPct) / 100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras) / den : null; });
+  const MIN = dre.map(d => { const den = 1 - (d.cmvPct + d.ivaPct + (d.receita > 0 ? d.despComissao / d.receita * 100 : 0)) / 100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras) / den : null; });
   const pares = MESES.map((_, i) => i).filter(i => E[i] > 0 && R[i] > 0);
   const sE = pares.reduce((s, i) => s + E[i], 0), sR = pares.reduce((s, i) => s + R[i], 0);
   const pct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
@@ -4432,7 +4461,7 @@ function renderSimMes(){
       html += '<p class="desc" style="margin:0 0 10px;">⚠️ Não há mês de base com faturamento: escolhe outro mês de base.</p>';
     }
   }
-  const custos = dre.despPessoal + dre.despOcupacao + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + dre.ivaPct) / 100;
+  const custos = dre.despPessoal + dre.despOcupacao + dre.despAdmin + dre.despFinanceiras, den = 1 - (dre.cmvPct + dre.ivaPct + (dre.receita > 0 ? dre.despComissao / dre.receita * 100 : 0)) / 100;
   const minimo = den > 0 ? custos / den : null, paga = dre.resultadoAntesDistribuicao >= 0, temFat = p.total > 0;
   const stat = (rot, val, estilo) => `<div class="fx-stat"${estilo ? ` style="${estilo}"` : ''}><div class="label">${rot}</div><div class="value">${val}</div></div>`;
   html += `<div class="cards" style="margin-top:6px;">
@@ -4496,7 +4525,7 @@ function renderExpenses(){
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
-  const totSaidas = dre.map(d=>d.despPessoal + d.despOcupacao + d.despAdmin + d.cmvValor + d.despFinanceiras + d.impostosValor + d.despDistribuicao);
+  const totSaidas = dre.map(d=>d.despPessoal + d.despOcupacao + d.despAdmin + d.cmvValor + d.despComissao + d.despFinanceiras + d.impostosValor + d.despDistribuicao);
   html += secao('ENTRADAS');
   html += linha('Vendas (faturamento)', dre.map(d=>fmtEUR(d.receita)));
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
@@ -4507,13 +4536,14 @@ function renderExpenses(){
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
   html += linha('Despesas Financeiras <span style="font-size:9px;font-weight:400;">(empréstimos, juros)</span>', dre.map(d=>fmtEUR(d.despFinanceiras)));
+  if(dre.some(d=>d.despComissao > 0)) html += linha(`Comissão do delivery <span style="font-size:9px;font-weight:400;">(${editState.custos.comDelivery == null ? 30 : editState.custos.comDelivery}% das vendas de delivery)</span>`, dre.map(d=>fmtEUR(d.despComissao)));
   html += linha('Retiradas de lucro', dre.map(d=>fmtEUR(d.despDistribuicao)));
   html += linha('<b>Total de saídas</b>', totSaidas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += linha('<b>Saldo do período</b>', totEntradas.map((v,i)=>{ const s = v - totSaidas[i]; return `<b style="${ok(s)}">${fmtEUR(s)}</b>`; }));
   // 3) o mês paga-se ou não?
   html += secao('O MÊS SE PAGA?');
   const temFat = dre.some(d=>d.receita > 0);
-  const minimo = d => { const den = 1 - (d.cmvPct + d.ivaPct)/100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras)/den : null; };
+  const minimo = d => { const den = 1 - (d.cmvPct + d.ivaPct + (d.receita > 0 ? d.despComissao / d.receita * 100 : 0))/100; return den > 0 ? (d.despPessoal + d.despOcupacao + d.despAdmin + d.despFinanceiras)/den : null; };
   html += linha('Faturamento mínimo, c/ IVA (cobre equipa e custos fixos)', dre.map(d=>{ const m = minimo(d); return m == null ? '—' : fmtEUR(m); }), ' style="color:var(--text-soft);"');
   html += linha('<b>Se paga?</b> (antes da distribuição)', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoAntesDistribuicao >= 0; return `<b style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</b><div style="font-size:9px;color:var(--text-soft);">${s?'sobra ':'falta '}${fmtEUR(Math.abs(d.resultadoAntesDistribuicao))}</div>`; }));
   html += linha('Depois da distribuição de lucros?', dre.map(d=>{ if(!temFat) return '—'; const s = d.resultadoLiquido >= 0; return `<span style="${s?'color:var(--ok);':'color:var(--danger);'}">${s?'✔ sim':'✖ não'}</span>`; }));
@@ -4563,6 +4593,10 @@ function computeCenario(months, custos, reais){
     if(custos.ticketIgual === false && !m.real && receita > 0){ const pp = partesMes(months, i); cmvPct = (pp.alm * (custos.cmvAlm || 0) + (pp.jan + pp.del) * (custos.cmvJan || 0)) / (pp.total || 1); }
     if(MED && !F){ const o = custos.proj && custos.proj.cmv ? custos.proj.cmv[i] : null; if(o != null) cmvPct = o; else if(!(custos.ticketIgual === false && !m.real && receita > 0)) cmvPct = MED.cmv; }
     if(F) cmvPct = F.cmv / F.rec * 100;
+    // promoção do mês: o custo da comida é o mesmo mas a receita é menor, por isso o CMV % sobe (CMV ÷ (1 − desconto))
+    if(!F && m.promo > 0) cmvPct = cmvPct / (1 - Math.min(90, m.promo) / 100);
+    // comissão do delivery: % das vendas de delivery (só nos meses projetados; nos fechados já está nos custos reais)
+    const ppc = F ? null : partesMes(months, i), despComissao = ppc ? (ppc.del || 0) * (custos.comDelivery == null ? 30 : custos.comDelivery) / 100 : 0;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
@@ -4571,7 +4605,7 @@ function computeCenario(months, custos, reais){
     const despAdmin = F ? F.adm : MED ? pj('adm') : usar ? reais.fixos[i] : (custos.admin?.[i] || 0);
     const despFinanceiras = F ? F.fin : MED ? pj('fin') : usar ? (reais.financeiras?.[i] || 0) : (custos.financeiras?.[i] || 0);
     const despDistribuicao = F ? F.ret : MED ? pj('ret') : (custos.distribuicao?.[i] || 0);
-    const totalOperacionais = despPessoal + despOcupacao + despAdmin;
+    const totalOperacionais = despPessoal + despOcupacao + despAdmin + despComissao;
     const resultadoOperacional = lucroBruto - totalOperacionais;
     const ivaPct = ivaPctDe(custos, i);
     const impostosValor = receita * (ivaPct/100);   // a % real do IVA aplica-se à receita do mês
@@ -4580,10 +4614,10 @@ function computeCenario(months, custos, reais){
     ivaAccumQuarter += impostosValor;
     let impostosCash = 0;
     if(i%3===2){ impostosCash = ivaAccumQuarter; ivaAccumQuarter = 0; }
-    const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despOcupacao - despAdmin - despFinanceiras) - impostosCash;
+    const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despOcupacao - despAdmin - despComissao - despFinanceiras) - impostosCash;
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
-    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, totalOperacionais, resultadoOperacional,
+    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, despComissao, totalOperacionais, resultadoOperacional,
       impostosValor, ivaPct, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
@@ -4725,7 +4759,7 @@ function renderProjecao(r){
       : `<b>Se paga em ${s.n} de 12 meses.</b> Não se paga em: ${nao.join(', ')}. Pior mês: ${MESES[s.piorI]} (${fmtEUR(s.pior.resultadoAntesDistribuicao)}).`;
   }
   document.getElementById('projecaoGrafico').innerHTML = svgProjecao(dre);
-  const denDe = d => 1 - (d.cmvPct + d.ivaPct)/100;
+  const denDe = d => 1 - (d.cmvPct + d.ivaPct + (d.receita > 0 ? d.despComissao / d.receita * 100 : 0))/100;
   const linha = (rotulo, f, extra) => `<tr><td class="dia"${extra||''}>${rotulo}</td>` + dre.map((d,i)=>f(d,i)).join('') + '</tr>';
   let html = '<tr><td class="dia"></td>' + MESES.map(m=>`<td style="font-weight:700;">${m}</td>`).join('') + '</tr>';
   html += linha('Faturamento do cenário', d=>`<td>${fmtEUR(d.receita)}</td>`);
@@ -5159,7 +5193,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirFechamento, abrirPlano27, updateProj, resetProj, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, fatSetPromo, usarMenuAlmoco, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirFechamento, abrirPlano27, updateProj, resetProj, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
@@ -8673,7 +8707,33 @@ const MENUS = (function(){
     atual = vazio(); await carregar(); tudo();
   }
 
-  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, guardar, apagar };
+  // resumo dos menus guardados de um canal, para o Cenários: preço e CMV médio (sobre o preço c/ IVA) de todas as combinações possíveis
+  async function resumos(canal){
+    await carregar();
+    const cat = catalogo(), out = [];
+    guardados.filter(m => (m.canal === 'delivery' ? 'delivery' : 'loja') === canal).forEach(m => {
+      const it = m.itens || {}, sl = SLOTS.filter(s => (it[s.key] || []).length);
+      if(!sl.length) return;
+      const falta = [];
+      const listas = sl.map(s => it[s.key].map(id => {
+        const x = cat.get(id);
+        if(!x){ falta.push('um item já não existe'); return null; }
+        const d = dadosItem(x, canal);
+        if(!d.ok){ falta.push(x.nome + ': ' + d.avisos[0]); return null; }
+        return { it:x, d };
+      }).filter(Boolean));
+      if(falta.length || listas.some(l => !l.length)){ out.push({ id:m.id, nome:m.nome, ok:false, aviso: falta[0] || 'faltam itens' }); return; }
+      if(listas.reduce((n, l) => n * l.length, 1) > 5000){ out.push({ id:m.id, nome:m.nome, ok:false, aviso:'combinações a mais' }); return; }
+      const precoMenu = parseFloat(m.preco) > 0 ? parseFloat(m.preco) : null;
+      const rs = produtoCartesiano(listas).map(c => calcCombo(c.map(x => x.d), precoMenu));
+      const cmv = rs.map(r => r.preco > 0 ? (r.custo + r.extra) / r.preco * 100 : 0);
+      out.push({ id:m.id, nome:m.nome, ok:true, n:rs.length, preco: rs.reduce((s, r) => s + r.preco, 0) / rs.length,
+        cmv: cmv.reduce((s, v) => s + v, 0) / cmv.length, cmvMin: Math.min(...cmv), cmvMax: Math.max(...cmv) });
+    });
+    return out;
+  }
+
+  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, guardar, apagar, resumos };
 })();
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
