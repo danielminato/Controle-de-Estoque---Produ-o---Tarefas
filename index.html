@@ -4431,11 +4431,11 @@ async function carregarIvaLiquido(){
     const todas = await res.json();
     // faturado real de cada mês (com IVA), para o gráfico Real × Realizável
     todas.forEach(r => { const k = Number(r.mes) - 1, v = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0); if(k >= 0 && k < 12 && v > 0) faturadoControle[k] = (faturadoControle[k] || 0) + v; });
-    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0){ ivaPctMes[k] = (iv - (Number(r.credito)||0)) / f * 100; ivaEurMes[k] = iv - (Number(r.credito)||0); } });
+    todas.forEach(r => { const k = Number(r.mes) - 1, f = (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), iv = Number(r.iva)||0; if(k >= 0 && k < 12 && f > 0 && iv > 0){ ivaPctMes[k] = iv / f * 100; ivaEurMes[k] = iv; } });   // o IVA do sistema, sem descontar crédito (despesa do mês)
     // só meses completos (faturado e IVA lançados); meses de arranque sem IVA ficam de fora
     const linhas = todas.filter(r => (Number(r.iva)||0) > 0 && (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0) > 0);
     const fat = linhas.reduce((s,r)=>s + (Number(r.faturado_sistema)||0) + (Number(r.faturado_fora)||0), 0);
-    const liq = linhas.reduce((s,r)=>s + (Number(r.iva)||0) - (Number(r.credito)||0), 0);
+    const liq = linhas.reduce((s,r)=>s + (Number(r.iva)||0), 0);
     if(fat > 0) ivaLiquidoReal = liq / fat * 100;
   }catch(e){ ivaLiquidoReal = null; }
 }
