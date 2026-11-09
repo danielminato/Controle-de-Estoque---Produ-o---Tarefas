@@ -3941,7 +3941,8 @@ const FECH_LINHAS = [
   ['fin', 'Financeiras (empréstimos, juros)', 0], ['ret', 'Retiradas de lucro (além do pró-labore)', 0], ['res', 'Resultado líquido', 1]
 ];
 function fechChave(i){ return new Date().getFullYear() + '-' + String(i + 1).padStart(2, '0'); }
-function fechDe(i){ const f = fechamentos[fechChave(i)]; return (f && f.rec > 0) ? f : null; }
+// a receita do mês é sempre a da página de IVA (faturado no sistema + fora); a da outra app só serve se o mês não tiver faturado lançado
+function fechDe(i){ const f = fechamentos[fechChave(i)]; return (f && f.rec > 0) ? Object.assign({}, f, { rec: faturadoControle[i] > 0 ? faturadoControle[i] : f.rec }) : null; }
 async function carregarFechamentos(){
   fechamentos = {};
   try{
@@ -3997,13 +3998,13 @@ function renderFech(){
     let celula;
     if(k === 'iva') celula = `<span id="fc_iva" style="font-weight:700;">${fmtEUR(ivaI.v)}</span><div style="font-size:9px;color:var(--text-soft);">${ivaI.real ? 'IVA real do mês: ' + (ivaPctMes[i] || 0).toFixed(1).replace('.', ',') + '% (cobrado ÷ faturado no sistema)' : 'estimado (média do ano)'}</div>`;
     else if(k === 'res') celula = '<span id="fc_res" style="font-weight:700;"></span>';
-    else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
+    else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" ${k === 'rec' && faturadoControle[i] > 0 ? 'readonly title="Vem da página de IVA"' : ''} value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
     h += `<tr><td class="dia">${nome}</td><td>${celula}</td><td id="fc_pc_${k}" style="color:var(--text-soft);"></td><td style="color:var(--text-soft);">${prev ? fmtEUR(prev[k]) : '—'}</td><td id="fc_vr_${k}"></td></tr>`;
   });
   h += '</table></div>';
   h += `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;"><label style="margin:0;">Clientes atendidos no mês (opcional) <input type="number" min="0" id="fc_cli" value="${val('cli') || ''}" style="width:90px;" oninput="FX.fechCalc()"></label><span id="fc_tk" style="font-size:12px;color:var(--text-soft);"></span></div>`;
   h += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="FX.fechSalvar()">Fechar ${MESES_LONGO_FX[i]}</button>${F ? '<button class="btn-ghost" onclick="FX.fechLimpar()">Reabrir o mês</button>' : ''}</div>`;
-  h += `<p class="desc" style="margin-top:10px;">A receita vem preenchida com o faturado do Controle de IVA${faturadoControle[i] ? ' (' + fmtEUR(faturadoControle[i]) + ')' : ''}; troca pelo valor da outra app se for diferente. O CMV passa a ser o real do mês e as despesas deste mês no cenário passam a ser estas.</p>`;
+  h += `<p class="desc" style="margin-top:10px;">A receita é sempre a da página de IVA${faturadoControle[i] ? ' (' + fmtEUR(faturadoControle[i]) + ')' : ' (ainda sem faturado lançado: escreve a da outra app)'}; a da outra app só conta enquanto o mês não tiver faturado lançado. O CMV passa a ser o real do mês e as despesas deste mês no cenário passam a ser estas.</p>`;
   box.innerHTML = h;
   fechCalc();
 }
@@ -4368,10 +4369,10 @@ function computeCenario(months, custos, reais){
   let monthlyDRE = [], ivaAccumQuarter=0, cashCumulative=0, cashCumulativeBeforeDist=0;
   MESES.forEach((mes,i)=>{
     const m = months[i];
-    const receita = receitaMesI(months, i);
+    const F = fechDe(i);   // mês fechado: receita da página de IVA e valores reais da outra app
+    const receita = F ? F.rec : receitaMesI(months, i);
     let cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
     if(custos.ticketIgual === false && !m.real && receita > 0){ const pp = partesMes(months, i); cmvPct = (pp.alm * (custos.cmvAlm || 0) + (pp.jan + pp.del) * (custos.cmvJan || 0)) / (pp.total || 1); }
-    const F = fechDe(i);   // mês fechado: valores reais colados da outra app
     if(F) cmvPct = F.cmv / F.rec * 100;
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
