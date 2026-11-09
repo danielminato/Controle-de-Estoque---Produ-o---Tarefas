@@ -778,24 +778,30 @@
       <label>Nome do cenário</label>
       <input type="text" id="cenNome" style="max-width:400px;" placeholder="Ex: Base 2026-2027">
     </section>
-    <section class="panel">
+    <section class="panel" id="panelFatMes">
+      <h2>Faturamento mês a mês</h2>
+      <p class="desc">Os meses <b>realizados</b> ficam com o valor real. Nos meses de <b>projeção</b> escreve quanto esperas faturar (com IVA) e vês a variação em relação ao mês anterior, ou escreve a variação em % e vês o faturamento. Mais abaixo, o faturamento do mês escolhido reparte-se por almoço e jantar, por dia da semana, e mostra quantos clientes isso pede.</p>
+      <div style="overflow-x:auto;"><table class="grid-table" id="fatMesTabela"></table></div>
+      <div id="fatMesDetalhe" style="margin-top:16px;"></div>
+    </section>
+    <section class="panel" style="display:none;">
       <h2>Resumo dos dias</h2>
       <p class="desc">Ticket médio por dia da semana, cadeiras e giros (quantas vezes a casa enche em cada serviço). Os giros vêm calculados a partir do faturamento do melhor mês, com o almoço a pesar cerca de 20%; podes mexer em qualquer valor.</p>
       <div id="perfilDias"></div>
     </section>
-    <section class="panel">
+    <section class="panel" style="display:none;">
       <h2>Sazonalidade mensal</h2>
       <p class="desc">A <b>referência (100%)</b> é sempre o <b>melhor faturamento do ano</b>: a app procura-o sozinha entre os meses marcados <b>"Real?"</b> e escritos em € (se mudares um valor real, a referência atualiza-se) e mostra-a em cada mês. Nos outros meses escreve a <b>variação em % em relação à referência</b> (positiva = sobe, negativa = cai) ou o <b>faturamento em €</b>: os dois campos estão ligados e um ajusta o outro. Para prever um mês de outra forma (ticket × clientes, ou partindo de outro mês), usa o <b>Simulador do mês</b> logo abaixo: os meses simulados aparecem aqui como "simulador do mês".</p>
       <div style="overflow-x:auto;"><table class="grid-table" id="monthsTable"></table></div>
     </section>
-    <section class="panel">
+    <section class="panel" style="display:none;">
       <h2>Simulador do mês</h2>
       <p class="desc">Escolhe um mês e diz como queres prever o faturamento dele: <b>montando</b> (ticket × clientes por dia, almoço e jantar separados) ou <b>partindo de outro mês</b> com uma subida ou queda em % no almoço e no jantar. O resultado alimenta a tabela acima, o resultado anual e os gráficos, e diz logo se o mês paga os custos.</p>
       <div id="simMes"></div>
     </section>
     <section class="panel">
       <h2>Estrutura de custos</h2>
-      <p class="desc">CMV e impostos são taxas proporcionais à receita (o CMV de cada mês afina-se em "Despesas mensais"). Os tickets e os giros por dia da semana estão em "Resumo dos dias".</p>
+      <p class="desc">CMV e impostos são taxas proporcionais à receita (o CMV de cada mês afina-se em "Despesas mensais"). Os tickets, o peso do fim de semana e as cadeiras estão em "Faturamento mês a mês".</p>
       <div class="params-grid">
         <div><label>CMV padrão (% receita, aplica a todos os meses)</label><input type="number" id="cmv" step="0.5"></div>
         <div><label>IVA a pagar (% do faturado, nas projeções)</label><input type="number" id="impostos" step="0.5"><div class="desc" id="impostosDica" style="margin:4px 0 0;"></div></div>
@@ -3872,7 +3878,121 @@ function updateMonthMix(i, campo, val){
   editState.months[i][campo] = parseFloat(val)||0;
   renderMonths(); renderExpenses(); computeAndRenderCards();
 }
+/* ---- Faturamento mês a mês: simples, completo e claro ---- */
+let fatMesSel = Math.min(11, Math.max(0, new Date().getMonth()));
+function cfgFat(){
+  const c = editState.custos, p = editState.perfil || {};
+  const med = (p.ticket && p.ticket.length) ? p.ticket.reduce((s,v)=>s+(v||0),0) / p.ticket.length : 24;
+  if(c.ticketIgual === undefined) c.ticketIgual = true;
+  if(!(c.ticketMedio > 0)) c.ticketMedio = +(med || 24).toFixed(1);
+  if(c.ticketAlm == null) c.ticketAlm = 12;
+  if(c.ticketJan == null) c.ticketJan = c.ticketMedio;
+  if(c.cmvAlm == null) c.cmvAlm = 35;
+  if(c.cmvJan == null) c.cmvJan = c.cmv || 25;
+  if(!(c.pesoFds > 0)) c.pesoFds = 1.7;
+  if(!(c.cadeiras > 0)) c.cadeiras = ((p.cadDentro||0) + (p.cadFora||0)) || 22;
+  return c;
+}
+// cenários antigos (queda vs melhor mês, montar, partir de outro mês) passam a faturamento em € por mês, sem perder o valor
+function simplificarMeses(){
+  const M = editState.months;
+  const vals = M.map((m,i)=> receitaMesI(M, i)), partes = M.map((m,i)=> partesMes(M, i));
+  M.forEach((m,i)=>{
+    if((m.fonte || 'manual') !== 'manual' || m.modo !== 'eur'){
+      const p = partes[i];
+      if(p.total > 0){ m.pctAlmoco = Math.round(p.alm / p.total * 100); m.pctDelivery = Math.round(p.del / p.total * 100); m.pctJantar = Math.max(0, 100 - m.pctAlmoco - m.pctDelivery); }
+      m.valorEur = Math.round(vals[i] * 100) / 100; m.modo = 'eur'; m.queda = 0; m.fonte = 'manual';
+    }
+  });
+}
+function setFatMes(i){ fatMesSel = i; renderFatMes(); }
+function fatSet(i, val){ const m = editState.months[i]; m.valorEur = Math.max(0, parseFloat(val) || 0); m.modo = 'eur'; m.fonte = 'manual'; renderExpenses(); computeAndRenderCards(); }
+function fatSetPct(i, val){
+  if(i === 0) return;
+  const prev = receitaMesI(editState.months, i - 1), v = parseFloat(String(val).replace(',', '.')) || 0, m = editState.months[i];
+  m.valorEur = Math.round(prev * (1 + v / 100) * 100) / 100; m.modo = 'eur'; m.fonte = 'manual';
+  renderExpenses(); computeAndRenderCards();
+}
+function fatSetMix(i, campo, val){
+  const m = editState.months[i], v = Math.min(100, Math.max(0, parseFloat(val) || 0));
+  if(campo === 'alm'){ m.pctAlmoco = v; } else { m.pctDelivery = v; }
+  m.pctAlmoco = Math.min(m.pctAlmoco || 0, 100 - (m.pctDelivery || 0));
+  m.pctJantar = Math.max(0, 100 - (m.pctAlmoco || 0) - (m.pctDelivery || 0));
+  renderExpenses(); computeAndRenderCards();
+}
+function fatSetCfg(k, val){
+  const c = cfgFat();
+  if(k === 'ticketIgual') c.ticketIgual = (val === true || val === 'true');
+  else c[k] = Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
+  renderExpenses(); computeAndRenderCards();
+}
+function renderFatMes(){
+  const tb = document.getElementById('fatMesTabela'), det = document.getElementById('fatMesDetalhe');
+  if(!tb || !det) return;
+  simplificarMeses();
+  const c = cfgFat(), M = editState.months;
+  const pct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
+  const nf = (v, d) => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
+  let h = '<tr><td class="dia">Mês</td>' + M.map((m,i)=>`<td style="font-weight:700;${i === fatMesSel ? 'background:var(--cream,#f5efe6);' : ''}"><button class="btn-ghost" style="padding:2px 8px;font-weight:700;" title="Ver a divisão deste mês" onclick="FX.setFatMes(${i})">${m.mes}</button><div><button class="btn-ghost" style="padding:2px 6px;font-size:9px;margin-top:3px;${m.real ? '' : 'color:var(--primary);'}" title="Trocar entre realizado e projeção" onclick="FX.toggleMonthReal(${i})">${m.real ? 'realizado' : 'projeção'}</button></div></td>`).join('') + '</tr>';
+  h += '<tr><td class="dia">Faturamento (€, com IVA)</td>' + M.map((m,i)=>`<td><input type="number" step="0.01" value="${(m.valorEur || 0).toFixed(2)}" style="width:96px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.fatSet(${i},this.value)">${realDisponivel(i) ? `<div><button class="btn-ghost" style="padding:2px 6px;font-size:10px;margin-top:4px;color:var(--ok);" title="Passar o mês a realizado com o faturado lançado no Controle de IVA" onclick="FX.usarRealControle(${i})">usar o real: ${fmtEUR(faturadoControle[i])}</button></div>` : ''}</td>`).join('') + '</tr>';
+  h += '<tr><td class="dia">vs mês anterior (%)<div style="font-size:9px;font-weight:400;color:var(--text-soft);">escreve o % e calculo o faturamento</div></td>' + M.map((m,i)=>{
+    if(i === 0) return '<td style="color:var(--text-soft);">—</td>';
+    const prev = receitaMesI(M, i - 1), v = receitaMesI(M, i), d = prev > 0 ? (v / prev - 1) * 100 : 0;
+    return m.real
+      ? `<td style="color:${d < 0 ? 'var(--danger)' : 'var(--ok)'};">${pct(d)}</td>`
+      : `<td><input type="number" step="0.1" value="${d.toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.fatSetPct(${i},this.value)"></td>`;
+  }).join('') + '</tr>';
+  tb.innerHTML = h;
+
+  // ---- divisão do mês escolhido ----
+  const i = fatMesSel, m = M[i], p = partesMes(M, i), n = nDiasSemFds(i), w = c.pesoFds, den = n.sem + w * n.fds, seats = c.cadeiras;
+  const tkA = c.ticketIgual ? c.ticketMedio : c.ticketAlm, tkJ = c.ticketIgual ? c.ticketMedio : c.ticketJan;
+  const num = (id, v, step, on, wd) => `<input type="number" step="${step}" min="0" value="${v}" style="width:${wd || 90}px;" onchange="${on}">`;
+  const tp = (nome, eur, tk) => {
+    const dia = den > 0 ? eur / den : 0, cl = x => tk > 0 ? x / tk : 0;
+    const sem = dia, fds = dia * w;
+    const cel = (e, estilo) => { const c2 = cl(e), g = seats > 0 ? c2 / seats : 0; return `<td>${fmtEUR(e)} por dia<div style="font-weight:700;">${nf(c2, 0)} clientes</div><div style="font-size:11px;color:${estilo};">${nf(g, 1)} giros</div></td>`; };
+    const gS = seats > 0 ? cl(sem) / seats : 0, gF = seats > 0 ? cl(fds) / seats : 0;
+    const cor = g => g > 2.5 ? 'var(--danger)' : 'var(--text-soft)';
+    return { html: `<tr><td class="dia">${nome}<div style="font-size:10px;font-weight:400;color:var(--text-soft);">${fmtEUR(eur)} no mês · ticket ${fmtEUR(tk)}</div></td>${cel(sem, cor(gS))}${cel(fds, cor(gF))}</tr>`, gS, gF, clS: cl(sem), clF: cl(fds) };
+  };
+  const A = tp('Almoço', p.alm, tkA), J = tp('Jantar', p.jan, tkJ);
+  const tot = p.total, dias = n.sem + n.fds, mediaDia = dias ? tot / dias : 0;
+  const cmvEf = (!c.ticketIgual && !m.real && tot > 0) ? (p.alm * c.cmvAlm + (p.jan + p.del) * c.cmvJan) / tot : ((editState.custos.cmvMes && editState.custos.cmvMes[i] != null) ? editState.custos.cmvMes[i] : c.cmv);
+  const avisos = [];
+  if(seats > 0){
+    if(J.gF > 2.5) avisos.push(`⚠ No jantar de sexta a domingo pede ${nf(J.gF, 1)} giros: ${nf(J.clF, 0)} clientes para ${seats} cadeiras. Confirma se é possível encher a casa tantas vezes.`);
+    if(A.gS < 0.3 && p.alm > 0) avisos.push(`⚠ O almoço de segunda a quinta fica com ${nf(A.clS, 0)} clientes por dia (${nf(A.gS, 1)} giros): quase vazio para o custo de abrir.`);
+    if(!avisos.length) avisos.push('✔ Os giros estão dentro do razoável. Valida com o movimento que vês no restaurante.');
+  }
+  det.innerHTML = `<h3 style="font-size:16px;margin:0 0 4px;">${MESES_LONGO_FX[i]}: ${fmtEUR(tot)} · ${fmtEUR(mediaDia)} por dia</h3>
+    <p class="desc" style="margin:0 0 10px;">Escolhe o mês clicando no nome dele na tabela. Sexta a domingo (${n.fds} dias) pesam ${nf(w, 1)}× um dia de segunda a quinta (${n.sem} dias), porque é onde tens mais movimento: é uma sugestão, muda o peso se não for assim.</p>
+    <div class="params-grid" style="margin-bottom:10px;">
+      <div><label>Almoço pesa (% do faturamento)</label>${num('', Math.round(m.pctAlmoco || 0), 1, `FX.fatSetMix(${i},'alm',this.value)`)}</div>
+      <div><label>Delivery (%)</label>${num('', Math.round(m.pctDelivery || 0), 1, `FX.fatSetMix(${i},'del',this.value)`)}</div>
+      <div><label>Jantar (resto, %)</label><input type="number" value="${Math.round(m.pctJantar || 0)}" disabled style="width:90px;"></div>
+      <div><label>Sex–Dom pesam (× um dia Seg–Qui)</label>${num('', c.pesoFds, 0.1, `FX.fatSetCfg('pesoFds',this.value)`)}</div>
+      <div><label>Cadeiras (1 giro = casa cheia)</label>${num('', c.cadeiras, 1, `FX.fatSetCfg('cadeiras',this.value)`)}</div>
+    </div>
+    <div class="panel" style="margin:0 0 10px;padding:12px 14px;">
+      <div style="font-weight:700;margin-bottom:6px;">O ticket médio do almoço é igual ao do jantar?</div>
+      <label style="margin-right:14px;"><input type="radio" name="tkIgual" ${c.ticketIgual ? 'checked' : ''} onchange="FX.fatSetCfg('ticketIgual',true)"> Sim, é o mesmo</label>
+      <label><input type="radio" name="tkIgual" ${!c.ticketIgual ? 'checked' : ''} onchange="FX.fatSetCfg('ticketIgual',false)"> Não, o almoço tem menu próprio</label>
+      <div class="params-grid" style="margin-top:10px;">
+        ${c.ticketIgual
+          ? `<div><label>Ticket médio (€, com IVA)</label>${num('', c.ticketMedio, 0.5, `FX.fatSetCfg('ticketMedio',this.value)`)}</div>`
+          : `<div><label>Ticket do almoço (€)</label>${num('', c.ticketAlm, 0.5, `FX.fatSetCfg('ticketAlm',this.value)`)}</div>
+             <div><label>CMV do almoço (%)</label>${num('', c.cmvAlm, 0.5, `FX.fatSetCfg('cmvAlm',this.value)`)}</div>
+             <div><label>Ticket do jantar (€)</label>${num('', c.ticketJan, 0.5, `FX.fatSetCfg('ticketJan',this.value)`)}</div>
+             <div><label>CMV do jantar (%)</label>${num('', c.cmvJan, 0.5, `FX.fatSetCfg('cmvJan',this.value)`)}</div>`}
+      </div>
+      <div class="desc" style="margin:8px 0 0;">${c.ticketIgual ? 'Mesmo ticket nos dois serviços: o CMV é o da tabela "Despesas mensais".' : `Com um menu de almoço mais barato o CMV do almoço sobe. Nas projeções, o CMV do mês passa a ser a média dos dois serviços: <b>${nf(cmvEf, 1)}%</b> em ${MESES_LONGO_FX[i]}${m.real ? ' (mês realizado: mantém o CMV escrito em Despesas mensais)' : ''}.`}</div>
+    </div>
+    <div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia"></td><td style="font-weight:700;">Segunda a quinta</td><td style="font-weight:700;">Sexta a domingo</td></tr>${A.html}${J.html}</table></div>
+    <div class="desc" style="margin:10px 0 0;">${avisos.join('<br>')}<br>${p.del > 0 ? 'O delivery (' + fmtEUR(p.del) + ' no mês) não entra nos clientes da sala.<br>' : ''}Clientes = faturamento do serviço ÷ ticket. Giros = clientes ÷ cadeiras. Em vermelho: mais de 2,5 giros.</div>`;
+}
 function renderMonths(){
+
   const t = document.getElementById('monthsTable');
   const R = refDe(editState.months), refRevenue = R.valor, refMes = R.mes;
   const fmtPct = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + '%';
@@ -4075,7 +4195,7 @@ function renderExpenses(){
   html += `<tr${ig}><td class="dia">Despesas Administrativas (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.admin.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('admin',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Retiradas de lucro, além do pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
-  html += '<tr><td class="dia">CMV (% do faturamento)</td>' + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
+  html += `<tr><td class="dia">CMV (% do faturamento)${c.ticketIgual === false ? '<div style="font-size:9px;font-weight:400;color:var(--text-soft);">projeções: média do CMV do almoço e do jantar</div>' : ''}</td>` + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
@@ -4084,7 +4204,7 @@ function renderExpenses(){
   html += linha('Vendas (faturamento)', dre.map(d=>fmtEUR(d.receita)));
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += secao('SAÍDAS');
-  html += linha('CMV — compras de mercadoria', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${d.cmvPct}%</div>`));
+  html += linha('CMV — compras de mercadoria', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;color:var(--text-soft);">${(Math.round(d.cmvPct * 10) / 10).toString().replace(".", ",")}%</div>`));
   html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : ' média'}</div>`));
   html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
@@ -4139,7 +4259,8 @@ function computeCenario(months, custos, reais){
   MESES.forEach((mes,i)=>{
     const m = months[i];
     const receita = receitaMesI(months, i);
-    const cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
+    let cmvPct = (custos.cmvMes && custos.cmvMes[i] != null) ? custos.cmvMes[i] : custos.cmv;
+    if(custos.ticketIgual === false && !m.real && receita > 0){ const pp = partesMes(months, i); cmvPct = (pp.alm * (custos.cmvAlm || 0) + (pp.jan + pp.del) * (custos.cmvJan || 0)) / (pp.total || 1); }
     const cmvValor = receita * (cmvPct/100);
     const lucroBruto = receita - cmvValor;
     // com "custos reais": equipa e custos fixos vêm do Ponto de equilíbrio (já incluem empréstimo, renda, etc.)
@@ -4176,7 +4297,7 @@ function computeAndRenderCards(){
     <div class="fx-stat"><div class="label">Caixa antes da distribuição</div><div class="value">${fmtEUR(r.cashCumulativeBeforeDist)}</div></div>
     <div class="fx-stat highlight"><div class="label">Caixa livre (após retiradas)</div><div class="value">${fmtEUR(r.cashCumulative)}</div></div>
     <div class="fx-stat" style="background:${r.annualRevenue>0 ? (s.n===12 ? 'var(--ok-text)' : 'var(--danger-text)') : 'var(--ink-soft)'};"><div class="label">Meses em que a operação se paga</div><div class="value">${r.annualRevenue>0 ? s.n + ' de 12' : '—'}</div></div>`;
-  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderRealReal(r);
+  renderReais(); renderProjecao(r); renderComparacao(r); renderPerfil(); renderSimMes(); renderFatMes(); renderRealReal(r);
 }
 
 /* ---- Custos reais (Ponto de equilíbrio) ---- */
@@ -4732,7 +4853,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
