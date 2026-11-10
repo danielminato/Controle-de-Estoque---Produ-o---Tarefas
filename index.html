@@ -4627,9 +4627,9 @@ function renderExpenses(){
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += secao('SAÍDAS');
   const tetoCmvT = c.tetoCmv == null ? 35 : c.tetoCmv;
-  const p1 = v => (Math.round(v * 10) / 10).toString().replace(".", ",");
+  const p1 = v => (Math.round(v * 10) / 10).toString().replace(".", ","), dpD = delParams(c, (typeof mediaDelivery === 'function') ? mediaDelivery() : null, MEDx);
   html += linha('CMV — compras de mercadoria <span style="font-size:9px;font-weight:400;">(% = sobre o faturamento sem IVA e sem plataformas; vermelho = acima do teto de ' + tetoCmvT + '%)</span>', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;${d.cmvReal > tetoCmvT ? 'color:var(--danger);font-weight:700;' : 'color:var(--text-soft);'}">${p1(d.cmvReal)}%${d.cmvReal > tetoCmvT ? ' ⚠' : ''}</div><div style="font-size:9px;color:var(--text-soft);">(${p1(d.cmvPct)}% do faturamento)</div>`));
-  html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : ' média'}</div>`));
+  html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : (d.ivaDelEur > 0 ? ' (delivery a ' + p1(dpD.ivaPrato) + '%)' : ' média')}</div>`));
   html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
   html += linha('Despesas Administrativas', dre.map(d=>fmtEUR(d.despAdmin)));
@@ -4722,8 +4722,10 @@ function computeCenario(months, custos, reais){
     const despDistribuicao = F ? F.ret : MED ? pj('ret') : (custos.distribuicao?.[i] || 0);
     const totalOperacionais = despPessoal + despOcupacao + despAdmin + despComissao;
     const resultadoOperacional = lucroBruto - totalOperacionais;
-    const ivaPct = ivaPctDe(custos, i);
-    const impostosValor = receita * (ivaPct/100);   // a % real do IVA aplica-se à receita do mês
+    // mês projetado: o delivery paga o IVA do prato (13%) sobre o valor líquido s/ IVA (= preço publicado × k); o resto do faturamento usa a % real do IVA
+    const ivaBase = ivaPctDe(custos, i), ivaDelEur = (!F && ppc && ppc.del > 0) ? ppc.del * dpar.k * dpar.ivaPrato / 100 : 0;
+    const impostosValor = ivaDelEur > 0 ? (receita - ppc.del) * (ivaBase / 100) + ivaDelEur : receita * (ivaBase / 100);
+    const ivaPct = receita > 0 ? impostosValor / receita * 100 : ivaBase;   // % efetiva do mês
     const resultadoAntesDistribuicao = resultadoOperacional - impostosValor - despFinanceiras;
     const resultadoLiquido = resultadoAntesDistribuicao - despDistribuicao;
     ivaAccumQuarter += impostosValor;
@@ -4735,7 +4737,7 @@ function computeCenario(months, custos, reais){
     // base das métricas = faturamento total − IVA (das finanças) − comissão das plataformas (com o IVA da comissão): são descontados antes da conta
     const fica = receita - impostosValor - despComissao, cmvReal = fica > 0 ? cmvValor / fica * 100 : 0;
     monthlyDRE.push({ mes, receita, cmvPct, cmvReal, fica, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, despComissao, totalOperacionais, resultadoOperacional,
-      impostosValor, ivaPct, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
+      impostosValor, ivaPct, ivaDelEur, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
     cashCumulative: monthlyDRE[11].cashCumulative, cashCumulativeBeforeDist: monthlyDRE[11].cashCumulativeBeforeDist };
