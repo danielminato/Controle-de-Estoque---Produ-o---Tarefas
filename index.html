@@ -3732,6 +3732,7 @@ function sincronizarReais(months){
     const F = fechDe(i);
     if(F && F.rec > 0){ m.real = true; m.modo = 'eur'; m.valorEur = Math.round(F.rec * 100) / 100; m.fonte = 'manual'; m.sim = null; }
     else if(m.real && !(m.valorEur > 0) && faturadoControle[i] > 0){ m.modo = 'eur'; m.valorEur = Math.round(faturadoControle[i] * 100) / 100; m.fonte = 'manual'; m.sim = null; }
+    else if(m.real && !(m.valorEur > 0) && !(faturadoControle[i] > 0)){ m.real = false; m.modo = 'eur'; }   // "realizado" sem nenhum valor é uma projeção por preencher
   });
 }
 function editScenario(id){
