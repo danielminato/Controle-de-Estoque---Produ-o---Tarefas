@@ -5007,11 +5007,28 @@ function renderComparacaoLista(){
     nome: c.nome, r: computeCenario(migrarSazonalidade(c.sazonalidade), migrarCustos(c.custos), custosReais)
   })));
 }
+// dica instantânea dos quadrados da comparação (o "title" do navegador demora, falha ao refazer a tabela e não existe no telemóvel)
+(function(){
+  let box = null;
+  const ensure = () => { if(!box){ box = document.createElement('div'); box.style.cssText = 'position:fixed;z-index:99999;pointer-events:none;background:#1f2937;color:#fff;font-size:12px;line-height:1.35;padding:6px 9px;border-radius:6px;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;'; document.body.appendChild(box); } return box; };
+  const mostrar = (el, ev) => {
+    const b = ensure(); b.textContent = el.getAttribute('data-tip'); b.style.display = 'block';
+    const r = el.getBoundingClientRect(), w = b.offsetWidth, h = b.offsetHeight;
+    let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8;
+    if(y < 4) y = r.bottom + 8;
+    x = Math.max(4, Math.min(x, window.innerWidth - w - 4));
+    b.style.left = x + 'px'; b.style.top = y + 'px';
+  };
+  const esconder = () => { if(box) box.style.display = 'none'; };
+  document.addEventListener('mouseover', ev => { const el = ev.target.closest && ev.target.closest('.cmpTip'); if(el) mostrar(el, ev); else esconder(); });
+  document.addEventListener('click', ev => { const el = ev.target.closest && ev.target.closest('.cmpTip'); if(el) mostrar(el, ev); else esconder(); });
+  document.addEventListener('scroll', esconder, true);
+})();
 function htmlComparacao(itens){
   itens.forEach(it=>{ it.s = resumoSePaga(it.r.monthlyDRE); it.semFat = it.r.annualRevenue <= 0; });
   const tira = it => it.semFat
     ? '<span style="font-size:11px;color:var(--text-soft);">sem faturamento definido</span>'
-    : it.r.monthlyDRE.map((d,i)=>`<span title="${MESES[i]}: ${fmtEUR(d.resultadoAntesDistribuicao)}" style="display:inline-block;width:15px;height:15px;margin-right:2px;border-radius:3px;background:${it.s.meses[i]?'var(--ok-text)':'var(--danger-text)'};"></span>`).join('');
+    : it.r.monthlyDRE.map((d,i)=>`<span class="cmpTip" data-tip="${MESES[i]}: faturamento ${fmtEUR(d.receita)} · resultado ${fmtEUR(d.resultadoAntesDistribuicao)} · ${it.s.meses[i]?'se paga':'faltaria'}" style="display:inline-block;width:15px;height:15px;padding:0 1px;box-sizing:content-box;background-clip:content-box;cursor:pointer;border-radius:3px;background-color:${it.s.meses[i]?'var(--ok-text)':'var(--danger-text)'};"></span>`).join('');
   let html = '<div style="overflow-x:auto;"><table class="dre-table"><tr><th>Indicador</th>' + itens.map(it=>`<th${it.atual?' style="color:var(--primary);"':''}>${it.nome}</th>`).join('') + '</tr>';
   html += '<tr><td>Meses (Jan → Dez)</td>' + itens.map(it=>`<td style="text-align:left;">${it.semFat ? '' : MESES.map(m=>`<span style="display:inline-block;width:15px;margin-right:2px;font-size:8px;text-align:center;color:var(--text-soft);">${m[0]}</span>`).join('')}</td>`).join('') + '</tr>';
   html += '<tr><td>Quando se paga</td>' + itens.map(it=>`<td style="text-align:left;">${tira(it)}</td>`).join('') + '</tr>';
