@@ -3976,7 +3976,11 @@ function fatSetSim(i, k1, k2, val){
   renderExpenses(); computeAndRenderCards();
 }
 // promoção do mês: desconto % (o CMV desse mês sobe porque a receita desce e o custo da comida é o mesmo)
-function fatSetPromo(i, val){ editState.months[i].promo = Math.min(90, Math.max(0, parseFloat(String(val).replace(',', '.')) || 0)); renderExpenses(); computeAndRenderCards(); }
+function fatSetPromo(i, val){
+  editState.months[i].promo = Math.min(90, Math.max(0, parseFloat(String(val).replace(',', '.')) || 0));
+  // mudar a promoção refaz o CMV do mês: descarta o CMV que tinhas escrito à mão nesse mês
+  const pc = editState.custos.proj && editState.custos.proj.cmv; if(pc) pc[i] = null;
+  renderExpenses(); computeAndRenderCards(); }
 // menu de almoço: vem de Produção › Menus (preço e CMV médio das combinações possíveis)
 let menusLoja = null, menusLojaPronto = false;
 function menuPickerHtml(c){
@@ -4062,9 +4066,9 @@ function updateProj(campo, i, val){
   const c = editState.custos; c.proj = c.proj || {}; c.proj[campo] = c.proj[campo] || Array(12).fill(null);
   let v = (val === '' || val == null) ? null : Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
   if(campo === 'cmv' && v != null){
-    // o que escreves é o CMV sobre o faturamento sem IVA; guardo-o sobre o faturamento total, antes da promoção
-    const d = computeCenario(editState.months, c, custosReais).monthlyDRE[i], pr = Math.min(90, editState.months[i].promo || 0) / 100;
-    if(d.receita > 0 && d.fica > 0) v = v * (d.fica / d.receita) * (1 - pr);
+    // o que escreves é o CMV real do mês (sobre o faturamento sem IVA e plataformas, já com a promoção); guardo-o sobre o faturamento total
+    const d = computeCenario(editState.months, c, custosReais).monthlyDRE[i];
+    if(d.receita > 0 && d.fica > 0) v = v * (d.fica / d.receita);
   }
   c.proj[campo][i] = v;
   renderExpenses(); computeAndRenderCards();
@@ -4072,8 +4076,8 @@ function updateProj(campo, i, val){
 function resetProj(){ editState.custos.proj = null; renderExpenses(); computeAndRenderCards(); }
 function projRowsHtml(c, MED, dre){
   const nf = (v, d) => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
-  // CMV do mês sobre o faturamento sem IVA, sem a promoção: é o que se mostra e se escreve
-  const cmvRealMes = i => { const d = dre && dre[i]; return d ? d.cmvReal * (1 - Math.min(90, (editState.months[i] && editState.months[i].promo) || 0) / 100) : 0; };
+  // CMV real do mês (sobre o faturamento sem IVA e plataformas, já com a promoção): é o que se mostra e se escreve
+  const cmvRealMes = i => { const d = dre && dre[i]; return d ? d.cmvReal : 0; };
   const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
   const fila = (rot, campo, step) => `<tr><td class="dia">${rot}</td>` + MESES.map((_, i) => {
     const F = fechDe(i);
@@ -4083,7 +4087,7 @@ function projRowsHtml(c, MED, dre){
   }).join('') + '</tr>';
   return secao(`CUSTOS (meses fechados = real; projeções = média dos ${MED.n} meses fechados, podes alterar)`) +
     fila('Pessoal (salários, pró-labore, seg. social) €', 'pes', 10) + fila('Ocupação (renda) €', 'ocu', 10) + fila('Administrativas €', 'adm', 10) +
-    fila('Financeiras (empréstimos, juros) €', 'fin', 10) + fila('Retiradas de lucro, além do pró-labore €', 'ret', 10) + fila('CMV (% do faturamento sem IVA e plataformas)', 'cmv', 0.5) +
+    fila('Financeiras (empréstimos, juros) €', 'fin', 10) + fila('Retiradas de lucro, além do pró-labore €', 'ret', 10) + fila('CMV real (% do faturamento sem IVA e plataformas, já com a promoção do mês)', 'cmv', 0.5) +
     `<tr><td class="dia" colspan="13" style="text-align:left;"><button class="btn-ghost" onclick="FX.resetProj()">Voltar tudo à média</button></td></tr>`;
 }
 // previsto de cada mês ainda não fechado, guardado dentro do cenário (custos.previsto['AAAA-MM'])
@@ -4786,7 +4790,9 @@ function computeCenario(months, custos, reais){
     if(MED && !F){ const o = custos.proj && custos.proj.cmv ? custos.proj.cmv[i] : null; cmvPct = (o != null) ? o : cmvMisto(months, i, custos, MED, DEL).pct; }
     if(F) cmvPct = F.cmv / F.rec * 100;
     // promoção do mês: o custo da comida é o mesmo mas a receita é menor, por isso o CMV % sobe (CMV ÷ (1 − desconto))
-    if(!F && m.promo > 0) cmvPct = cmvPct / (1 - Math.min(90, m.promo) / 100);
+    // (se escreveste o CMV desse mês na tabela de despesas, esse valor já é o final e não leva a promoção outra vez)
+    const cmvEscrito = custos.proj && custos.proj.cmv && custos.proj.cmv[i] != null;
+    if(!F && m.promo > 0 && !cmvEscrito) cmvPct = cmvPct / (1 - Math.min(90, m.promo) / 100);
     // comissão do delivery: % das vendas de delivery (só nos meses projetados; nos fechados já está nos custos reais)
     const ppc = F ? null : partesMes(months, i), dpar = delParams(custos, DEL, MED), despComissao = F ? (F.com || 0) : ppc ? (ppc.del || 0) * (dpar.com / 100) * (1 + dpar.ivaCom / 100) : 0;
     const cmvValor = receita * (cmvPct/100);
