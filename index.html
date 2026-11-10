@@ -3716,6 +3716,7 @@ editState.perfil = defaultPerfil(editState.months);
 function newScenario(){
   editingId = null;
   editState = { days: defaultDias(), months: defaultSazonalidade(), custos: defaultCustos() };
+  sincronizarReais(editState.months);
   editState.perfil = defaultPerfil(editState.months);
   // o IVA definido no Ponto de equilíbrio (ex.: 14%) manda; sem ele, usa o líquido real dos meses completos
   const ivaBase = ivaLiquidoReal != null ? ivaLiquidoReal : ivaManual;
@@ -3725,6 +3726,14 @@ function newScenario(){
   renderDays(); renderMonths(); renderExpenses(); computeAndRenderCards();
   showView('editor');
 }
+// meses fechados: o faturamento é o da página de IVA (fechamento), em qualquer cenário, novo ou antigo
+function sincronizarReais(months){
+  months.forEach((m, i) => {
+    const F = fechDe(i);
+    if(F && F.rec > 0){ m.real = true; m.modo = 'eur'; m.valorEur = Math.round(F.rec * 100) / 100; m.fonte = 'manual'; m.sim = null; }
+    else if(m.real && !(m.valorEur > 0) && faturadoControle[i] > 0){ m.modo = 'eur'; m.valorEur = Math.round(faturadoControle[i] * 100) / 100; m.fonte = 'manual'; m.sim = null; }
+  });
+}
 function editScenario(id){
   const c = cenarios.find(x=>x.id===id); if(!c) return;
   editingId = id;
@@ -3733,6 +3742,7 @@ function editScenario(id){
     months: migrarSazonalidade(c.sazonalidade),
     custos: migrarCustos(c.custos)
   };
+  sincronizarReais(editState.months);
   editState.perfil = migrarPerfil(c.dias_turnos?.perfil, editState.months);
   document.getElementById('cenNome').value = c.nome;
   loadCustosToForm(editState.custos);
