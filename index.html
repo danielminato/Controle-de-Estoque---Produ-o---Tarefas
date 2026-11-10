@@ -3936,7 +3936,7 @@ function simplificarMeses(){
   const vals = M.map((m,i)=> receitaMesI(M, i)), partes = M.map((m,i)=> partesMes(M, i));
   M.forEach((m,i)=>{
     // mês montado por clientes: mantém o modo; o faturamento é o que os clientes × ticket dão
-    if(m.fonte === 'montar' && m.sim && !m.real){ m.valorEur = Math.round(vals[i] * 100) / 100; m.modo = 'eur'; return; }
+    if(m.fonte === 'montar' && m.sim && !m.real){ m.modo = 'eur'; return; }   // o faturamento escrito (valorEur) fica guardado, sem contar
     if((m.fonte || 'manual') !== 'manual' || m.modo !== 'eur'){
       const p = partes[i];
       if(p.total > 0){ m.pctAlmoco = Math.round(p.alm / p.total * 100); m.pctDelivery = Math.round(p.del / p.total * 100); m.pctJantar = Math.max(0, 100 - m.pctAlmoco - m.pctDelivery); }
@@ -3949,18 +3949,24 @@ function setFatMes(i){ fatMesSel = i; renderFatMes(); }
 function setFatModo(i, modo){
   const m = editState.months[i]; if(m.real) return;
   if(modo === 'montar'){
-    const c = cfgFat(), tk = ticketsCenario(), p = partesMes(editState.months, i), n = nDiasSemFds(i), w = c.pesoFds, den = n.sem + w * n.fds, DELm = (typeof mediaDelivery === 'function') ? mediaDelivery() : null;
-    const cl = (eur, t) => (den > 0 && t > 0) ? Math.round(eur / den / t * 10) / 10 : 0;   // arranca com os clientes que dão o faturamento de agora
-    const tkD = DELm && DELm.preco > 0 ? Math.round(DELm.preco * 100) / 100 : 0, dias = n.sem + n.fds;
-    m.sim = { alm: { ticket: null, clSem: cl(p.alm, tk.alm), clFds: Math.round(cl(p.alm, tk.alm) * w * 10) / 10 },
-              jan: { ticket: null, clSem: cl(p.jan, tk.jan), clFds: Math.round(cl(p.jan, tk.jan) * w * 10) / 10 },
-              delivery: Math.round(p.del), delPiz: tkD > 0 ? Math.round(p.del / tkD / dias * 10) / 10 : null, delTk: tkD > 0 ? tkD : null, base: 'anterior', varAlm: 0, varJan: 0 };
+    // um método OU o outro: ao escolher as vendas, parte do zero (o faturamento escrito fica guardado, mas deixa de contar enquanto este método estiver ativo)
+    const DELm = (typeof mediaDelivery === 'function') ? mediaDelivery() : null, tkD = DELm && DELm.preco > 0 ? Math.round(DELm.preco * 100) / 100 : 0;
+    m.sim = { alm: { ticket: null, clSem: 0, clFds: 0 }, jan: { ticket: null, clSem: 0, clFds: 0 }, delivery: 0, delPiz: tkD > 0 ? 0 : null, delTk: tkD > 0 ? tkD : null, base: 'anterior', varAlm: 0, varJan: 0 };
     m.fonte = 'montar'; m.modo = 'eur';
   }else{
-    const p = partesMes(editState.months, i);
-    m.valorEur = Math.round(p.total * 100) / 100; m.modo = 'eur'; m.fonte = 'manual'; m.sim = null;
-    if(p.total > 0){ m.pctAlmoco = Math.round(p.alm / p.total * 100); m.pctDelivery = Math.round(p.del / p.total * 100); m.pctJantar = Math.max(0, 100 - m.pctAlmoco - m.pctDelivery); }
+    m.modo = 'eur'; m.fonte = 'manual'; m.sim = null;   // volta ao faturamento que estava escrito na tabela
   }
+  renderExpenses(); computeAndRenderCards();
+}
+// opcional: preenche os clientes com os que dariam o faturamento escrito na tabela (para partir de um ponto conhecido)
+function fatSeedSim(i){
+  const m = editState.months[i]; if(!m.sim || m.real) return;
+  const c = cfgFat(), tk = ticketsCenario(), n = nDiasSemFds(i), w = c.pesoFds, den = n.sem + w * n.fds, tot = m.valorEur || 0;
+  const a = m.pctAlmoco || 0, j = m.pctJantar || 0, d = m.pctDelivery || 0, s = (a + j + d) || 1, alm = tot * a / s, jan = tot * j / s, del = tot * d / s;
+  const cl = (eur, t) => (den > 0 && t > 0) ? Math.round(eur / den / t * 10) / 10 : 0;
+  m.sim.alm.clSem = cl(alm, tk.alm); m.sim.alm.clFds = Math.round(m.sim.alm.clSem * w * 10) / 10;
+  m.sim.jan.clSem = cl(jan, tk.jan); m.sim.jan.clFds = Math.round(m.sim.jan.clSem * w * 10) / 10;
+  const dias = n.sem + n.fds; if(m.sim.delPiz != null && m.sim.delTk > 0) m.sim.delPiz = Math.round(del / m.sim.delTk / dias * 10) / 10; else m.sim.delivery = Math.round(del);
   renderExpenses(); computeAndRenderCards();
 }
 function fatSetSim(i, k1, k2, val){
@@ -4383,6 +4389,12 @@ function renderFatMes(){
       ? `<td style="color:${d < 0 ? 'var(--danger)' : 'var(--ok)'};">${pct(d)}</td>`
       : `<td><input type="number" step="0.1" value="${d.toFixed(1)}" style="width:84px;font-size:13px;padding:6px 4px;text-align:center;" onchange="FX.fatSetPct(${i},this.value)"></td>`;
   }).join('') + '</tr>';
+  // método de projeção de cada mês: ou o faturamento (total / queda %), ou a expectativa de vendas (clientes × ticket)
+  h += '<tr><td class="dia">Projetado com base em<div style="font-size:9px;font-weight:400;color:var(--text-soft);">um método ou o outro, por mês</div></td>' + M.map((m,i)=>{
+    if(m.real) return '<td style="font-size:11px;color:var(--ok);">realizado</td>';
+    const mt = m.fonte === 'montar' && m.sim;
+    return `<td><select style="font-size:11px;padding:4px 2px;max-width:112px;${mt ? 'color:var(--primary);font-weight:700;' : ''}" onchange="FX.setFatModo(${i},this.value)"><option value="manual" ${mt ? '' : 'selected'}>Faturamento (total ou %)</option><option value="montar" ${mt ? 'selected' : ''}>Vendas (clientes × ticket)</option></select></td>`;
+  }).join('') + '</tr>';
   tb.innerHTML = h;
 
   // ---- divisão do mês escolhido ----
@@ -4414,9 +4426,9 @@ function renderFatMes(){
     montHtml = `<div style="overflow-x:auto;margin:0 0 10px;"><table class="grid-table"><tr><td class="dia"></td><td style="font-weight:700;">Ticket médio (€)</td><td style="font-weight:700;">Clientes/dia<div style="font-size:9px;font-weight:400;">Seg–Qui (${n.sem} dias)</div></td><td style="font-weight:700;">Clientes/dia<div style="font-size:9px;font-weight:400;">Sex–Dom (${n.fds} dias)</div></td><td style="font-weight:700;">Faturamento do mês</td></tr>
       ${linhaS('Almoço', 'alm', tkS.alm)}${linhaS('Jantar', 'jan', tkS.jan)}${linhaD}
       <tr><td class="dia" style="font-weight:700;">Total do mês</td><td colspan="3"></td><td style="font-weight:700;">${fmtEUR(p.total)}</td></tr></table></div>
-      <div style="margin:0 0 10px;"><button class="btn-ghost" onclick="FX.copiarSim(${i})">Copiar estes clientes para os meses seguintes (que não são realizados)</button></div>`;
+      <div style="margin:0 0 10px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-ghost" onclick="FX.copiarSim(${i})">Copiar estes clientes para os meses seguintes (que não são realizados)</button>${(m.valorEur || 0) > 0 ? `<button class="btn-ghost" onclick="FX.fatSeedSim(${i})">Partir do faturamento escrito (${fmtEUR(m.valorEur)})</button>` : ''}</div>`;
   }
-  const modoHtml = m.real ? '' : `<div style="display:flex;gap:18px;flex-wrap:wrap;margin:0 0 10px;"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="fatModo" ${mont ? '' : 'checked'} onchange="FX.setFatModo(${i},'manual')"> Escrever o faturamento do mês (total na tabela)</label><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="fatModo" ${mont ? 'checked' : ''} onchange="FX.setFatModo(${i},'montar')"> Montar pelos clientes de cada serviço</label></div>`;
+  const modoHtml = m.real ? '' : `<div style="display:flex;gap:18px;flex-wrap:wrap;margin:0 0 10px;"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="fatModo" ${mont ? '' : 'checked'} onchange="FX.setFatModo(${i},'manual')"> Projetado com base no <b>faturamento</b> (total ou queda % na tabela)</label><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0;"><input type="radio" name="fatModo" ${mont ? 'checked' : ''} onchange="FX.setFatModo(${i},'montar')"> Projetado com base na <b>expectativa de vendas</b> (clientes × ticket)</label></div><div style="font-size:12px;margin:0 0 10px;padding:6px 10px;border-radius:6px;background:${mont ? 'var(--cream,#f5efe6)' : 'transparent'};color:var(--text-soft);">Em uso neste mês: <b style="color:var(--primary);">${mont ? 'expectativa de vendas' : 'faturamento'}</b>. O outro método fica guardado mas não conta.</div>`;
   const tot = p.total, dias = n.sem + n.fds, mediaDia = dias ? tot / dias : 0;
   const cmvEf = (!c.ticketIgual && !m.real && tot > 0) ? (p.alm * c.cmvAlm + (p.jan + p.del) * c.cmvJan) / tot : ((editState.custos.cmvMes && editState.custos.cmvMes[i] != null) ? editState.custos.cmvMes[i] : c.cmv);
   const dreI = computeCenario(editState.months, editState.custos, custosReais).monthlyDRE[i];
@@ -5378,7 +5390,7 @@ function exportEscSchedule(){
 }
 
 
-  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, setFatModo, fatSetSim, fatSetPromo, usarMenuAlmoco, fechSetCen, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirFechamento, abrirPlano27, updateProj, resetProj, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
+  return { addEscArea, addEscEmployee, autofillEscWeek, deleteScenario, editScenario, setFatModo, fatSetSim, fatSeedSim, fatSetPromo, usarMenuAlmoco, fechSetCen, fechSelMes, fechCalc, fechSalvar, fechLimpar, abrirFechamento, abrirPlano27, updateProj, resetProj, p27Set, p27Toggle, p27Reset, setFatMes, fatSet, fatSetPct, fatSetMix, fatSetCfg, usarRealControle, usarIvaLiquido, setSimMes, setSimFonte, updateSim, setSimBase, setBaseAlmoco, setEsperado, copiarSim, repetirCustos, updateMonthPct, updateMonthEur, updatePerfil, updatePerfilGeral, recalcPerfil, setPerfilVista, exportEscSchedule, newScenario, removeEscArea, removeEscEmployee, saveScenario, setEscDay, setEscTurno, setReferencia, showView, toggleEscAssign, toggleEscFolga, toggleEscOpen, toggleMonthModo, toggleMonthReal, updateDay, updateEscArea, updateEscEmp, updateEscNeed, updateExpense, updateMonthMix, updateMonthValue, alternarReais, abrirCenarios, abrirEscalas, invalidarEscalas };
 })();
 
 // ---------- IMPASTO (massa de biga) ----------
