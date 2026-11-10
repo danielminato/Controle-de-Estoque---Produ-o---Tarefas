@@ -4343,11 +4343,12 @@ function renderFatMes(){
   const A = tp('Almoço', p.alm, tkA), J = tp('Jantar', p.jan, tkJ);
   const tot = p.total, dias = n.sem + n.fds, mediaDia = dias ? tot / dias : 0;
   const cmvEf = (!c.ticketIgual && !m.real && tot > 0) ? (p.alm * c.cmvAlm + (p.jan + p.del) * c.cmvJan) / tot : ((editState.custos.cmvMes && editState.custos.cmvMes[i] != null) ? editState.custos.cmvMes[i] : c.cmv);
-  const promoCmv = computeCenario(editState.months, editState.custos, custosReais).monthlyDRE[i].cmvPct;
+  const dreI = computeCenario(editState.months, editState.custos, custosReais).monthlyDRE[i];
+  const promoCmv = dreI.cmvReal;   // CMV real do mês: sobre o que fica para ti (sem IVA nem plataformas)
   const MEDr = fechMedias(), DELr = (typeof mediaDelivery === 'function') ? mediaDelivery() : null, dpar = delParams(c, DELr, MEDr);
   const tetoCmv = c.tetoCmv == null ? 35 : c.tetoCmv;   // teto de CMV que aceitas atingir com promoções
-  let cmvSemPromo = promoCmv;
-  if(!fechDe(i)){ const ov = c.proj && c.proj.cmv ? c.proj.cmv[i] : null; cmvSemPromo = ov != null ? ov : (MEDr ? cmvMisto(editState.months, i, c, MEDr, DELr).pct : promoCmv); }
+  // sem a promoção: receita, IVA e plataformas encolhem na mesma proporção, por isso o CMV real é o de agora × (1 − desconto)
+  const cmvSemPromo = fechDe(i) ? promoCmv : promoCmv * (1 - Math.min(90, m.promo || 0) / 100);
   const descMax = cmvSemPromo > 0 && tetoCmv > cmvSemPromo ? Math.min(90, (1 - cmvSemPromo / tetoCmv) * 100) : 0;
   let blendHtml = '';
   if(fechDe(i)) blendHtml = '<p class="desc" style="margin:0 0 10px;">Mês fechado: o CMV, o IVA e os custos são os reais do fechamento. As contas de delivery, promoção e menu só valem nos meses projetados.</p>';
@@ -4358,7 +4359,7 @@ function renderFatMes(){
     const platHtml = dRev > 0
       ? `<br><b>Plataformas de delivery:</b> ${fmtEUR(dRev)} de vendas${tkD > 0 ? ` (≈ ${nf(nPiz, 0)} pizzas ao ticket médio de ${nf(tkD, 2)} €)` : ''} → comissão de ${nf(bl.com, 0)}% = ${fmtEUR(comE)} + IVA de ${nf(bl.ivaCom, 0)}% sobre a comissão = ${fmtEUR(ivaE)} → <b>${fmtEUR(comE + ivaE)}</b> (${nf(bl.com * (1 + bl.ivaCom / 100), 1)}% das vendas de delivery${tkD > 0 ? `; por pizza ${nf(comPiz, 2)} € + ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(comPiz * (1 + bl.ivaCom / 100), 2)} €` : ''}). Está em linha própria nas saídas.${tkD > 0 ? `<br><b>Como se forma o preço de uma pizza de ${nf(tkD, 2)} €:</b> valor líquido s/ IVA ${nf(tkD * bl.k, 2)} € + IVA do prato de ${nf(bl.ivaPrato, 0)}% (${nf(tkD * bl.k * bl.ivaPrato / 100, 2)} €) + comissão ${nf(comPiz, 2)} € + IVA da comissão ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(tkD, 2)} €. O CMV real (${nf(bl.cDelNet, 1)}%) é o custo da pizza ÷ esse valor líquido; sobre o preço publicado dá ${nf(bl.cDel, 1)}%, que é a base usada na média do mês.` : ''}`
       : '<br>Sem vendas de delivery neste mês: sem custo de plataforma.';
-    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b>${(m.promo || 0) > 0 ? ` (com a promoção sobe para <b>${cp(promoCmv)}</b>)` : ''}. ${platHtml}</p>`;
+    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b> do faturamento${(m.promo || 0) > 0 ? ` (com a promoção ${cp(dreI.cmvPct)})` : ''}. <b>O CMV real, que é o que conta, é ${cp(dreI.cmvReal)}</b>: o custo da comida (${fmtEUR(dreI.cmvValor)}) ÷ o que fica para ti (${fmtEUR(dreI.fica)} = faturamento ${fmtEUR(dreI.receita)} − IVA ${fmtEUR(dreI.impostosValor)} − plataformas ${fmtEUR(dreI.despComissao)}), porque o IVA é das finanças e a comissão é da plataforma. O teto de ${nf(tetoCmv, 0)}% compara-se com este valor. ${platHtml}</p>`;
   }
   const avisos = [];
   if(seats > 0){
@@ -4377,7 +4378,7 @@ function renderFatMes(){
       <div><label>CMV real do delivery (% do valor líquido s/ IVA)</label>${num('', Math.round(dpar.cmvNet * 10) / 10, 0.5, `FX.fatSetCfg('cmvDelOv',this.value)`)}<div style="font-size:10px;color:var(--text-soft);margin-top:3px;">${DELr ? `média de ${DELr.n} pizzas de delivery das Receitas, o "CMV real" delas (de ${nf(DELr.cmvRealMin, 1)}% a ${nf(DELr.cmvRealMax, 1)}%). Sobre o preço publicado equivale a ${nf(dpar.cmv, 1)}%` : 'sem pizzas de delivery nas Receitas'}</div></div>
       <div><label>Comissão da plataforma (% do delivery)</label>${num('', Math.round(dpar.com * 10) / 10, 1, `FX.fatSetCfg('comDelivery',this.value)`)}</div>
       <div><label>IVA da comissão (%)</label>${num('', Math.round(dpar.ivaCom * 10) / 10, 1, `FX.fatSetCfg('ivaComDelivery',this.value)`)}</div>
-      <div><label>Promoção neste mês: desconto (%)</label>${num('', m.promo || 0, 1, `FX.fatSetPromo(${i},this.value)`)}<div style="font-size:10px;color:${promoCmv > tetoCmv ? 'var(--danger)' : 'var(--text-soft)'};margin-top:3px;">${(m.promo || 0) > 0 ? 'CMV do mês sobe para ' + nf(promoCmv, 1) + '%' + (promoCmv > tetoCmv ? ' ⚠ passa o teto de ' + nf(tetoCmv, 0) + '%' : '') : 'sobe o CMV: o custo é o mesmo, a receita é menor'}${fechDe(i) ? '' : ' · desconto máximo dentro do teto: ' + nf(descMax, 0) + '%'}</div></div>
+      <div><label>Promoção neste mês: desconto (%)</label>${num('', m.promo || 0, 1, `FX.fatSetPromo(${i},this.value)`)}<div style="font-size:10px;color:${promoCmv > tetoCmv ? 'var(--danger)' : 'var(--text-soft)'};margin-top:3px;">${(m.promo || 0) > 0 ? 'CMV real do mês sobe para ' + nf(promoCmv, 1) + '%' + (promoCmv > tetoCmv ? ' ⚠ passa o teto de ' + nf(tetoCmv, 0) + '%' : '') : 'sobe o CMV: o custo é o mesmo, a receita é menor'}${fechDe(i) ? '' : ' · desconto máximo dentro do teto: ' + nf(descMax, 0) + '%'}</div></div>
       <div><label>CMV máximo aceitável (teto, %)</label>${num('', tetoCmv, 1, `FX.fatSetCfg('tetoCmv',this.value)`)}</div>
     </div>
     ${blendHtml}
@@ -4614,7 +4615,8 @@ function renderExpenses(){
   html += linha('<b>Total de entradas</b>', totEntradas.map(v=>`<b>${fmtEUR(v)}</b>`));
   html += secao('SAÍDAS');
   const tetoCmvT = c.tetoCmv == null ? 35 : c.tetoCmv;
-  html += linha('CMV — compras de mercadoria <span style="font-size:9px;font-weight:400;">(vermelho = acima do teto de ' + tetoCmvT + '%)</span>', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;${d.cmvPct > tetoCmvT ? 'color:var(--danger);font-weight:700;' : 'color:var(--text-soft);'}">${(Math.round(d.cmvPct * 10) / 10).toString().replace(".", ",")}%${d.cmvPct > tetoCmvT ? ' ⚠' : ''}</div>`));
+  const p1 = v => (Math.round(v * 10) / 10).toString().replace(".", ",");
+  html += linha('CMV — compras de mercadoria <span style="font-size:9px;font-weight:400;">(% = CMV real, sobre o que fica para ti: faturamento − IVA − plataformas; vermelho = acima do teto de ' + tetoCmvT + '%)</span>', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;${d.cmvReal > tetoCmvT ? 'color:var(--danger);font-weight:700;' : 'color:var(--text-soft);'}">${p1(d.cmvReal)}%${d.cmvReal > tetoCmvT ? ' ⚠' : ''}</div><div style="font-size:9px;color:var(--text-soft);">(${p1(d.cmvPct)}% do faturamento)</div>`));
   html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : ' média'}</div>`));
   html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
@@ -4718,7 +4720,9 @@ function computeCenario(months, custos, reais){
     const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despOcupacao - despAdmin - despComissao - despFinanceiras) - impostosCash;
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
-    monthlyDRE.push({ mes, receita, cmvPct, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, despComissao, totalOperacionais, resultadoOperacional,
+    // CMV real = custo da comida ÷ o que fica para ti (faturamento − IVA − comissão das plataformas): o IVA é das finanças e a comissão é da plataforma
+    const fica = receita - impostosValor - despComissao, cmvReal = fica > 0 ? cmvValor / fica * 100 : 0;
+    monthlyDRE.push({ mes, receita, cmvPct, cmvReal, fica, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, despComissao, totalOperacionais, resultadoOperacional,
       impostosValor, ivaPct, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
   });
   return { monthlyDRE, annualRevenue: monthlyDRE.reduce((s,m)=>s+m.receita,0), annualResult: monthlyDRE.reduce((s,m)=>s+m.resultadoLiquido,0),
