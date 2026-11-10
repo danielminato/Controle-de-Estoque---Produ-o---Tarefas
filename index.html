@@ -4009,22 +4009,30 @@ function fechMedias(){
 }
 function updateProj(campo, i, val){
   const c = editState.custos; c.proj = c.proj || {}; c.proj[campo] = c.proj[campo] || Array(12).fill(null);
-  c.proj[campo][i] = (val === '' || val == null) ? null : Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
+  let v = (val === '' || val == null) ? null : Math.max(0, parseFloat(String(val).replace(',', '.')) || 0);
+  if(campo === 'cmv' && v != null){
+    // o que escreves é o CMV sobre o faturamento sem IVA; guardo-o sobre o faturamento total, antes da promoção
+    const d = computeCenario(editState.months, c, custosReais).monthlyDRE[i], pr = Math.min(90, editState.months[i].promo || 0) / 100;
+    if(d.receita > 0 && d.fica > 0) v = v * (d.fica / d.receita) * (1 - pr);
+  }
+  c.proj[campo][i] = v;
   renderExpenses(); computeAndRenderCards();
 }
 function resetProj(){ editState.custos.proj = null; renderExpenses(); computeAndRenderCards(); }
-function projRowsHtml(c, MED){
+function projRowsHtml(c, MED, dre){
   const nf = (v, d) => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
+  // CMV do mês sobre o faturamento sem IVA, sem a promoção: é o que se mostra e se escreve
+  const cmvRealMes = i => { const d = dre && dre[i]; return d ? d.cmvReal * (1 - Math.min(90, (editState.months[i] && editState.months[i].promo) || 0) / 100) : 0; };
   const secao = rot => `<tr><td class="dia" colspan="13" style="background:var(--bg,#f1f4f9);color:var(--primary);font-weight:700;font-size:11px;letter-spacing:.5px;padding:8px 6px;">${rot}</td></tr>`;
   const fila = (rot, campo, step) => `<tr><td class="dia">${rot}</td>` + MESES.map((_, i) => {
     const F = fechDe(i);
-    if(F){ const v = campo === 'cmv' ? F.cmv / F.rec * 100 : F[campo]; return `<td style="color:var(--text-soft);" title="Mês fechado: valor real">${campo === 'cmv' ? nf(v, 1) + '%' : fmtEUR(v)}<div style="font-size:9px;">✓ real</div></td>`; }
-    const ov = c.proj && c.proj[campo] ? c.proj[campo][i] : null, v = ov != null ? ov : MED[campo];
+    if(F){ const v = campo === 'cmv' ? cmvRealMes(i) : F[campo]; return `<td style="color:var(--text-soft);" title="Mês fechado: valor real">${campo === 'cmv' ? nf(v, 1) + '%' : fmtEUR(v)}<div style="font-size:9px;">✓ real</div></td>`; }
+    const ov = c.proj && c.proj[campo] ? c.proj[campo][i] : null, v = campo === 'cmv' ? cmvRealMes(i) : (ov != null ? ov : MED[campo]);
     return `<td><input type="number" min="0" step="${step}" value="${campo === 'cmv' ? Math.round(v * 10) / 10 : Math.round(v)}" style="${ov != null ? 'font-weight:700;' : ''}" onchange="FX.updateProj('${campo}',${i},this.value)"></td>`;
   }).join('') + '</tr>';
   return secao(`CUSTOS (meses fechados = real; projeções = média dos ${MED.n} meses fechados, podes alterar)`) +
     fila('Pessoal (salários, pró-labore, seg. social) €', 'pes', 10) + fila('Ocupação (renda) €', 'ocu', 10) + fila('Administrativas €', 'adm', 10) +
-    fila('Financeiras (empréstimos, juros) €', 'fin', 10) + fila('Retiradas de lucro, além do pró-labore €', 'ret', 10) + fila('CMV (% da receita)', 'cmv', 0.5) +
+    fila('Financeiras (empréstimos, juros) €', 'fin', 10) + fila('Retiradas de lucro, além do pró-labore €', 'ret', 10) + fila('CMV (% do faturamento sem IVA e plataformas)', 'cmv', 0.5) +
     `<tr><td class="dia" colspan="13" style="text-align:left;"><button class="btn-ghost" onclick="FX.resetProj()">Voltar tudo à média</button></td></tr>`;
 }
 // previsto de cada mês ainda não fechado, guardado dentro do cenário (custos.previsto['AAAA-MM'])
@@ -4048,7 +4056,7 @@ function fechPrevHtml(i, cur){
   if(!cands.length) return '<h3 style="font-size:15px;margin:0 0 6px;">Previsto × real</h3><p class="desc" style="margin:0;">Ainda não há previsto guardado para este mês. Abre um cenário, confere os valores e clica em Guardar: o previsto de cada mês ainda por fechar fica guardado e, depois do fecho, confrontas aqui com o real.</p>';
   const sel = cands.find(c => c.id === fechCenId) || cands[0], P = sel.custos.previsto[k];
   const nf1 = v => (v || 0).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  const linhas = [['Faturamento total', P.rec, cur.rec, 1], ['CMV (% do faturamento)', P.cmvPct, cur.rec > 0 ? cur.cmv / cur.rec * 100 : 0, 0, 1], ['CMV (€)', P.cmv, cur.cmv, 0], ['IVA', P.iva, cur.iva, 0],
+  const linhas = [['Faturamento total', P.rec, cur.rec, 1], ['CMV (% do faturamento líquido)', (P.rec - P.iva - (P.com || 0)) > 0 ? P.cmv / (P.rec - P.iva - (P.com || 0)) * 100 : 0, (cur.rec - cur.iva - (cur.com || 0)) > 0 ? cur.cmv / (cur.rec - cur.iva - (cur.com || 0)) * 100 : 0, 0, 1], ['CMV (€)', P.cmv, cur.cmv, 0], ['IVA', P.iva, cur.iva, 0],
     ['Pessoal', P.pes, cur.pes, 0], ['Ocupação', P.ocu, cur.ocu, 0], ['Administrativas', P.adm, cur.adm, 0], ['Financeiras', P.fin, cur.fin, 0], ['Plataformas de delivery (comissão + IVA)', P.com || 0, cur.com || 0, 0], ['Retiradas de lucro', P.ret, cur.ret, 0], ['Resultado líquido', P.res, cur.res, 1]];
   const cel = v => 0;
   let h = `<h3 style="font-size:15px;margin:0 0 6px;">Previsto × real</h3><div style="margin-bottom:8px;font-size:13px;">Previsto do cenário <select onchange="FX.fechSetCen(this.value)">${cands.map(c => `<option value="${c.id}" ${c.id === sel.id ? 'selected' : ''}>${String(c.nome).replace(/[<>&"]/g, '')}</option>`).join('')}</select> <span style="color:var(--text-soft);">guardado a ${new Date(P.em).toLocaleDateString('pt-PT')}</span></div>`;
@@ -4092,10 +4100,12 @@ function fechCalc(){
   const i = fechSel, f = fechLerForm(), ivaI = fechIva(i, f.rec), P = i > 0 ? fechDe(i - 1) : null, ivaP = P ? fechIva(i - 1, P.rec).v : 0;
   const cur = { rec:f.rec, cmv:f.cmv, iva:ivaI.v, pes:f.pes, ocu:f.ocu, adm:f.adm, fin:f.fin, com:f.com, ret:f.ret, res:fechResultado(f, ivaI.v) };
   const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, com:P.com || 0, ret:P.ret, res:fechResultado(P, ivaP) } : null;
-  const nf1 = v => v.toFixed(1).replace('.', ',');
+  const nf1 = v => v.toFixed(1).replace('.', ','), baseSemIva = f.rec - ivaI.v - f.com;
+  const bEl = document.getElementById('fc_base'); if(bEl) bEl.textContent = f.rec > 0 ? `Base das percentagens: faturamento líquido = ${fmtEUR(f.rec)} − ${fmtEUR(ivaI.v)} de IVA${f.com > 0 ? ` − ${fmtEUR(f.com)} de plataformas` : ''} = ${fmtEUR(baseSemIva)}.` : '';
   FECH_LINHAS.forEach(([k, , boa]) => {
     const pc = document.getElementById('fc_pc_' + k), vr = document.getElementById('fc_vr_' + k);
-    if(pc) pc.textContent = k === 'res' || f.rec > 0 ? nf1(cur[k] / (f.rec || 1) * 100) + '%' : '—';
+    // as % medem-se sobre o faturamento líquido (sem IVA e sem plataformas); só a receita (100% do total) e o próprio IVA (% do total) ficam sobre o faturamento total
+    if(pc) pc.textContent = !(f.rec > 0) ? '—' : (k === 'rec' || k === 'iva') ? nf1(cur[k] / f.rec * 100) + '%' + (k === 'rec' ? ' (total)' : ' do total') : baseSemIva > 0 ? nf1(cur[k] / baseSemIva * 100) + '%' : '—';
     if(vr){
       if(!prev){ vr.textContent = '—'; vr.style.color = ''; return; }
       if(k === 'res'){ const d = cur[k] - prev[k]; vr.textContent = (d > 0 ? '+' : '') + fmtEUR(d); vr.style.color = d >= 0 ? 'var(--ok)' : 'var(--danger)'; return; }
@@ -4120,7 +4130,7 @@ function renderFech(){
   const prev = P ? { rec:P.rec, cmv:P.cmv, iva:ivaP, pes:P.pes, ocu:P.ocu, adm:P.adm, fin:P.fin, com:P.com || 0, ret:P.ret, res:fechResultado(P, ivaP) } : null;
   let h = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' + MESES.map((m, k) => `<button class="btn-ghost" style="padding:4px 10px;font-weight:700;${k === i ? 'background:var(--cream,#f5efe6);' : ''}" onclick="FX.fechSelMes(${k})">${m}${fechDe(k) ? ' ✓' : ''}</button>`).join('') + '</div>';
   h += `<div style="font-weight:700;margin-bottom:6px;">${MESES_LONGO_FX[i]} ${new Date().getFullYear()} ${F ? '<span style="color:var(--ok);font-weight:400;">· fechado</span>' : '<span style="color:var(--text-soft);font-weight:400;">· ainda não fechado</span>'}</div>`;
-  h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% da receita</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
+  h += '<div style="overflow-x:auto;"><table class="grid-table"><tr><td class="dia">Linha</td><td style="font-weight:700;">Este mês (€)</td><td style="font-weight:700;">% do fat. líquido</td><td style="font-weight:700;">Mês anterior</td><td style="font-weight:700;">Variação</td></tr>';
   FECH_LINHAS.forEach(([k, nome]) => {
     let celula;
     if(k === 'rec' && fatSisMes[i] != null){
@@ -4136,7 +4146,7 @@ function renderFech(){
     else celula = `<input type="number" step="0.01" min="0" id="fc_${k}" ${k === 'rec' && faturadoControle[i] > 0 ? 'readonly title="Vem da página de IVA"' : ''} value="${(k === 'rec' ? rec0 : val(k)).toFixed(2)}" style="width:110px;font-size:13px;padding:6px 4px;text-align:center;" oninput="FX.fechCalc()">`;
     h += `<tr><td class="dia">${nome}</td><td>${celula}</td><td id="fc_pc_${k}" style="color:var(--text-soft);"></td><td style="color:var(--text-soft);">${prev ? fmtEUR(prev[k]) : '—'}</td><td id="fc_vr_${k}"></td></tr>`;
   });
-  h += '</table></div>';
+  h += '</table></div><div id="fc_base" style="font-size:12px;color:var(--text-soft);margin-top:6px;"></div>';
   h += `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;"><label style="margin:0;">Clientes atendidos no mês (opcional) <input type="number" min="0" id="fc_cli" value="${val('cli') || ''}" style="width:90px;" oninput="FX.fechCalc()"></label><span id="fc_tk" style="font-size:12px;color:var(--text-soft);"></span></div>`;
   h += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="FX.fechSalvar()">Fechar ${MESES_LONGO_FX[i]}</button>${F ? '<button class="btn-ghost" onclick="FX.fechLimpar()">Reabrir o mês</button>' : ''}</div>`;
   h += `<p class="desc" style="margin-top:10px;">A receita é sempre a da página de IVA${faturadoControle[i] ? ' (' + fmtEUR(faturadoControle[i]) + ')' : ' (ainda sem faturado lançado: escreve a da outra app)'}; a da outra app só conta enquanto o mês não tiver faturado lançado. O CMV passa a ser o real do mês e as despesas deste mês no cenário passam a ser estas.</p>`;
@@ -4225,7 +4235,8 @@ function p27Calc(ov){
     let rec = base;
     if(val('a_alm_on')) rec += val('a_alm_cli') * val('a_alm_tk') * val('a_alm_dias');
     if(val('a_tk_on')) rec *= 1 + val('a_tk_v') / 100;
-    const cmvPct = Math.max(0, st.cmvPct - (val('a_cmv_on') ? val('a_cmv_v') : 0));
+    // os pontos percentuais da ação medem-se sobre o faturamento sem IVA; sobre o total valem × (1 − IVA%)
+    const cmvPct = Math.max(0, st.cmvPct - (val('a_cmv_on') ? val('a_cmv_v') * (1 - ivaPct / 100) : 0));
     const cmv = rec * cmvPct / 100, iva = rec * ivaPct / 100;
     const pes = p27Fixo(st, 'pes') * (val('a_pes_on') ? 1 - val('a_pes_v') / 100 : 1), ocu = p27Fixo(st, 'ocu'), adm = p27Fixo(st, 'adm'), fin = p27Fixo(st, 'fin');
     const antes = rec - cmv - iva - pes - ocu - adm - fin;
@@ -4275,20 +4286,21 @@ function renderPlano27(){
     const custom = p27.p['c_' + k] != null && !isNaN(p27.p['c_' + k]);
     h += `<tr><td class="dia">${nome}</td><td>${eur(st.media[k])}</td><td><input type="number" step="1" min="0" value="${Math.round(p27Fixo(st, k))}" style="width:90px;" onchange="FX.p27Set('c_${k}',this.value)">${custom ? ` <button class="btn-ghost" style="padding:2px 6px;font-size:10px;" title="Voltar à média de 2026" onclick="FX.p27Reset('c_${k}')">↺</button>` : ''}</td><td style="color:var(--text-soft);">${eur(ult[k])}</td></tr>`;
   });
-  h += `<tr><td class="dia">CMV (% da receita)</td><td>${pc(st.cmvPct)}</td><td>${pc(st.cmvPct)}</td><td style="color:var(--text-soft);">${pc(ult.cmv / ult.rec * 100)}</td></tr>`;
+  const fi = 1 - (p27.ivaPct != null ? p27.ivaPct : 0) / 100;   // faturamento sem IVA = total × fi
+  h += `<tr><td class="dia">CMV (% do faturamento sem IVA)</td><td>${pc(st.cmvPct / fi)}</td><td>${pc(st.cmvPct / fi)}</td><td style="color:var(--text-soft);">${pc(ult.cmv / (ult.rec * fi) * 100)}</td></tr>`;
   h += `<tr><td class="dia">IVA (% da receita)</td><td>${p27.ivaPct != null ? pc(p27.ivaPct) : '—'}</td><td>${p27.ivaPct != null ? pc(p27.ivaPct) : '—'}</td><td style="color:var(--text-soft);">${ivaPctMes[st.meses[st.meses.length - 1]] != null ? pc(ivaPctMes[st.meses[st.meses.length - 1]]) : '—'}</td></tr></table></div>`;
   // ---- crescimento ----
   h += `<h3 style="margin:16px 0 6px;font-size:14px;">Crescimento sobre 2026</h3><p class="desc" style="margin:0 0 6px;">0% quer dizer "pelo menos igual ao mesmo mês de 2026". A curva sobe em linha reta de janeiro a dezembro.</p><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;"><label style="margin:0;">Janeiro <input type="number" step="0.5" value="${p27V('g_ini')}" style="width:70px;" onchange="FX.p27Set('g_ini',this.value)"> %</label><label style="margin:0;">Dezembro <input type="number" step="0.5" value="${p27V('g_fim')}" style="width:70px;" onchange="FX.p27Set('g_fim',this.value)"> %</label></div>`;
   // ---- ações ----
   const efeito = on => p27Calc(Object.assign({}, P27_OFF, on)).tot.res - semAcoes.tot.res;
   const num = (k, step, w) => `<input type="number" step="${step}" min="0" value="${p27V(k)}" style="width:${w || 60}px;" onchange="FX.p27Set('${k}',this.value)">`;
-  const pesPct = st.mediaRec > 0 ? st.media.pes / st.mediaRec * 100 : 0;
+  const pesPct = st.mediaRec > 0 ? st.media.pes / (st.mediaRec * fi) * 100 : 0;
   const linhaAcao = (id, nome, hip, ctx, on) => `<tr><td style="text-align:center;"><input type="checkbox" ${p27V('a_' + id + '_on') ? 'checked' : ''} onchange="FX.p27Toggle('a_${id}_on')"></td><td class="dia"><b>${nome}</b><div style="font-size:11px;font-weight:400;color:var(--text-soft);">${ctx}</div></td><td style="text-align:left;">${hip}</td><td style="font-weight:700;color:${efeito(on) >= 0 ? 'var(--ok)' : 'var(--danger)'};">${efeito(on) >= 0 ? '+' : ''}${eur(efeito(on))}</td></tr>`;
   h += '<h3 style="margin:16px 0 6px;font-size:14px;">Ações-hipótese</h3><p class="desc" style="margin:0 0 6px;">São hipóteses minhas, para validares no restaurante. Cada uma mostra o que valeria <b>no ano</b> sozinha. Liga as que queres no plano.</p><div style="overflow-x:auto;"><table class="grid-table"><tr><td></td><td class="dia">Ação</td><td style="font-weight:700;">Hipótese</td><td style="font-weight:700;">Valor no ano</td></tr>';
-  h += linhaAcao('cmv', 'Baixar o CMV', `Reduzir ${num('a_cmv_v', 0.5)} pontos percentuais`, `CMV médio de 2026: ${pc(st.cmvPct)} (${st.n} meses). Fichas técnicas e desperdício.`, { a_cmv_on: 1 });
+  h += linhaAcao('cmv', 'Baixar o CMV', `Reduzir ${num('a_cmv_v', 0.5)} pontos percentuais`, `CMV médio de 2026: ${pc(st.cmvPct / fi)} do faturamento sem IVA (${st.n} meses). Fichas técnicas e desperdício.`, { a_cmv_on: 1 });
   h += linhaAcao('alm', 'Ativar o almoço de segunda a quinta', `${num('a_alm_cli', 1)} clientes a mais por dia × ticket ${num('a_alm_tk', 1)} € × ${num('a_alm_dias', 1)} dias por mês`, 'É o serviço com mais lugares livres. Valida quantos clientes cabem.', { a_alm_on: 1 });
   h += linhaAcao('tk', 'Subir o ticket médio', `+${num('a_tk_v', 0.5)}% de receita por cliente`, 'Sobremesas, bebidas, sugestão do dia.', { a_tk_on: 1 });
-  h += linhaAcao('pes', 'Ajustar a escala de pessoal', `Reduzir o pessoal em ${num('a_pes_v', 1)}%`, `Pessoal médio: ${eur(st.media.pes)} por mês = ${pc(pesPct)} da receita média (referência 30 a 35%).`, { a_pes_on: 1 });
+  h += linhaAcao('pes', 'Ajustar a escala de pessoal', `Reduzir o pessoal em ${num('a_pes_v', 1)}%`, `Pessoal médio: ${eur(st.media.pes)} por mês = ${pc(pesPct)} do faturamento médio sem IVA (referência 30 a 35%).`, { a_pes_on: 1 });
   h += linhaAcao('ret', 'Retiradas só quando sobra', 'Retirar no máximo o que o mês deixa depois de pagar tudo', `Retirada média de 2026: ${eur(st.media.ret)} por mês, mesmo em meses negativos.`, { a_ret_on: 1 });
   h += '</table></div>';
   // ---- resultado ----
@@ -4344,7 +4356,7 @@ function renderFatMes(){
   const tot = p.total, dias = n.sem + n.fds, mediaDia = dias ? tot / dias : 0;
   const cmvEf = (!c.ticketIgual && !m.real && tot > 0) ? (p.alm * c.cmvAlm + (p.jan + p.del) * c.cmvJan) / tot : ((editState.custos.cmvMes && editState.custos.cmvMes[i] != null) ? editState.custos.cmvMes[i] : c.cmv);
   const dreI = computeCenario(editState.months, editState.custos, custosReais).monthlyDRE[i];
-  const promoCmv = dreI.cmvReal;   // CMV real do mês: sobre o que fica para ti (sem IVA nem plataformas)
+  const promoCmv = dreI.cmvReal;   // CMV do mês sobre o faturamento sem IVA
   const MEDr = fechMedias(), DELr = (typeof mediaDelivery === 'function') ? mediaDelivery() : null, dpar = delParams(c, DELr, MEDr);
   const tetoCmv = c.tetoCmv == null ? 35 : c.tetoCmv;   // teto de CMV que aceitas atingir com promoções
   // sem a promoção: receita, IVA e plataformas encolhem na mesma proporção, por isso o CMV real é o de agora × (1 − desconto)
@@ -4359,7 +4371,7 @@ function renderFatMes(){
     const platHtml = dRev > 0
       ? `<br><b>Plataformas de delivery:</b> ${fmtEUR(dRev)} de vendas${tkD > 0 ? ` (≈ ${nf(nPiz, 0)} pizzas ao ticket médio de ${nf(tkD, 2)} €)` : ''} → comissão de ${nf(bl.com, 0)}% = ${fmtEUR(comE)} + IVA de ${nf(bl.ivaCom, 0)}% sobre a comissão = ${fmtEUR(ivaE)} → <b>${fmtEUR(comE + ivaE)}</b> (${nf(bl.com * (1 + bl.ivaCom / 100), 1)}% das vendas de delivery${tkD > 0 ? `; por pizza ${nf(comPiz, 2)} € + ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(comPiz * (1 + bl.ivaCom / 100), 2)} €` : ''}). Está em linha própria nas saídas.${tkD > 0 ? `<br><b>Como se forma o preço de uma pizza de ${nf(tkD, 2)} €:</b> valor líquido s/ IVA ${nf(tkD * bl.k, 2)} € + IVA do prato de ${nf(bl.ivaPrato, 0)}% (${nf(tkD * bl.k * bl.ivaPrato / 100, 2)} €) + comissão ${nf(comPiz, 2)} € + IVA da comissão ${nf(comPiz * bl.ivaCom / 100, 2)} € = ${nf(tkD, 2)} €. O CMV real (${nf(bl.cDelNet, 1)}%) é o custo da pizza ÷ esse valor líquido; sobre o preço publicado dá ${nf(bl.cDel, 1)}%, que é a base usada na média do mês.` : ''}`
       : '<br>Sem vendas de delivery neste mês: sem custo de plataforma.';
-    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b> do faturamento${(m.promo || 0) > 0 ? ` (com a promoção ${cp(dreI.cmvPct)})` : ''}. <b>O CMV real, que é o que conta, é ${cp(dreI.cmvReal)}</b>: o custo da comida (${fmtEUR(dreI.cmvValor)}) ÷ o que fica para ti (${fmtEUR(dreI.fica)} = faturamento ${fmtEUR(dreI.receita)} − IVA ${fmtEUR(dreI.impostosValor)} − plataformas ${fmtEUR(dreI.despComissao)}), porque o IVA é das finanças e a comissão é da plataforma. O teto de ${nf(tetoCmv, 0)}% compara-se com este valor. ${platHtml}</p>`;
+    blendHtml = `<p class="desc" style="margin:0 0 10px;"><b>Como o CMV de ${MESES_LONGO_FX[i]} é calculado:</b> almoço ${sh(bl.pp.alm)} × ${cp(bl.cAlm)} + jantar ${sh(bl.pp.jan)} × ${cp(bl.cJan)} + delivery ${sh(bl.pp.del)} × ${cp(bl.cDel)} = <b>${cp(bl.pct)}</b> do faturamento${(m.promo || 0) > 0 ? ` (com a promoção ${cp(dreI.cmvPct)})` : ''}. <b>O CMV real, que é o que conta, é ${cp(dreI.cmvReal)}</b>: o custo da comida (${fmtEUR(dreI.cmvValor)}) ÷ o faturamento líquido (${fmtEUR(dreI.fica)} = faturamento ${fmtEUR(dreI.receita)} − IVA ${fmtEUR(dreI.impostosValor)} − plataformas ${fmtEUR(dreI.despComissao)}), porque o IVA é das finanças e a comissão é da plataforma: são descontados antes da conta. O teto de ${nf(tetoCmv, 0)}% compara-se com este valor. ${platHtml}</p>`;
   }
   const avisos = [];
   if(seats > 0){
@@ -4605,7 +4617,7 @@ function renderExpenses(){
   html += `<tr${ig}><td class="dia">Despesas Financeiras (€)${usandoReais ? ' <span style="font-size:9px;font-weight:400;">(ignorado: usando custos reais)</span>' : ''}</td>` + c.financeiras.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('financeiras',${i},this.value)"></td>`).join('') + '</tr>';
   html += '<tr><td class="dia">Retiradas de lucro, além do pró-labore (€)</td>' + c.distribuicao.map((v,i)=>`<td><input type="number" min="0" value="${v}" onchange="FX.updateExpense('distribuicao',${i},this.value)"></td>`).join('') + '</tr>';
   html += `<tr><td class="dia">CMV (% do faturamento)${c.ticketIgual === false ? '<div style="font-size:9px;font-weight:400;color:var(--text-soft);">projeções: média do CMV do almoço e do jantar</div>' : ''}</td>` + c.cmvMes.map((v,i)=>`<td><input type="number" min="0" max="100" step="0.5" value="${v}" onchange="FX.updateExpense('cmvMes',${i},this.value)"></td>`).join('') + '</tr>';
-  if(MEDx) html = html.slice(0, iniSec) + projRowsHtml(c, MEDx);
+  if(MEDx) html = html.slice(0, iniSec) + projRowsHtml(c, MEDx, dre);
   // 2) o resultado do mês, na ordem do DRE
   const ok = v => v < 0 ? 'color:var(--danger);' : 'color:var(--ok);';
   const totEntradas = dre.map(d=>d.receita);
@@ -4616,7 +4628,7 @@ function renderExpenses(){
   html += secao('SAÍDAS');
   const tetoCmvT = c.tetoCmv == null ? 35 : c.tetoCmv;
   const p1 = v => (Math.round(v * 10) / 10).toString().replace(".", ",");
-  html += linha('CMV — compras de mercadoria <span style="font-size:9px;font-weight:400;">(% = CMV real, sobre o que fica para ti: faturamento − IVA − plataformas; vermelho = acima do teto de ' + tetoCmvT + '%)</span>', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;${d.cmvReal > tetoCmvT ? 'color:var(--danger);font-weight:700;' : 'color:var(--text-soft);'}">${p1(d.cmvReal)}%${d.cmvReal > tetoCmvT ? ' ⚠' : ''}</div><div style="font-size:9px;color:var(--text-soft);">(${p1(d.cmvPct)}% do faturamento)</div>`));
+  html += linha('CMV — compras de mercadoria <span style="font-size:9px;font-weight:400;">(% = sobre o faturamento sem IVA e sem plataformas; vermelho = acima do teto de ' + tetoCmvT + '%)</span>', dre.map(d=>`${fmtEUR(d.cmvValor)}<div style="font-size:9px;${d.cmvReal > tetoCmvT ? 'color:var(--danger);font-weight:700;' : 'color:var(--text-soft);'}">${p1(d.cmvReal)}%${d.cmvReal > tetoCmvT ? ' ⚠' : ''}</div><div style="font-size:9px;color:var(--text-soft);">(${p1(d.cmvPct)}% do faturamento)</div>`));
   html += linha('IVA <span style="font-size:9px;font-weight:400;">(despesa: paga-se na virada do mês)</span>', dre.map((d,i)=>`${fmtEUR(d.impostosValor)}<div style="font-size:9px;color:var(--text-soft);">${d.ivaPct.toFixed(1).replace('.', ',')}%${ivaPctMes[i] != null ? ' real' : ' média'}</div>`));
   html += linha('Despesas com Pessoal <span style="font-size:9px;font-weight:400;">(salários, pró-labore, seg. social)</span>', dre.map(d=>fmtEUR(d.despPessoal)));
   html += linha('Despesas de Ocupação <span style="font-size:9px;font-weight:400;">(renda)</span>', dre.map(d=>fmtEUR(d.despOcupacao)));
@@ -4720,7 +4732,7 @@ function computeCenario(months, custos, reais){
     const cashFlowBeforeDist = (receita - cmvValor - despPessoal - despOcupacao - despAdmin - despComissao - despFinanceiras) - impostosCash;
     cashCumulativeBeforeDist += cashFlowBeforeDist;
     cashCumulative += cashFlowBeforeDist - despDistribuicao;
-    // CMV real = custo da comida ÷ o que fica para ti (faturamento − IVA − comissão das plataformas): o IVA é das finanças e a comissão é da plataforma
+    // base das métricas = faturamento total − IVA (das finanças) − comissão das plataformas (com o IVA da comissão): são descontados antes da conta
     const fica = receita - impostosValor - despComissao, cmvReal = fica > 0 ? cmvValor / fica * 100 : 0;
     monthlyDRE.push({ mes, receita, cmvPct, cmvReal, fica, cmvValor, lucroBruto, despPessoal, despOcupacao, despAdmin, despComissao, totalOperacionais, resultadoOperacional,
       impostosValor, ivaPct, despFinanceiras, resultadoAntesDistribuicao, despDistribuicao, resultadoLiquido, cashCumulative, cashCumulativeBeforeDist });
