@@ -1981,7 +1981,10 @@ function renderGrupos(){
     return;
   }
   body.innerHTML = grupos.map(g => {
-    const nomes = (g.fornecedorIds||[]).map(id => nomeFornecedor(id)).join(', ') || '—';
+    const nomes = [
+      grupoEhOutros(g) ? 'Produtos sem lista de fornecedor (automático)' : '',
+      ...(g.fornecedorIds||[]).filter(id => id !== OUTROS_ID).map(id => nomeFornecedor(id))
+    ].filter(Boolean).join(', ') || '—';
     const dias = (g.diasContagem||[]).join(', ') || '—';
     return `
     <tr>
@@ -2030,6 +2033,8 @@ async function saveGrupo(){
 
   if(id){
     const g = grupos.find(x => x.id === id);
+    // a marca do grupo "Outros" não aparece na lista de fornecedores, por isso tem de ser preservada
+    if(grupoEhOutros(g)) fornecedorIds.push(OUTROS_ID);
     g.nome = nome; g.fornecedorIds = fornecedorIds; g.diasContagem = diasContagem;
   }else{
     grupos.push({id: uid(), nome, fornecedorIds, diasContagem});
@@ -2604,8 +2609,19 @@ function produtoAtivo(p){
   return !(p.areaIds||[]).some(id => foraDeUso.includes(id));
 }
 
+// Grupo "Outros": lista de segurança. Leva a marca OUTROS_ID nos fornecedores do grupo e apanha
+// automaticamente todo o produto de compra que não caia em nenhum grupo de fornecedor (sem preço,
+// fornecedor fora de qualquer grupo...), para nunca ficar de fora da contagem.
+const OUTROS_ID = '__outros__';
+function grupoEhOutros(g){ return (g.fornecedorIds||[]).includes(OUTROS_ID); }
+function produtoPertenceAoGrupo(g, p){
+  const fid = fornecedorEfetivo(p);
+  if(fid && (g.fornecedorIds||[]).includes(fid)) return true;
+  if(!grupoEhOutros(g) || p.tipo !== 'materia_prima') return false;
+  return !(fid && grupos.some(x => !grupoEhOutros(x) && (x.fornecedorIds||[]).includes(fid)));
+}
 function produtosDoGrupo(g){
-  return produtos.filter(p => produtoAtivo(p) && g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  return produtos.filter(p => produtoAtivo(p) && produtoPertenceAoGrupo(g, p));
 }
 const ORDEM_AREAS_NOVAS = ['ÁREA DE PIZZA', 'COZINHA', 'SALA/ESTOQUE'];
 function rankAreaNova(nome){
@@ -3076,7 +3092,8 @@ function renderEstoque(){
           <td>${l.p.qtdAtual || 0}</td><td>${l.p.qtdMinima || 0}</td><td>${l.aComprar > 0 ? '<strong>' + l.aComprar + '</strong>' : '—'}</td>
           <td><button class="icon-btn" onclick="openProdutoModal('${l.p.id}')">editar</button></td>
         </tr>`).join('')}</tbody></table>`;
-      content.innerHTML = `<div class="save-note" style="margin-bottom:14px;">Produtos que ficam de fora das listas de compra por grupo. Abre "editar" e escolhe um fornecedor (ou põe o fornecedor num grupo de compra) para passarem a aparecer.</div>
+      const temOutros = grupos.some(grupoEhOutros);
+      content.innerHTML = `<div class="save-note" style="margin-bottom:14px;">Produtos que ficam de fora das listas de compra por grupo. Abre "editar" e escolhe um fornecedor (ou põe o fornecedor num grupo de compra) para passarem a aparecer.${temOutros ? ' Enquanto isso, os produtos de compra desta lista são contados no grupo "Outros".' : ''}</div>
         <h3 style="margin-bottom:8px;">Sem fornecedor definido (${semFornecedor.length})</h3>
         ${semFornecedor.length ? '<div class="card" style="margin-bottom:18px;">' + tabela(semFornecedor, false) + '</div>' : '<div class="empty" style="margin-bottom:18px;">Todos os produtos ativos têm fornecedor. ✔</div>'}
         <h3 style="margin-bottom:8px;">Com fornecedor, mas em nenhum grupo de compra (${semGrupo.length})</h3>
@@ -3085,7 +3102,7 @@ function renderEstoque(){
     }
     const g = grupos.find(x => x.id === grupoId);
     const contagensReais = contagensReaisDesdeUltimoZero(g);
-    const candidatos = linhas.filter(l => l.aComprar > 0 && g.fornecedorIds.includes(l.fornecedorCompraId));
+    const candidatos = linhas.filter(l => l.aComprar > 0 && produtoPertenceAoGrupo(g, l.p));
     const paraComprar = candidatos.filter(l => produtoFoiRecontado(l.p, contagensReais));
     const escondidosPorNaoContado = candidatos.filter(l => !produtoFoiRecontado(l.p, contagensReais));
 
@@ -3357,7 +3374,7 @@ function marcarComprado(produtoId){
 async function finalizarGrupoCompra(grupoId){
   const g = grupos.find(x => x.id === grupoId);
   if(!g) return;
-  const todosAfetados = produtos.filter(p => g.fornecedorIds.includes(fornecedorEfetivo(p)));
+  const todosAfetados = produtos.filter(p => produtoPertenceAoGrupo(g, p));
   if(todosAfetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
 
   // Só zera produtos que ELES MESMOS foram realmente recontados desde o último "Finalizar
