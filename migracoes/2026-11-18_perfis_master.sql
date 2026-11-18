@@ -186,7 +186,8 @@ declare
                             'custos_fixos', 'impasto_config',
                             -- listas da app financeira (repo Novo-App-financeiro)
                             'fin_categorias', 'fin_subcategorias', 'fin_centros_custo',
-                            'fin_formas_pagamento', 'fin_canais', 'fin_metas'];
+                            'fin_formas_pagamento', 'fin_canais', 'fin_metas',
+                            'fin_config', 'fin_regras'];
 begin
   -- escala_*: da app fluxos-e-escalas (mesma base), que grava apagando e regravando; fica de
   -- fora até essa app ser adaptada aos perfis, senão o adm deixava de conseguir guardar escalas.
