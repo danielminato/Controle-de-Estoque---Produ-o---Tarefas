@@ -185,9 +185,12 @@ declare
                             'receitas', 'receita_itens', 'checklist_itens', 'producao_itens',
                             'custos_fixos', 'impasto_config'];
 begin
+  -- escala_*: da app fluxos-e-escalas (mesma base), que grava apagando e regravando; fica de
+  -- fora até essa app ser adaptada aos perfis, senão o adm deixava de conseguir guardar escalas.
   for t in select tablename from pg_tables
            where schemaname = 'public'
-             and tablename not in ('alertas_seguranca', 'historico_alteracoes', 'config_privada') loop
+             and tablename not in ('alertas_seguranca', 'historico_alteracoes', 'config_privada')
+             and tablename not like 'escala\_%' loop
     tipo   := case when t.tablename = any(estrutura) then 'estrutura' else 'lancamento' end;
     livres := case when t.tablename = 'produtos' then 'qtd_atual' else '' end;
     execute format('drop trigger if exists guarda_perfis on public.%I', t.tablename);

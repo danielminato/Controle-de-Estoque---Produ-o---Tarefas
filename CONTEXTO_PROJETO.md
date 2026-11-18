@@ -11,6 +11,8 @@ Migração: `migracoes/2026-11-18_perfis_master.sql` (teste sem efeitos: `..._TE
   Bloquear = devolver NULL (sem erro), gravar em `alertas_seguranca` e avisar no Telegram
   (token e chat em `config_privada`, chaves `telegram_token` / `telegram_chat_id`).
   Correções de lançamentos feitas pelo adm ficam em `historico_alteracoes` (antes/depois).
+- As tabelas `escala_*` (app fluxos-e-escalas, mesma base) ficam FORA da guarda até essa app
+  ser adaptada (ela grava apagando e regravando).
 - Exceção: o adm pode apagar "cadeados" vazios de contagens (`status='em_andamento'`, sem itens).
 - **Tabela nova = voltar a correr o bloco 6 da migração** (senão fica sem guarda). Se for de
   estrutura, acrescentá-la à lista `estrutura` lá e a `TABELAS_ESTRUTURA` no `index.html`.
