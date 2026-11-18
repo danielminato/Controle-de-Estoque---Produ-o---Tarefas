@@ -426,7 +426,7 @@
         <select id="prodFiltroCategoria" onchange="renderProdutos()"><option value="">Todas as categorias</option></select>
         <select id="prodFiltroFornecedor" onchange="renderProdutos()"><option value="">Todos os fornecedores</option></select>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-          <input type="checkbox" id="prodMostrarForaDeUso" onchange="renderProdutos()"> Mostrar fora de uso
+          <input type="checkbox" id="prodMostrarForaDeUso" onchange="renderProdutos()"> Mostrar fora de uso / em pausa
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
           <input type="checkbox" id="prodSoPorConfirmar" onchange="renderProdutos()"> Só embalagens por confirmar
@@ -2533,6 +2533,7 @@ function renderProdutos(){
       <td>${mp ? nomeFornecedor(mp.fornecedorId) : 's/fornecedor'}</td>
       <td>
         <button class="icon-btn" onclick="openProdutoModal('${p.id}')">editar</button>
+        <button class="icon-btn" title="${produtoEmPausa(p) ? 'Voltar a contar e a comprar este produto' : 'Guarda o produto, mas deixa de ser contado e comprado'}" onclick="alternarPausaProduto('${p.id}')">${produtoEmPausa(p) ? 'reativar' : 'pausar'}</button>
         <button class="icon-btn danger" onclick="deleteProduto('${p.id}')">remover</button>
       </td>
     </tr>`;
@@ -2540,14 +2541,15 @@ function renderProdutos(){
 }
 
 async function excluirTodosForaDeUso(){
-  const paraExcluir = produtos.filter(p => !produtoAtivo(p));
+  // só os marcados como "Fora de uso": os que estão "Em pausa" ficam sempre guardados
+  const paraExcluir = produtos.filter(produtoParaApagarForaDeUso);
   if(paraExcluir.length === 0){ await showAlert('Não há produtos marcados como "Fora de uso" no momento.'); return; }
 
   const nomes = paraExcluir.slice(0, 8).map(p => p.nome).join('\n') + (paraExcluir.length > 8 ? `\n... e mais ${paraExcluir.length - 8}` : '');
   const ok = await showConfirm(`Isto vai excluir permanentemente ${paraExcluir.length} produto(s) marcados como "Fora de uso":\n\n${nomes}\n\nEsta ação não tem "desfazer". Continuar?`);
   if(!ok) return;
 
-  produtos = produtos.filter(produtoAtivo);
+  produtos = produtos.filter(p => !produtoParaApagarForaDeUso(p));
   await saveProdutos();
   renderAll();
   await showAlert(`${paraExcluir.length} produto(s) excluído(s).`);
@@ -2600,8 +2602,45 @@ function fillAreaSelect(sel, selectedIds){
   const sel2 = selectedIds || [];
   sel.innerHTML = areas.map(a => `<option value="${a.id}" ${sel2.includes(a.id)?'selected':''}>${a.nome}</option>`).join('');
 }
-function areasForaDeUsoIds(){
+// "Fora de uso" = candidatos a apagar. "Em pausa" = fica guardado no cadastro, mas fora das
+// contagens e das compras até ser reativado (ex.: um barril de 50 L que não se usa de momento).
+function areasForaDeUsoDefinitivoIds(){
   return areas.filter(a => (a.nome||'').trim().toLowerCase() === 'fora de uso').map(a => a.id);
+}
+function areasEmPausaIds(){
+  return areas.filter(a => (a.nome||'').trim().toLowerCase() === 'em pausa').map(a => a.id);
+}
+function areasForaDeUsoIds(){
+  return [...areasForaDeUsoDefinitivoIds(), ...areasEmPausaIds()];
+}
+function produtoParaApagarForaDeUso(p){
+  const ids = areasForaDeUsoDefinitivoIds();
+  return ids.length > 0 && (p.areaIds||[]).some(id => ids.includes(id));
+}
+function produtoEmPausa(p){
+  const ids = areasEmPausaIds();
+  return ids.length > 0 && (p.areaIds||[]).some(id => ids.includes(id));
+}
+// Pausa ou reativa um produto: só acrescenta/tira a área "Em pausa", as áreas de contagem ficam como estão.
+async function alternarPausaProduto(produtoId){
+  const p = produtos.find(x => x.id === produtoId);
+  if(!p) return;
+  try{
+    let ids = areasEmPausaIds();
+    if(ids.length === 0){
+      const nova = { id: uid(), nome: 'Em pausa' };
+      await sbInsertRow('areas', areaToDb(nova));
+      areas.push(nova);
+      ids = [nova.id];
+    }
+    const novas = produtoEmPausa(p) ? (p.areaIds||[]).filter(id => !ids.includes(id)) : [...(p.areaIds||[]), ids[0]];
+    await sbUpdateRow('produtos', p.id, { area_ids: novas });
+    p.areaIds = novas;
+  }catch(e){
+    await showAlert('Não consegui guardar. Tenta de novo.');
+    return;
+  }
+  renderAll();
 }
 function produtoAtivo(p){
   const foraDeUso = areasForaDeUsoIds();
@@ -8605,7 +8644,7 @@ function bebidaItemPorId(id){
   return p ? (bebidaItens(p).find(it => it.id === id) || null) : null;
 }
 function todasAsBebidasItens(){
-  return produtos.filter(p => p.categoria === 'Bebidas').flatMap(bebidaItens);
+  return produtos.filter(p => p.categoria === 'Bebidas' && produtoAtivo(p)).flatMap(bebidaItens);
 }
 
 function estadoBebida(id){
@@ -8684,7 +8723,7 @@ function atualizarDoseBarril(produtoId, idx, campo, valor){
 function renderBebidas(){
   const content = document.getElementById('bebidasContent');
   if(!content) return;
-  const bebidas = produtos.filter(p => p.categoria === 'Bebidas').sort((a,b) => a.nome.localeCompare(b.nome));
+  const bebidas = produtos.filter(p => p.categoria === 'Bebidas' && produtoAtivo(p)).sort((a,b) => a.nome.localeCompare(b.nome));
   if(bebidas.length === 0){
     content.innerHTML = '<div class="empty">Nenhum produto na categoria "Bebidas" ainda.</div>';
     return;
