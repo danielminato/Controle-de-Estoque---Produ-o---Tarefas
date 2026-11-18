@@ -1538,6 +1538,7 @@ function showConfirm(message){
   });
 }
 function showAlert(message){
+  if(bloqueioPerfilPendente) return mostrarBloqueioPerfil();
   return new Promise(resolve => {
     document.getElementById('confirmMessage').textContent = message;
     const modal = document.getElementById('modalConfirm');
@@ -1678,7 +1679,43 @@ function cancelarReauth(){
   if(window.__reauthResolve){ window.__reauthResolve(false); window.__reauthResolve = null; }
 }
 
+// ---- Perfis: adm master × adm (ver migracoes/2026-11-18_perfis_master.sql) ----
+// O adm (não master) lança e corrige dados, aprova contagens, mas não apaga nada nem mexe
+// na estrutura. Quem garante isto é a base de dados (e avisa o master no Telegram); aqui só
+// se evita o pedido e explica-se à pessoa, em vez de "guardar" algo que a base vai ignorar.
+var nivelAtual = null; // 'master' | 'admin' | null (colaborador)
+const TABELAS_ESTRUTURA = new Set(['admins','colaboradores','areas','fornecedores','grupos','produtos',
+  'receitas','receita_itens','checklist_itens','producao_itens','custos_fixos','impasto_config']);
+const MSG_BLOQUEIO_PERFIL = '🔒 Só o administrador master pode apagar ou alterar a estrutura (produtos, fornecedores, áreas, grupos, receitas, itens de checklist e produção, custos fixos e utilizadores).\n\nNada foi alterado. A página vai recarregar para mostrar os dados tal como estão.';
+var bloqueioPerfilPendente = false, bloqueioPerfilMostrado = false;
+function pedidoBloqueadoPeloPerfil(url, opts){
+  if(nivelAtual !== 'admin' || typeof url !== 'string' || !url.startsWith(SUPABASE_URL + '/rest/v1/')) return false;
+  const metodo = String((opts && opts.method) || 'GET').toUpperCase();
+  if(metodo === 'GET' || metodo === 'HEAD') return false;
+  const tabela = url.slice((SUPABASE_URL + '/rest/v1/').length).split(/[?/]/)[0];
+  if(metodo === 'DELETE') return tabela !== 'contagens'; // contagens: a base só deixa sair os "cadeados" vazios
+  if(!TABELAS_ESTRUTURA.has(tabela)) return false;
+  if(tabela === 'produtos' && metodo === 'PATCH'){
+    try{ return Object.keys(JSON.parse(opts.body || '{}')).some(k => k !== 'qtd_atual'); }catch(e){ return true; }
+  }
+  return true;
+}
+async function mostrarBloqueioPerfil(){
+  bloqueioPerfilPendente = false;
+  if(bloqueioPerfilMostrado) return;
+  bloqueioPerfilMostrado = true;
+  await showAlert(MSG_BLOQUEIO_PERFIL);
+  location.reload();
+}
+
 window.fetch = async function(url, opts){
+  if(pedidoBloqueadoPeloPerfil(url, opts)){
+    // quem chamou costuma mostrar um aviso de erro: esse aviso é trocado pela explicação certa;
+    // se ninguém mostrar nada, explica-se na mesma ao fim de um instante
+    bloqueioPerfilPendente = true;
+    setTimeout(() => { if(bloqueioPerfilPendente) mostrarBloqueioPerfil(); }, 400);
+    return new Response(JSON.stringify({ message: 'bloqueado pelo perfil' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
   const res = await _fetchOriginal(url, opts);
   if(res.status === 401 && sbAccessToken && typeof url === 'string' && url.startsWith(SUPABASE_URL + '/rest/')){
     const ok = await sbRenovarSessao();
@@ -1797,6 +1834,7 @@ async function loadAll(){
     fornecedores = (await sbGet('fornecedores')).map(fornecedorFromDb);
     areas = (await sbGet('areas')).map(areaFromDb);
     produtos = (await sbGet('produtos')).map(produtoFromDb);
+    fotografarProdutos();
     grupos = (await sbGet('grupos')).map(grupoFromDb);
     contagens = await sbGet('contagens');
     checklistItens = await sbGet('checklist_itens');
@@ -1834,8 +1872,31 @@ async function saveAreas(){
   catch(e){ await avisarErroGravar(); }
 }
 async function saveProdutos(){
-  try{ await sbReplaceAll('produtos', produtos.map(produtoToDb)); setNote('Guardado'); }
+  if(nivelAtual === 'admin') return saveQtdProdutosAdm();
+  try{ await sbReplaceAll('produtos', produtos.map(produtoToDb)); setNote('Guardado'); fotografarProdutos(); }
   catch(e){ await avisarErroGravar(); }
+}
+// O adm (não master) só pode mudar a quantidade em estoque (aprovar contagens, zerar, acertar).
+// Em vez de regravar a tabela inteira, envia só as quantidades que mudaram desde a última leitura;
+// se mexeu noutra coisa (nome, preço, mínimo, criar/remover produto), não grava nada e explica.
+let produtosServidor = new Map();
+function fotografarProdutos(){ produtosServidor = new Map(produtos.map(p => [p.id, produtoToDb(p)])); }
+async function saveQtdProdutosAdm(){
+  const semQtd = d => { const c = { ...d }; delete c.qtd_atual; return JSON.stringify(c); };
+  const atuais = produtos.map(produtoToDb);
+  const mexeuEstrutura = atuais.length !== produtosServidor.size
+    || atuais.some(d => !produtosServidor.has(d.id) || semQtd(d) !== semQtd(produtosServidor.get(d.id)));
+  if(mexeuEstrutura){ bloqueioPerfilPendente = true; return mostrarBloqueioPerfil(); }
+  const mudados = atuais.filter(d => (Number(produtosServidor.get(d.id).qtd_atual) || 0) !== (Number(d.qtd_atual) || 0));
+  try{
+    for(let i = 0; i < mudados.length; i += 10){
+      await Promise.all(mudados.slice(i, i + 10).map(async d => {
+        await sbUpdateRow('produtos', d.id, { qtd_atual: d.qtd_atual });
+        produtosServidor.set(d.id, d);
+      }));
+    }
+    setNote('Guardado');
+  }catch(e){ await avisarErroGravar(); }
 }
 async function saveGrupos(){
   try{ await sbReplaceAll('grupos', grupos.map(grupoToDb)); setNote('Guardado'); }
@@ -7114,6 +7175,26 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 let usuarioAtualEmail = null;
 let usuarioEhAdmin = false;
 
+// Avisa o master, ao entrar, das tentativas bloqueadas (apagar / mexer na estrutura) ainda não vistas.
+async function verificarAlertasSeguranca(){
+  if(nivelAtual !== 'master') return;
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/alertas_seguranca?visto=eq.false&order=criado_em.desc&limit=100`, { headers: sbHeadersFn() });
+    if(!r.ok) return;
+    const lista = await r.json();
+    if(!lista.length) return;
+    const linhas = lista.slice(0, 12).map(a => {
+      const reg = a.registo || a.tentativa || {};
+      const nome = reg.nome || reg.texto || reg.chave || reg.email || reg.id || '';
+      return `• ${new Date(a.criado_em).toLocaleString('pt-PT')} — ${a.email} tentou ${a.operacao} em «${a.tabela}»${nome ? ' (' + nome + ')' : ''}`;
+    }).join('\n');
+    await showAlert(`🔒 ${lista.length} tentativa(s) bloqueada(s) desde a última vez:\n\n${linhas}${lista.length > 12 ? '\n…' : ''}\n\nNada foi alterado. Ao carregar em OK ficam marcadas como vistas.`);
+    await fetch(`${SUPABASE_URL}/rest/v1/alertas_seguranca?id=in.(${lista.map(a => a.id).join(',')})`, {
+      method: 'PATCH', headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, body: JSON.stringify({ visto: true })
+    });
+  }catch(e){}
+}
+
 async function fazerLoginGate(){
   const email = document.getElementById('gateEmail').value.trim();
   const senha = document.getElementById('gateSenha').value;
@@ -7213,14 +7294,19 @@ async function continuarAposLogin(){
   // consultando a tabela admins com o próprio login da pessoa
   try{
     const listaAdmins = await sbGet('admins');
-    usuarioEhAdmin = listaAdmins.some(a => (a.email||'').toLowerCase() === usuarioAtualEmail.toLowerCase());
+    const eu = listaAdmins.find(a => (a.email||'').toLowerCase() === usuarioAtualEmail.toLowerCase());
+    usuarioEhAdmin = !!eu;
+    // sem a coluna "nivel" (antes da migração) todos os admins continuam com acesso total
+    nivelAtual = eu ? (eu.nivel || 'master') : null;
   }catch(e){
     usuarioEhAdmin = false;
+    nivelAtual = null;
   }
 
   if(usuarioEhAdmin){
     document.getElementById('appRoot').style.display = 'block';
     await loadAll();
+    verificarAlertasSeguranca();
   }else{
     document.getElementById('operRoot').style.display = 'block';
     document.getElementById('operUsuarioLabel').textContent = usuarioAtualEmail;
@@ -7316,6 +7402,7 @@ async function renderUtilizadores(){
   try{ admins = await sbGet('admins'); }catch(e){}
 
   const adminEmails = new Set(admins.map(a => a.email.toLowerCase()));
+  const masterEmails = new Set(admins.filter(a => a.nivel === 'master').map(a => a.email.toLowerCase()));
   // junta quem está em "colaboradores" com quem está em "admins" mas por algum motivo não ficou lá registado
   const todos = new Map();
   colabs.forEach(c => todos.set(c.email.toLowerCase(), {email: c.email, criado_em: c.criado_em}));
@@ -7334,7 +7421,7 @@ async function renderUtilizadores(){
     <tr>
       <td>${u.email}</td>
       <td>${data}</td>
-      <td>${ehAdmin ? '<span class="badge warn">Administrador</span>' : '<span class="badge ok">Colaborador</span>'}</td>
+      <td>${ehAdmin ? (masterEmails.has(u.email.toLowerCase()) ? '<span class="badge warn">Administrador master</span>' : '<span class="badge warn">Administrador</span>') : '<span class="badge ok">Colaborador</span>'}</td>
       <td>
         ${ehAdmin ? `<button class="icon-btn" onclick="retirarAdmin('${u.email}')">retirar admin</button>` : `<button class="icon-btn" onclick="tornarAdmin('${u.email}')">tornar admin</button>`}
         <button class="icon-btn danger" onclick="removerDaLista('${u.email}')">remover da lista</button>

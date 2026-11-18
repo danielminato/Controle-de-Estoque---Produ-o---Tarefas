@@ -1,5 +1,24 @@
 # Il Fortunato — Sistema de Gestão (Estoque, Checklists, Produção, Receitas)
 
+## 🔒 Perfis de administrador: master × adm (Nov/2026)
+Migração: `migracoes/2026-11-18_perfis_master.sql` (teste sem efeitos: `..._TESTE.sql`).
+- `admins.nivel` = `'master'` (danielm.eifler@gmail.com) ou `'admin'` (todos os outros).
+- O **adm** vê tudo, lança e corrige lançamentos, aprova contagens (só `produtos.qtd_atual`
+  muda), mas **não apaga nada** e **não mexe na estrutura** (admins, colaboradores, áreas,
+  fornecedores, grupos, produtos, receitas, receita_itens, checklist_itens, producao_itens,
+  custos_fixos, impasto_config).
+- Quem garante é a **base de dados**: trigger `guarda_perfis` em todas as tabelas de `public`.
+  Bloquear = devolver NULL (sem erro), gravar em `alertas_seguranca` e avisar no Telegram
+  (token e chat em `config_privada`, chaves `telegram_token` / `telegram_chat_id`).
+  Correções de lançamentos feitas pelo adm ficam em `historico_alteracoes` (antes/depois).
+- Exceção: o adm pode apagar "cadeados" vazios de contagens (`status='em_andamento'`, sem itens).
+- **Tabela nova = voltar a correr o bloco 6 da migração** (senão fica sem guarda). Se for de
+  estrutura, acrescentá-la à lista `estrutura` lá e a `TABELAS_ESTRUTURA` no `index.html`.
+- App: `nivelAtual`, `pedidoBloqueadoPeloPerfil()` (no `window.fetch`) explica e recarrega em vez
+  de fingir que guardou; `saveProdutos()` do adm só envia `qtd_atual` alterada
+  (`saveQtdProdutosAdm`); o master vê as tentativas ao entrar (`verificarAlertasSeguranca`).
+- Sem a coluna `nivel` (antes da migração), todos os admins são tratados como master.
+
 ## ✅ Bug de contagens resolvido (Set/2026)
 Colaboradores enviavam contagens que nunca apareciam do lado do admin, mesmo com o ecrã
 mostrando "sucesso". Causa raiz: a coluna `area` da tabela `contagens` nunca tinha sido
