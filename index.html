@@ -8566,30 +8566,119 @@ async function deleteReceita(id){
 let bebidasEstado = {};
 let bebidasGlobal = { comissaoPct: 30, ivaComissaoPct: 23 };
 
-function estadoBebida(produtoId){
-  if(!bebidasEstado[produtoId]){
-    const p = produtos.find(x => x.id === produtoId);
-    const s = (p && p.precificacao) || {};
-    bebidasEstado[produtoId] = {
-      cmvPct: s.cmvPct ?? 30, ivaPct: s.ivaPct ?? 23,
-      precoCobrado: s.precoCobrado ?? '', precoDelivery: s.precoDelivery ?? ''
-    };
+// Custo de UMA unidade de venda.
+//  - embalagem em unidades (garrafa, lata...): custo de 1 unidade.
+//  - embalagem em ml ou g (vinho, licor, café...): custo da quantidade vendida (unidadeQtd, em ml ou g);
+//    vazio = a embalagem inteira (ex.: a garrafa de 750 ml).
+function custoUnidadeVendaBebida(p, unidadeQtd){
+  const base = precoPorUnidadeBase(p), emb = embalagemBase(p);
+  if(base == null || !emb) return null;
+  if(emb.unidade === 'unidade') return base;
+  const q = Number(unidadeQtd) > 0 ? Number(unidadeQtd) : emb.qtd;
+  return base * q;
+}
+// Barril: só faz sentido em embalagens de volume grande (5 L ou mais).
+function bebidaPodeSerBarril(p){
+  const e = embalagemBase(p);
+  return !!e && e.unidade === 'ml' && e.qtd >= 5000;
+}
+const DOSES_BARRIL_PADRAO = [{ nome:'Fino', ml:200 }, { nome:'Príncipe', ml:330 }, { nome:'Caneca', ml:500 }];
+const PERDA_BARRIL_PADRAO = 8;
+
+// Itens vendáveis de uma bebida: normalmente um só (id = id do produto); um barril ativo
+// dá um item por copo (id = "idDoProduto#0", "#1"...), com a perda ao sangrar já descontada.
+function bebidaItens(p){
+  const est = estadoBebida(p.id);
+  if(est.barril && est.barril.ativo){
+    const base = precoPorUnidadeBase(p), emb = embalagemBase(p);
+    const fator = 1 - (Number(est.barril.perdaPct) || 0) / 100;
+    return est.barril.doses.map((d, i) => ({
+      id: p.id + '#' + i, nome: `${p.nome} — ${d.nome} ${d.ml} ml`, produto: p,
+      custo: (base != null && emb && emb.unidade === 'ml' && fator > 0) ? base * (Number(d.ml) || 0) / fator : null
+    }));
   }
-  return bebidasEstado[produtoId];
+  return [{ id: p.id, nome: p.nome, produto: p, custo: custoUnidadeVendaBebida(p, est.unidadeQtd) }];
+}
+function bebidaItemPorId(id){
+  const baseId = String(id).split('#')[0];
+  const p = produtos.find(x => x.id === baseId);
+  return p ? (bebidaItens(p).find(it => it.id === id) || null) : null;
+}
+function todasAsBebidasItens(){
+  return produtos.filter(p => p.categoria === 'Bebidas').flatMap(bebidaItens);
+}
+
+function estadoBebida(id){
+  if(!bebidasEstado[id]){
+    const [baseId, idx] = String(id).split('#');
+    const p = produtos.find(x => x.id === baseId);
+    const s = (p && p.precificacao) || {};
+    if(idx !== undefined){
+      const d = ((s.barril && s.barril.doses) || [])[Number(idx)] || {};
+      bebidasEstado[id] = { cmvPct: d.cmvPct ?? 30, ivaPct: d.ivaPct ?? 23, precoCobrado: d.precoCobrado ?? '', precoDelivery: d.precoDelivery ?? '' };
+    }else{
+      bebidasEstado[id] = {
+        cmvPct: s.cmvPct ?? 30, ivaPct: s.ivaPct ?? 23,
+        precoCobrado: s.precoCobrado ?? '', precoDelivery: s.precoDelivery ?? '',
+        unidadeQtd: s.unidadeQtd ?? '',
+        barril: s.barril ? { ativo: !!s.barril.ativo, perdaPct: s.barril.perdaPct ?? PERDA_BARRIL_PADRAO, doses: (s.barril.doses || DOSES_BARRIL_PADRAO).map(d => ({ nome: d.nome, ml: d.ml })) } : null
+      };
+    }
+  }
+  return bebidasEstado[id];
 }
 
 // Grava os preços da bebida no banco (coluna "precificacao" do produto), com pequena espera
 // para não gravar a cada tecla. Só funciona depois de a coluna existir no Supabase.
 const bebidasGravarTimers = {};
-function gravarPrecificacaoBebida(produtoId){
+function gravarPrecificacaoBebida(itemId){
+  const produtoId = String(itemId).split('#')[0]; // um copo de barril grava no produto do barril
   const p = produtos.find(x => x.id === produtoId);
   if(!p || p.precificacao === undefined) return;
-  p.precificacao = { ...estadoBebida(produtoId) };
+  const est = estadoBebida(produtoId);
+  const novo = { ...est };
+  if(est.barril){
+    novo.barril = { ativo: est.barril.ativo, perdaPct: est.barril.perdaPct, doses: est.barril.doses.map((d, i) => {
+      const s = estadoBebida(produtoId + '#' + i);
+      return { nome: d.nome, ml: d.ml, cmvPct: s.cmvPct, ivaPct: s.ivaPct, precoCobrado: s.precoCobrado, precoDelivery: s.precoDelivery };
+    }) };
+  }else{
+    delete novo.barril;
+  }
+  p.precificacao = novo;
   clearTimeout(bebidasGravarTimers[produtoId]);
   bebidasGravarTimers[produtoId] = setTimeout(async () => {
     try{ await sbUpdateRow('produtos', produtoId, { precificacao: p.precificacao }); }
     catch(e){ avisarErroGravar(); }
   }, 700);
+}
+
+// Alterações de configuração (mudam a estrutura da tabela, por isso redesenham)
+function atualizarUnidadeVendaBebida(produtoId, valor){
+  estadoBebida(produtoId).unidadeQtd = valor === '' ? '' : (parseFloat(valor) || '');
+  gravarPrecificacaoBebida(produtoId);
+  renderBebidas();
+}
+function alternarBarrilBebida(produtoId, ativo){
+  const est = estadoBebida(produtoId);
+  if(!est.barril) est.barril = { ativo: false, perdaPct: PERDA_BARRIL_PADRAO, doses: DOSES_BARRIL_PADRAO.map(d => ({ ...d })) };
+  est.barril.ativo = !!ativo;
+  gravarPrecificacaoBebida(produtoId);
+  renderBebidas();
+}
+function atualizarBarrilBebida(produtoId, campo, valor){
+  const est = estadoBebida(produtoId);
+  if(!est.barril) return;
+  est.barril[campo] = Math.min(90, Math.max(0, parseFloat(valor) || 0));
+  gravarPrecificacaoBebida(produtoId);
+  renderBebidas();
+}
+function atualizarDoseBarril(produtoId, idx, campo, valor){
+  const est = estadoBebida(produtoId);
+  if(!est.barril || !est.barril.doses[idx]) return;
+  est.barril.doses[idx][campo] = campo === 'ml' ? (parseFloat(valor) || 0) : String(valor).trim();
+  gravarPrecificacaoBebida(produtoId);
+  renderBebidas();
 }
 
 function renderBebidas(){
@@ -8623,17 +8712,51 @@ function renderBebidas(){
     </table>
     </div>`;
 
-  bebidas.forEach(p => atualizarLinhaBebida(p.id));
+  bebidas.flatMap(bebidaItens).forEach(it => atualizarLinhaBebida(it.id));
 }
 
+// Uma bebida = uma linha; um barril ativo = um cabeçalho (perda e copos) + uma linha por copo.
 function linhaBebidaHtml(p){
+  const emb = embalagemBase(p);
   const est = estadoBebida(p.id);
-  const custo = precoPorGrama(p);
+  if(!emb || precoPorUnidadeBase(p) == null){
+    return `<tr><td>${p.nome}</td><td colspan="12" class="save-note">sem preço/embalagem definida — completa em Produtos</td></tr>`;
+  }
+  const num = 'style="width:70px;"';
+  let extra = '';
+  if(bebidaPodeSerBarril(p)){
+    extra += `<div class="save-note" style="margin-top:4px;"><label><input type="checkbox" ${est.barril && est.barril.ativo ? 'checked' : ''} onchange="alternarBarrilBebida('${p.id}', this.checked)"> Barril (vender a copos)</label></div>`;
+  }
+  if(est.barril && est.barril.ativo){
+    const doses = est.barril.doses.map((d, i) => `
+      <label class="field" style="display:inline-block;margin-right:10px;">Copo ${i + 1}
+        <input type="text" value="${d.nome}" style="width:90px;" onchange="atualizarDoseBarril('${p.id}', ${i}, 'nome', this.value)">
+        <input type="number" step="any" value="${d.ml}" ${num} onchange="atualizarDoseBarril('${p.id}', ${i}, 'ml', this.value)"> ml
+      </label>`).join('');
+    const cab = `<tr style="background:var(--cream);"><td colspan="13">
+        <strong>${p.nome}</strong>${extra}
+        <div style="margin-top:6px;"><label class="field" style="display:inline-block;margin-right:14px;">Perda ao sangrar / purgar (%)
+          <input type="number" step="any" value="${est.barril.perdaPct}" ${num} onchange="atualizarBarrilBebida('${p.id}', 'perdaPct', this.value)"></label>${doses}</div>
+        <div class="save-note" style="margin-top:4px;">Custo de cada copo = preço do barril ÷ volume × ml do copo ÷ (1 − perda). A contagem do barril continua em barris.</div>
+      </td></tr>`;
+    return cab + bebidaItens(p).map(it => linhaItemBebidaHtml(it)).join('');
+  }
+  if(emb.unidade !== 'unidade'){
+    const un = emb.unidade; // 'ml' ou 'g'
+    extra += `<div class="save-note" style="margin-top:4px;">Unidade de venda: <input type="number" step="any" value="${est.unidadeQtd === '' ? '' : est.unidadeQtd}" placeholder="${emb.qtd}" style="width:70px;" onchange="atualizarUnidadeVendaBebida('${p.id}', this.value)"> ${un} (vazio = embalagem inteira, ${emb.qtd} ${un})</div>`;
+  }
+  return linhaItemBebidaHtml(bebidaItens(p)[0], extra);
+}
+
+function linhaItemBebidaHtml(item, extraNome){
+  const p = { id: item.id, nome: item.nome };
+  const est = estadoBebida(item.id);
+  const custo = item.custo;
   if(custo == null){
     return `<tr><td>${p.nome}</td><td colspan="12" class="save-note">sem preço/embalagem definida — completa em Produtos</td></tr>`;
   }
   return `<tr id="beb-row-${p.id}">
-    <td>${p.nome}</td>
+    <td>${p.nome}${extraNome || ''}</td>
     <td>${eur(custo)}</td>
     <td><input type="number" step="any" value="${est.cmvPct}" style="max-width:70px;" oninput="atualizarBebidaEstado('${p.id}','cmvPct',this.value)"></td>
     <td><input type="number" step="any" value="${est.ivaPct}" style="max-width:60px;" oninput="atualizarBebidaEstado('${p.id}','ivaPct',this.value)"></td>
@@ -8659,13 +8782,13 @@ function atualizarBebidaEstado(produtoId, campo, valor){
 function atualizarComissaoGlobalBebidas(){
   bebidasGlobal.comissaoPct = parseFloat(document.getElementById('bebComissaoPct').value) || 0;
   bebidasGlobal.ivaComissaoPct = parseFloat(document.getElementById('bebIvaComissaoPct').value) || 0;
-  produtos.filter(p => p.categoria === 'Bebidas').forEach(p => atualizarLinhaBebida(p.id));
+  todasAsBebidasItens().forEach(it => atualizarLinhaBebida(it.id));
 }
 
 function atualizarLinhaBebida(produtoId){
-  const p = produtos.find(x => x.id === produtoId);
-  const custo = p && precoPorGrama(p);
-  if(!p || custo == null) return;
+  const item = bebidaItemPorId(produtoId);
+  const custo = item && item.custo;
+  if(!item || custo == null) return;
   const est = estadoBebida(produtoId);
   const pr = calcularPrecificacao(custo, { cmvPct: est.cmvPct, participacaoPct: 0, ivaPct: est.ivaPct });
 
@@ -8743,8 +8866,8 @@ function renderRetorno(){
     linhas.push({ nome: p.nome, grupo, loja, delivery });
   });
 
-  produtos.filter(p => p.categoria === 'Bebidas').forEach(p => {
-    const custo = precoPorGrama(p);
+  todasAsBebidasItens().forEach(p => {
+    const custo = p.custo;
     if(custo == null) return;
     const est = estadoBebida(p.id);
     const precoCobrado = parseFloat(est.precoCobrado) || 0;
@@ -8840,7 +8963,7 @@ const MENUS = (function(){
       m.set(p.id, { id:p.id, nome:p.nome, grupo, tipo:'prato', produto:p, receita:r });
     });
     produtos.filter(p => p.categoria === 'Bebidas' && !m.has(p.id)).forEach(p => {
-      m.set(p.id, { id:p.id, nome:p.nome, grupo:'Bebidas', tipo:'bebida', produto:p, receita:null });
+      bebidaItens(p).forEach(b => m.set(b.id, { id:b.id, nome:b.nome, grupo:'Bebidas', tipo:'bebida', produto:p, item:b, receita:null }));
     });
     return m;
   }
@@ -8863,7 +8986,7 @@ const MENUS = (function(){
       return { ok: !avisos.length, avisos, custo, extra, preco, ivaPct:ex.ivaPct, part:ex.participacaoPct,
                comPct: delivery ? ex.deliveryTaxaPct : 0, comIva: delivery ? ex.deliveryIvaTaxaPct : 0 };
     }
-    const custo = precoPorGrama(it.produto), est = estadoBebida(it.id);
+    const custo = it.item ? it.item.custo : precoPorGrama(it.produto), est = estadoBebida(it.id);
     const preco = parseFloat(delivery ? est.precoDelivery : est.precoCobrado) || 0;
     if(custo == null) avisos.push('sem custo (falta a embalagem em Produtos)');
     if(!(preco > 0)) avisos.push(delivery ? 'sem preço de delivery em Bebidas' : 'sem preço de venda em Bebidas');
