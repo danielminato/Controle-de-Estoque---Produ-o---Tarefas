@@ -175,6 +175,10 @@
   .price-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
   .price-row select{flex:1.4;}
   .price-row input{flex:1;}
+  /* Ficha técnica: opções raras (base, % da base, rendimento) só aparecem em "opções avançadas" */
+  #modalReceita:not(.adv) .ri-adv{display:none !important;}
+  #receitaResumoFixo{position:sticky;top:-1px;z-index:5;background:var(--cream);border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:8px 12px;margin:0 0 12px;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  #receitaResumoFixo strong{font-weight:700;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   .stat{font-size:22px;font-family:'Playfair Display',serif;font-weight:600;}
   .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
@@ -1123,6 +1127,14 @@
 <div class="modal-bg" id="modalReceita">
   <div class="modal" style="max-width:640px;">
     <h3>Ficha técnica</h3>
+    <div id="receitaResumoFixo">
+      <span>Custo por porção <strong id="rsCusto">—</strong></span>
+      <span>Preço mínimo c/ IVA <strong id="rsMin">—</strong></span>
+      <span id="rsPratoWrap" style="display:contents;">
+        <span>Loja: <strong id="rsLoja">—</strong></span>
+        <span>Delivery: <strong id="rsDel">—</strong></span>
+      </span>
+    </div>
     <input type="hidden" id="receitaId">
     <label class="field">Produto resultante
       <select id="receitaProdutoId" onchange="onReceitaProdutoIdChange()"></select>
@@ -1145,22 +1157,17 @@
 
     <div class="save-note" id="receitaRendimentoAuto" style="margin-bottom:6px;"></div>
     <h3 style="font-size:15px;margin:16px 0 8px;">Ingredientes</h3>
-    <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
-      <div><strong>Como preencher cada ingrediente:</strong></div>
+    <details class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
+      <summary style="cursor:pointer;font-weight:600;">❓ Como preencher cada ingrediente</summary>
       <div>🔢 <strong>Quantidade</strong> — quanto entra na receita, em gramas ou ml. Para a maioria dos pratos é só isto que precisas de preencher.</div>
       <div>⚖️ <strong>Base</strong> — marca isto só num ingrediente, e só se os outros forem uma % dele (ex.: massa de pizza: a farinha é a base, a água é 72% dela). Se cada ingrediente tem um peso fixo próprio (a maioria dos pratos), não marques nenhum.</div>
       <div>％ <strong>% da base</strong> — só funciona depois de marcares uma base acima. Escreves a % em vez do peso, e o app calcula o peso sozinho.</div>
       <div>♻️ <strong>Rend.%</strong> — deixa em 100 na maioria dos casos. Só baixa se ESTE ingrediente em concreto perde peso ao preparar (ex.: descascar, coar) — quanto menor, mais caro fica, porque parte do que compraste vai para o lixo.</div>
       <div>🔻▪️🔺🗑️ <strong>Base / Recheio / Finalização / Descartáveis</strong> — só muda a ORDEM em que aparece na ficha pronta (não mexe no custo). Serve para a ficha ler na ordem em que montas o prato: primeiro a base (ex.: massa, molho), depois o recheio, depois quem entra ao fim (ex.: azeite, ervas por cima), e por último os descartáveis (ex.: guardanapo).</div>
-    </div>
-    <div class="price-row" style="font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.02em;">
-      <span style="flex:1.4;">Ingrediente</span>
-      <span style="max-width:90px;flex:1;">Quantidade</span>
-      <span style="max-width:84px;flex:1;">% da base</span>
-      <span style="max-width:70px;flex:1;">Rend.%</span>
-      <span style="min-width:60px;">Base?</span>
-      <span style="max-width:110px;flex:1;">Camada</span>
-      <span style="width:52px;"></span>
+    </details>
+    <div class="row between" style="margin-bottom:6px;">
+      <span class="save-note">Em cada linha: ingrediente, quantidade (g ou ml) e onde entra na montagem.</span>
+      <button class="icon-btn" type="button" onclick="alternarAvancadoReceita()">⚙️ opções avançadas</button>
     </div>
     <div id="receitaItensList"></div>
     <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
@@ -8164,6 +8171,9 @@ function openReceitaModal(id){
       }))
     : [];
   receitaBaseIdx = (x.baseIdx !== undefined && x.baseIdx !== null && x.baseIdx >= 0 && x.baseIdx < receitaItensAtuais.length) ? x.baseIdx : -1;
+  // as opções avançadas (base, % da base, rendimento) só abrem sozinhas se esta receita já as usa
+  const temAvancado = receitaBaseIdx >= 0 || receitaItensAtuais.some(ri => (ri.rendPct && ri.rendPct !== 100) || ri.pct > 0);
+  document.getElementById('modalReceita').classList.toggle('adv', temAvancado);
 
   onReceitaProdutoChange();
   renderReceitaItensList();
@@ -8172,6 +8182,9 @@ function openReceitaModal(id){
 
 function onReceitaProdutoChange(){
   atualizarPreviewCustoReceita();
+}
+function alternarAvancadoReceita(){
+  document.getElementById('modalReceita').classList.toggle('adv');
 }
 
 function popularSelectProdutoReceita(selecionadoId){
@@ -8287,8 +8300,8 @@ function renderReceitaItensList(){
     const opcoes = opcoesIngredienteHtml(produtoResultadoId, ri.ingredienteProdutoId);
     const ehBase = idx === receitaBaseIdx;
     const campoPct = ehBase
-      ? '<span class="save-note" style="min-width:84px;text-align:center;">100% (é a base)</span>'
-      : `<input type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
+      ? '<span class="save-note ri-adv" style="min-width:84px;text-align:center;">100% (é a base)</span>'
+      : `<input class="ri-adv" type="number" step="any" id="ri-p-${idx}" title="% em relação ao ingrediente base (ex.: 72 = 72% do peso da farinha)" placeholder="${receitaBaseIdx < 0 ? '— sem base —' : '% da base'}" value="${ri.pct||''}" style="max-width:84px;" ${receitaBaseIdx < 0 ? 'disabled' : ''} oninput="atualizarReceitaItem(${idx}, 'pct', this.value)">`;
 
     const camadaAtual = ri.ingredienteProdutoId ? camadaDoItemAtual(ri) : null;
     const cabecalho = (camadaAtual !== null && camadaAtual !== camadaAnterior)
@@ -8299,11 +8312,11 @@ function renderReceitaItensList(){
     return cabecalho + `
       <div class="price-row" style="flex-wrap:wrap;${ehBase ? 'background:var(--cream);border-radius:8px;padding:6px 6px;margin-left:-6px;margin-right:-6px;' : ''}">
         <select onchange="atualizarReceitaItem(${idx}, 'ingredienteProdutoId', this.value)">${opcoes}</select>
-        <input type="number" step="any" id="ri-q-${idx}" placeholder="ex.: 290" value="${ri.quantidadeG||''}" style="max-width:90px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
+        <input type="number" step="any" id="ri-q-${idx}" placeholder="g ou ml" title="Quantidade em gramas ou ml" value="${ri.quantidadeG||''}" style="max-width:130px;" oninput="atualizarReceitaItem(${idx}, 'quantidadeG', this.value)">
         ${campoPct}
-        <input type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="100" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
-        <label class="save-note" style="display:flex;align-items:center;gap:4px;cursor:pointer;min-width:60px;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> ${ehBase ? '⚖️ base' : 'base'}</label>
-        <select title="Onde entra na montagem — só afeta a ordem em que aparece na ficha (não no custo)" style="max-width:110px;" onchange="atualizarReceitaItem(${idx}, 'camada', this.value)">
+        <input class="ri-adv" type="number" step="any" title="Rendimento %: quanto do ingrediente aproveitas (100 = sem perda)" placeholder="100" value="${ri.rendPct||100}" style="max-width:70px;" oninput="atualizarReceitaItem(${idx}, 'rendPct', this.value)">
+        <label class="save-note ri-adv" style="display:flex;align-items:center;gap:4px;cursor:pointer;min-width:60px;" title="Ingrediente de referência para as percentagens (ex.: a farinha)"><input type="radio" name="receitaBase" ${ehBase ? 'checked' : ''} onchange="definirBaseReceita(${idx})"> ${ehBase ? '⚖️ base' : 'base'}</label>
+        <select title="Onde entra na montagem — só afeta a ordem em que aparece na ficha (não no custo)" style="max-width:170px;" onchange="atualizarReceitaItem(${idx}, 'camada', this.value)">
           <option value="0" ${ (ri.camada??camadaPadraoDoItem(ri))===0 ? 'selected':''}>🔻 Base</option>
           <option value="1" ${ (ri.camada??camadaPadraoDoItem(ri))===1 ? 'selected':''}>▪️ Recheio</option>
           <option value="2" ${ (ri.camada??camadaPadraoDoItem(ri))===2 ? 'selected':''}>🔺 Finalização</option>
@@ -8470,10 +8483,15 @@ function atualizarPreviewCustoReceita(){
   ultimoPreviewReceita = { custoPorcao, custoExtraDeliveryPorcao, x };
   const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
   set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
+  // resumo fixo no topo da ficha: o resultado fica à vista enquanto se edita
+  const rs = id => document.getElementById(id);
+  rs('rsCusto').textContent = eur(custoPorcao);
+  rs('rsMin').textContent = custoPorcao > 0 ? eur(pr.final) : '—';
 
   // "O que vais cobrar de verdade" — só faz sentido para um prato que se vende diretamente
   const ehPratoFinal = (() => { const p = produtos.find(pp => pp.id === document.getElementById('receitaProdutoId').value); return p && p.tipo === 'prato_final'; })();
   document.getElementById('receitaRetornoWrap').style.display = ehPratoFinal ? 'block' : 'none';
+  rs('rsPratoWrap').style.display = ehPratoFinal ? 'contents' : 'none';
   if(ehPratoFinal){
     const cmvAlerta = parseFloat(document.getElementById('receitaCmvAlertaPct').value) || 35;
     const precoLoja = parseFloat(document.getElementById('receitaPrecoVenda').value) || 0;
@@ -8521,6 +8539,13 @@ function atualizarPreviewCustoReceita(){
     const retDelCmvEl = document.getElementById('retDelCmv');
     retDelCmvEl.textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' : '—';
     retDelCmvEl.style.color = precoDel > 0 ? cmvColor(retDel.cmvReal) : '';
+
+    const resumo = (preco, r, el) => {
+      el.textContent = preco > 0 ? `${eur(preco)} → retorno ${eur(r.retorno)} · CMV ${r.cmvReal.toFixed(1)}%` : 'sem preço';
+      el.style.color = preco > 0 ? ((r.retorno < 0 || r.cmvReal > cmvAlerta) ? 'var(--danger-text)' : 'var(--ok-text)') : '';
+    };
+    resumo(precoLoja, retLoja, rs('rsLoja'));
+    resumo(precoDel, retDel, rs('rsDel'));
   }
 }
 
@@ -8567,15 +8592,16 @@ async function saveReceita(){
       receitas.push(receitaObj);
     }
 
-    // substitui os itens desta receita: apaga os antigos e insere os atuais
+    // substitui os itens desta receita: grava os novos PRIMEIRO e só depois apaga os antigos,
+    // assim uma falha a meio nunca deixa a receita sem ingredientes
     const antigos = receitaItens.filter(ri => ri.receitaId === receitaIdFinal);
-    if(antigos.length > 0){
-      const ids = antigos.map(a => `"${a.id}"`).join(',');
-      await fetch(`${SUPABASE_URL}/rest/v1/receita_itens?id=in.(${ids})`, { method:'DELETE', headers: sbHeadersFn() });
-    }
     const novosItens = receitaItensAtuais.map((ri, i) => ({ id: uid(), receitaId: receitaIdFinal, ingredienteProdutoId: ri.ingredienteProdutoId, quantidadeG: ri.quantidadeG, ordem: i }));
     if(novosItens.length > 0){
       await sbInsertRow('receita_itens', novosItens.map(receitaItemToDb));
+    }
+    if(antigos.length > 0){
+      const ids = antigos.map(a => `"${a.id}"`).join(',');
+      await fetch(`${SUPABASE_URL}/rest/v1/receita_itens?id=in.(${ids})`, { method:'DELETE', headers: sbHeadersFn() });
     }
     receitaItens = receitaItens.filter(ri => ri.receitaId !== receitaIdFinal).concat(novosItens);
 
