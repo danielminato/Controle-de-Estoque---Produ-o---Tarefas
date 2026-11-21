@@ -177,7 +177,10 @@
   .price-row input{flex:1;}
   /* Ficha técnica: opções raras (base, % da base, rendimento) só aparecem em "opções avançadas" */
   #modalReceita:not(.adv) .ri-adv{display:none !important;}
-  #receitaResumoFixo{position:sticky;top:-1px;z-index:5;background:var(--cream);border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:8px 12px;margin:0 0 12px;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  /* ocupa o topo do modal inteiro (compensa o padding de 24px) e fica fixo ao rolar */
+  #receitaResumoFixo{position:sticky;top:0;z-index:5;background:#f2f4f8;border-bottom:1px solid rgba(0,0,0,.12);padding:16px 24px 10px;margin:-24px -24px 14px;box-shadow:0 3px 8px rgba(0,0,0,.08);}
+  #receitaResumoFixo h3{margin:0 0 6px;}
+  #receitaResumoFixo .rs-linha{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;}
   #receitaResumoFixo strong{font-weight:700;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   .stat{font-size:22px;font-family:'Playfair Display',serif;font-weight:600;}
@@ -1126,14 +1129,16 @@
 <!-- MODAL RECEITA -->
 <div class="modal-bg" id="modalReceita">
   <div class="modal" style="max-width:640px;">
-    <h3>Ficha técnica</h3>
     <div id="receitaResumoFixo">
-      <span>Custo por porção <strong id="rsCusto">—</strong></span>
-      <span>Preço mínimo c/ IVA <strong id="rsMin">—</strong></span>
-      <span id="rsPratoWrap" style="display:contents;">
-        <span>Loja: <strong id="rsLoja">—</strong></span>
-        <span>Delivery: <strong id="rsDel">—</strong></span>
-      </span>
+      <h3>Ficha técnica</h3>
+      <div class="rs-linha">
+        <span>Custo por porção <strong id="rsCusto">—</strong></span>
+        <span>Preço mínimo c/ IVA <strong id="rsMin">—</strong></span>
+        <span id="rsPratoWrap" style="display:contents;">
+          <span>Loja: <strong id="rsLoja">—</strong></span>
+          <span>Delivery: <strong id="rsDel">—</strong></span>
+        </span>
+      </div>
     </div>
     <input type="hidden" id="receitaId">
     <label class="field">Produto resultante
