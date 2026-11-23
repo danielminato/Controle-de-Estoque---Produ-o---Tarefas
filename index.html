@@ -1312,11 +1312,6 @@
       <label class="field">Unidade (porção, pote, bisnaga...)<input type="text" id="producaoItemUnidade" style="width:100%;"></label>
       <label class="field">Validade (ex.: 3 dias)<input type="text" id="producaoItemValidade" style="width:100%;"></label>
     </div>
-    <label class="field">Onde se usa
-      <select id="producaoItemDestino">
-        <option>Cozinha</option><option>Pizza</option><option>Cozinha + Pizza</option>
-      </select>
-    </label>
     <div class="save-note">As quantidades por dia da semana definem-se depois, direto na grelha.</div>
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalProducaoItem')">Cancelar</button>
@@ -1422,9 +1417,9 @@
   <!-- PRODUÇÃO: escolher categoria -->
   <div class="oper-screen" id="oper-screen-producao-tipo">
     <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')" style="margin-bottom:12px;">← voltar</button>
-    <h3 style="margin-bottom:14px;">O que vais produzir?</h3>
-    <button class="grupo-btn" onclick="selecionarProducaoCategoria('insumos')">🥬 Insumos</button>
-    <button class="grupo-btn" onclick="selecionarProducaoCategoria('impasto')">🍞 Impasto</button>
+    <h3 style="margin-bottom:14px;">Onde vais produzir?</h3>
+    <button class="grupo-btn" onclick="abrirProducaoArea('Cozinha')">🍝 Cozinha</button>
+    <button class="grupo-btn" onclick="abrirProducaoArea('Área de Pizza')">🍕 Área de pizza</button>
   </div>
 
   <!-- PRODUÇÃO: escolher área(s) -->
@@ -1461,8 +1456,9 @@
   <div class="oper-screen" id="oper-screen-producao-itens">
     <div class="top-actions">
       <h3 id="producaoItensTitulo"></h3>
-      <button class="link-btn" onclick="mostrarOperScreen('oper-screen-home')">← início</button>
+      <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')">← voltar</button>
     </div>
+    <div id="producaoItensTopo"></div>
     <div class="save-note" style="margin-bottom:10px;">Diz quanto já tens, vê quanto falta produzir e carrega em ✔ Feito quando acabares — o item desaparece para todos, para não haver duplicação.</div>
     <div class="prod-progresso" id="producaoProgresso"></div>
     <div id="producaoItensLista"></div>
@@ -7819,7 +7815,7 @@ function renderProducaoItens(){
     return `
     <tr>
       <td><span class="badge area">${i.area}</span></td>
-      <td>${i.nome}${(() => { const f = infoProducao(i); const partes = [f.unidade, f.validade ? 'validade ' + f.validade : '', f.destino].filter(Boolean); return partes.length ? '<div class="save-note">' + partes.join(' · ') + '</div>' : ''; })()}</td>
+      <td>${i.nome}${(() => { const f = infoProducao(i); const partes = [f.unidade, f.validade ? 'validade ' + f.validade : ''].filter(Boolean); return partes.length ? '<div class="save-note">' + partes.join(' · ') + '</div>' : ''; })()}</td>
       ${celulasDias}
       <td>
         <button class="icon-btn" onclick="openProducaoItemModal('${i.id}')">editar</button>
@@ -7854,7 +7850,6 @@ function openProducaoItemModal(id){
   document.getElementById('producaoItemNome').value = item ? item.nome : '';
   document.getElementById('producaoItemUnidade').value = f.unidade || '';
   document.getElementById('producaoItemValidade').value = f.validade || '';
-  document.getElementById('producaoItemDestino').value = f.destino || 'Cozinha';
   document.getElementById('modalProducaoItem').classList.add('open');
 }
 
@@ -7866,8 +7861,7 @@ async function saveProducaoItem(){
 
   const info = {
     unidade: document.getElementById('producaoItemUnidade').value.trim(),
-    validade: document.getElementById('producaoItemValidade').value.trim(),
-    destino: document.getElementById('producaoItemDestino').value
+    validade: document.getElementById('producaoItemValidade').value.trim()
   };
   try{
     if(id){
@@ -9500,8 +9494,16 @@ function selecionarProducaoCategoria(categoria){
   mostrarOperScreen('oper-screen-producao-areas');
 }
 
-async function iniciarProducaoItens(){
-  const marcadas = Array.from(document.querySelectorAll('.producao-area-check:checked')).map(c => c.value);
+// Funil da produção diária: Produção → onde vais produzir (Cozinha / Área de pizza) → lista do dia
+function abrirProducaoArea(area){
+  producaoCategoriaOperacional = 'insumos';
+  iniciarProducaoItens([area]);
+}
+
+async function iniciarProducaoItens(areasEscolhidas){
+  const marcadas = Array.isArray(areasEscolhidas)
+    ? areasEscolhidas
+    : Array.from(document.querySelectorAll('.producao-area-check:checked')).map(c => c.value);
   if(marcadas.length === 0){ await showAlert('Escolhe pelo menos uma área.'); return; }
 
   try{ producaoExecucoes = await sbGet('producao_execucoes'); }catch(e){}
@@ -9520,7 +9522,11 @@ async function iniciarProducaoItens(){
   producaoProgresso = { total: todosDeHoje.length, feitos: todosDeHoje.length - itens.length };
   itens.sort((a,b) => a.area.localeCompare(b.area) || (a.ordem||0)-(b.ordem||0));
 
-  document.getElementById('producaoItensTitulo').textContent = `${producaoCategoriaOperacional === 'insumos' ? 'Insumos' : 'Impasto'} — ${marcadas.join(', ')}`;
+  document.getElementById('producaoItensTitulo').textContent = `${marcadas.includes('Área de Pizza') ? '🍕' : '🍝'} ${marcadas.join(', ')}`;
+  // a área de pizza também faz as massas (impasto): atalho no topo
+  document.getElementById('producaoItensTopo').innerHTML = marcadas.includes('Área de Pizza')
+    ? '<button class="grupo-btn" style="margin-bottom:14px;" onclick="IMPASTO.entrar()">🍞 Impasto — fazer a massa de biga</button>'
+    : '';
 
   renderListaProducaoItens(itens);
   mostrarOperScreen('oper-screen-producao-itens');
@@ -9569,15 +9575,14 @@ function renderListaProducaoItens(itens){
     wrap.innerHTML = '<div class="empty">Nada a produzir hoje nestas áreas. 🎉</div>';
     return;
   }
-  const destinoDe = item => infoProducao(item).destino || 'Cozinha';
-  const ordemDestinos = ['Cozinha', 'Pizza', 'Cozinha + Pizza'];
+  // cada área tem a sua lista; só mostra o título da área se houver mais de uma na mesma lista
   const porDestino = {};
-  itens.forEach(item => { (porDestino[destinoDe(item)] = porDestino[destinoDe(item)] || []).push(item); });
-  const destinos = Object.keys(porDestino).sort((a, b) => ordemDestinos.indexOf(a) - ordemDestinos.indexOf(b));
+  itens.forEach(item => { (porDestino[item.area] = porDestino[item.area] || []).push(item); });
+  const destinos = Object.keys(porDestino);
 
   let html = '';
   destinos.forEach(destino => {
-    html += `<div class="area-header">${ROTULO_DESTINO_PRODUCAO[destino] || destino}</div>`;
+    if(destinos.length > 1) html += `<div class="area-header">${destino}</div>`;
     porDestino[destino].forEach(item => {
       const f = infoProducao(item);
       const qtd = Number(item.quantidades[diaSemana]) || 0;
