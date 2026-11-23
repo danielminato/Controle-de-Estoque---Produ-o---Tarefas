@@ -1312,6 +1312,7 @@
       <label class="field">Unidade (porção, pote, bisnaga...)<input type="text" id="producaoItemUnidade" style="width:100%;"></label>
       <label class="field">Validade (ex.: 3 dias)<input type="text" id="producaoItemValidade" style="width:100%;"></label>
     </div>
+    <label class="field">Observações (aparecem no cartão da produção)<input type="text" id="producaoItemObs" style="width:100%;" placeholder="ex.: cortar ao meio para ter pronto"></label>
     <div class="save-note">As quantidades por dia da semana definem-se depois, direto na grelha.</div>
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('modalProducaoItem')">Cancelar</button>
@@ -7815,7 +7816,7 @@ function renderProducaoItens(){
     return `
     <tr>
       <td><span class="badge area">${i.area}</span></td>
-      <td>${i.nome}${(() => { const f = infoProducao(i); const partes = [f.unidade, f.validade ? 'validade ' + f.validade : ''].filter(Boolean); return partes.length ? '<div class="save-note">' + partes.join(' · ') + '</div>' : ''; })()}</td>
+      <td>${i.nome}${(() => { const f = infoProducao(i); const partes = [f.unidade, f.validade ? 'validade ' + f.validade : '', f.obs ? '📝 ' + f.obs : ''].filter(Boolean); return partes.length ? '<div class="save-note">' + partes.join(' · ') + '</div>' : ''; })()}</td>
       ${celulasDias}
       <td>
         <button class="icon-btn" onclick="openProducaoItemModal('${i.id}')">editar</button>
@@ -7850,6 +7851,7 @@ function openProducaoItemModal(id){
   document.getElementById('producaoItemNome').value = item ? item.nome : '';
   document.getElementById('producaoItemUnidade').value = f.unidade || '';
   document.getElementById('producaoItemValidade').value = f.validade || '';
+  document.getElementById('producaoItemObs').value = f.obs || '';
   document.getElementById('modalProducaoItem').classList.add('open');
 }
 
@@ -7861,7 +7863,8 @@ async function saveProducaoItem(){
 
   const info = {
     unidade: document.getElementById('producaoItemUnidade').value.trim(),
-    validade: document.getElementById('producaoItemValidade').value.trim()
+    validade: document.getElementById('producaoItemValidade').value.trim(),
+    obs: document.getElementById('producaoItemObs').value.trim()
   };
   try{
     if(id){
@@ -9602,6 +9605,7 @@ function renderListaProducaoItens(itens){
           <div class="prod-num"><div class="lbl">Tenho</div><input type="number" inputmode="decimal" min="0" step="any" id="tem-${item.id}" placeholder="0" oninput="atualizarProduzir('${item.id}')"></div>
           <div class="prod-num prod-produzir"><div class="lbl">Produzir</div><div class="val" id="produzir-${item.id}">${numProducao(qtd)}</div></div>
         </div>
+        ${f.obs ? `<div class="prod-hint" style="font-size:13px;color:var(--ink);">📝 ${f.obs}</div>` : ''}
         ${dica}
         <button class="btn prod-feito" onclick="marcarProducaoFeita('${item.id}')">✔ Feito</button>
       </div>`;
