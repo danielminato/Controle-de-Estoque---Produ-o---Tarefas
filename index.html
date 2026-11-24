@@ -1428,7 +1428,7 @@
     <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
     <h3 style="margin-bottom:14px;">🍕 Área de pizza: o que vais fazer?</h3>
     <button class="grupo-btn" onclick="IMPASTO.entrar()">🍞 Impasto — massa de biga</button>
-    <button class="grupo-btn" onclick="iniciarProducaoItens(['Área de Pizza'])">🥬 Produção diária da pizza</button>
+    <button class="grupo-btn" onclick="iniciarProducaoItens(['Área de Pizza'])">🥬 Produção diária - área de pizza</button>
   </div>
 
   <!-- PRODUÇÃO: escolher área(s) -->
@@ -5825,7 +5825,7 @@ const IMPASTO = (function(){
       ? `<div class="imp-kpis"><div class="imp-kpi"><span>Produções</span><b>${PRODS.length}</b></div>
           <div class="imp-kpi"><span>Reaproveitadas por produção</span><b>${fmtN(mediaReu, 1)}</b></div>
           <div class="imp-kpi"><span>Massa reaproveitada</span><b>${fmtN(pctReu, 1)}%</b></div>
-          <div class="imp-kpi"><span>Bolas que sobraram</span><b>${fechadas.length ? fmtN(pct, 1) + '%' : '—'}</b></div></div>
+          <div class="imp-kpi"><span>Vencidos que sobraram (crostini e pão)</span><b>${fechadas.length ? fmtN(pct, 1) + '%' : '—'}</b></div></div>
          <div class="save-note" style="margin-bottom:10px;">Em média vão ${fmtN(mediaReu, 1)} bolas por produção para a massa final (${fmtN(pctReu, 1)}% da massa). Quanto maior este número, mais bolas estão a vencer: dá para baixar a previsão ou a produção.${fechadas.length && pct > 10 ? ' <b>Sobram mais de 10% das bolas:</b> a previsão de vendas está alta.' : ''}</div>`
       : '<p class="save-note">Ainda não há produções registadas.</p>';
     const linhas = PRODS.map(p => {
@@ -5849,7 +5849,7 @@ const IMPASTO = (function(){
         <div class="field-row">
           ${campo('Peso da bola (g)', 'ball', 'number', 1, 'Aceita de ' + fmtN(C.ball - 5) + ' a ' + fmtN(C.ball + 5) + ' g por bola.')}
           ${campo('Farinha por batida (kg)', 'maxFlour', 'number', 0.5, 'Base da receita e máximo da masseira. Todos os cálculos partem daqui; acima disto a app manda dividir em batidas iguais.')}
-          ${campo('Reaproveitamento máximo (% da massa)', 'reuseMax', 'number', 1, 'As bolas vencidas perdem estrutura: só entram até este limite e o resto é descartado. Há sempre farinha nova a segurar a massa.')}
+          ${campo('Reaproveitamento máximo (% da massa)', 'reuseMax', 'number', 1, 'As bolas vencidas perdem estrutura: só entram até este limite; as restantes vão para o crostini e o pão. Há sempre farinha nova a segurar a massa.')}
         </div>
         <h4 style="margin:16px 0 6px;">Receita (percentagens sobre o peso da farinha)</h4>
         <div class="save-note" style="margin-bottom:8px;">Fixa, igual às fotos da receita. Os pesos mostram o que dá com ${fmtN(C.maxFlour)} kg de farinha.</div>
@@ -6047,7 +6047,8 @@ const IMPASTO = (function(){
 
   function renderHome(){
     const emCurso = PRODS.filter(p => p.bolas_rendidas == null);
-    const porSobras = PRODS.filter(pedeSobras);
+    // as sobras já não se pedem à parte: vêm da biga (vencidas) e da pergunta ao fechar a massa final
+    const porSobras = [];
     let h = `<button class="grupo-btn" onclick="IMPASTO.novoPlano()">➕ Fazer biga</button>`;
     if(previsaoVazia()) h += '<div class="imp-alert bad">O dono ainda não definiu a previsão de vendas. Sem ela não dá para calcular: avisa o dono.</div>';
     if(emCurso.length){
@@ -6172,7 +6173,7 @@ const IMPASTO = (function(){
       <div class="save-note" style="margin:4px 0 10px;">(Registado na app: ${fmtN(E.dbHoje)}.)</div>
       <label class="field">Quantas bolas esperas vender ainda hoje (no jantar)?
         <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${jantarPrevisto()}" oninput="IMPASTO.pF(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Vem da previsão de vendas (${fmtN(jantarPrevisto())} para o jantar de hoje). Muda se hoje estiver mais fraco ou mais forte. As bolas vencidas entram na massa final até ${fmtN(C.reuseMax)}% da massa; as que passarem do limite descartam-se.</div>`;
+      <div class="save-note" style="margin:4px 0 14px;">Vem da previsão de vendas (${fmtN(jantarPrevisto())} para o jantar de hoje). Muda se hoje estiver mais fraco ou mais forte. As bolas vencidas entram na massa final até ${fmtN(C.reuseMax)}% da massa; as que passarem do limite ficam para o crostini e o pão.</div>`;
   }
   const MSG_NIVEL = 'Quantidade de massas abaixo do nível para hoje, converse com um responsável.';
   const emFalta = () => !previsaoVazia() && E.valid != null && E.expired != null && plan(parse(E.date), lotesPlano()).short > 0;
@@ -6236,7 +6237,7 @@ const IMPASTO = (function(){
       if(q.batches > 1) h += `<div class="imp-alert ok">Vão ser ${q.batches} batidas iguais (a masseira leva no máximo ${fmtN(C.maxFlour)} kg de farinha).</div>`;
       if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas vencidas já cobrem a previsão toda. Massa só de reaproveitamento não tem estrutura: revê as quantidades.</div>';
     }
-    if(descartar > 0) h += `<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram: descarta-os. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
+    if(descartar > 0) h += `<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram na massa: ficam para o crostini e o pão. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
     if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
     const podeComecar = q.flour > 0;
     h += `<div class="footer-bar"><button class="btn" ${podeComecar ? '' : 'disabled'} onclick="IMPASTO.comecarBiga()">✔ OK, começar a biga</button></div>`;
@@ -6273,7 +6274,7 @@ const IMPASTO = (function(){
       const id = novoId();
       await enviar('POST', 'impasto_producoes', {
         id, data_biga: E.date, alvo: P.target, farinha_g: q.flour, bolas_reaprov: reuse, bolas_previstas: q.balls,
-        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid, vencidas: E.expired, descartadas },
+        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid, vencidas: E.expired, restantes: descartadas },
         checklist: {}, criado_por: usuarioAtualEmail
       });
       await carregarBase();
@@ -6421,6 +6422,9 @@ const IMPASTO = (function(){
         <div class="save-note" style="margin:10px 0 0;line-height:1.6;">🆘 <b>SOS:</b> se precisares desta massa já esta noite, tira do frio <b>3 h antes</b> de usar só a caixa que vais usar. Guarda as outras e vai gerindo conforme a massa se desenvolve.</div>
         <h4 style="margin:16px 0 6px;">Quantas bolas renderam de facto?</h4>
         <input type="number" min="0" step="1" inputmode="numeric" id="impRendidas" class="imp-input" placeholder="ex.: ${esc(q.balls || '')}">
+        <h4 style="margin:16px 0 6px;">Ainda sobram panetos vencidos? Quantos?</h4>
+        <div class="save-note" style="margin-bottom:6px;">Os vencidos que não entraram na massa servem para o crostini e o pão. Se não sobrar nenhum, escreve 0.</div>
+        <input type="number" min="0" step="1" inputmode="numeric" id="impVencSobram" class="imp-input" placeholder="quantos?">
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.fecharMassa()">${tudo ? 'Fechar massa final' : 'Fechar (há passos por marcar)'}</button></div>`;
     }
     el('impMassaConteudo').innerHTML = h;
@@ -6450,6 +6454,9 @@ const IMPASTO = (function(){
     const v = el('impRendidas').value;
     if(v === ''){ await showAlert('Indica quantas bolas renderam.'); return; }
     const rendidas = Math.max(0, Math.floor(num(v)));
+    const vs = el('impVencSobram').value;
+    if(vs === ''){ await showAlert('Indica quantos panetos vencidos ainda sobram (pode ser 0).'); return; }
+    const vencidosSobram = Math.max(0, Math.floor(num(vs)));
     const itens = itensMassa({ ...(p.quantidades || {}) }), ch = p.checklist || {};
     if(!itens.every(([i]) => ch[i] && ch[i].feito) && !(await showConfirm('Ainda há passos por marcar. Fechar a massa mesmo assim?'))) return;
     try{
@@ -6457,7 +6464,7 @@ const IMPASTO = (function(){
       const fresco = (await ler(`impasto_producoes?select=checklist&id=eq.${id}`))[0] || { checklist: {} };
       const agoraISO = new Date().toISOString();
       const chFim = { ...(fresco.checklist || {}), 'm-fim': { feito: true, por: usuarioAtualEmail, em: agoraISO } };
-      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_rendidas: rendidas, massa_batida_em: agoraISO, checklist: chFim });
+      await enviar('PATCH', `impasto_producoes?id=eq.${id}`, { bolas_rendidas: rendidas, bolas_sobra: vencidosSobram, massa_batida_em: agoraISO, checklist: chFim });
       await enviar('POST', 'impasto_lotes', { id: novoId(), data_batida: iso(new Date()), bolas: rendidas, producao_id: id, atualizado_por: usuarioAtualEmail });
       await carregarBase();
       await showAlert(`Massa fechada: ${fmtN(rendidas)} bolas. O lote de hoje ficou registado no stock.`);
