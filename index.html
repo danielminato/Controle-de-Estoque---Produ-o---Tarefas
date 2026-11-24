@@ -5618,7 +5618,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, reuseMax: 30, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
@@ -5643,7 +5643,7 @@ const IMPASTO = (function(){
     const r = cfg[0];
     if(r){
       // só o peso da bola e a farinha por batida são regras editáveis; a receita (percentagens) é fixa
-      C = { ...PADRAO, ball: num(r.peso_bola, 290), maxFlour: num(r.farinha_max_kg, 10) };
+      C = { ...PADRAO, ball: num(r.peso_bola, 290), maxFlour: num(r.farinha_max_kg, 10), reuseMax: Math.min(100, Math.max(0, num(r.reaprov_max_pct, PADRAO.reuseMax))) };
       DEM = vazioDem();
       // formato novo {pctAlmoco, dias:[{dia,total}]}; o antigo era uma lista com almoco/jantar por dia
       const pv = r.previsao, lista = Array.isArray(pv) ? pv : ((pv && pv.dias) || []);
@@ -5660,6 +5660,8 @@ const IMPASTO = (function(){
 
   /* ---------- cálculo ---------- */
   const factor = () => (500 + 220 + 2 + C.yeast + 140 + 15) / 500;
+  // bolas vencidas que podem mesmo entrar na massa: no máximo reuseMax % das bolas a produzir (o resto descarta-se)
+  const reaproveitaveis = (target, vencidas) => Math.min(Math.max(0, Math.floor(vencidas || 0)), Math.floor(Math.max(0, target) * C.reuseMax / 100 + 1e-9));
   function quantities(target, reuse){
     const ball = C.ball, reuseMass = reuse * ball, freshNeed = Math.max(0, target * ball - reuseMass);
     const F = freshNeed > 0 ? Math.ceil(freshNeed / factor() / 10) * 10 : 0;
@@ -5713,11 +5715,12 @@ const IMPASTO = (function(){
     try{ await carregarBase(); renderAdmin(); }
     catch(e){ box.innerHTML = '<div class="empty">Não consegui carregar o Impasto. Confirma que a migration foi corrida no Supabase e recarrega a página.</div>'; }
   }
-  const COLUNA = { ball: 'peso_bola', maxFlour: 'farinha_max_kg' };
+  const COLUNA = { ball: 'peso_bola', maxFlour: 'farinha_max_kg', reuseMax: 'reaprov_max_pct' };
   async function regra(campo, valor){
     let v = num(valor, PADRAO[campo]);
     if(campo === 'ball' && v < 100) v = PADRAO.ball;
     if(campo === 'maxFlour' && v < 1) v = PADRAO.maxFlour;
+    if(campo === 'reuseMax') v = Math.min(100, Math.max(0, v));
     const antes = C[campo]; C[campo] = v;
     try{ await enviar('PATCH', 'impasto_config?id=eq.principal', { [COLUNA[campo]]: v }); }
     catch(e){ C[campo] = antes; avisarErroGravar(); }
@@ -5838,6 +5841,7 @@ const IMPASTO = (function(){
         <div class="field-row">
           ${campo('Peso da bola (g)', 'ball', 'number', 1, 'Aceita de ' + fmtN(C.ball - 5) + ' a ' + fmtN(C.ball + 5) + ' g por bola.')}
           ${campo('Farinha por batida (kg)', 'maxFlour', 'number', 0.5, 'Base da receita e máximo da masseira. Todos os cálculos partem daqui; acima disto a app manda dividir em batidas iguais.')}
+          ${campo('Reaproveitamento máximo (% da massa)', 'reuseMax', 'number', 1, 'As bolas vencidas perdem estrutura: só entram até este limite e o resto é descartado. Há sempre farinha nova a segurar a massa.')}
         </div>
         <h4 style="margin:16px 0 6px;">Receita (percentagens sobre o peso da farinha)</h4>
         <div class="save-note" style="margin-bottom:8px;">Fixa, igual às fotos da receita. Os pesos mostram o que dá com ${fmtN(C.maxFlour)} kg de farinha.</div>
@@ -6148,12 +6152,12 @@ const IMPASTO = (function(){
           <b>Massa final</b> (por 500 g de farinha da biga): toda a biga + fermento fresco 1 g (0,2%) · água 140 g (28%) · sal 15 g (3%). As bolas vencidas entram na fase final. Dividir em bolas de ${fmtN(C.ball)} g (${fmtN(C.ball - 5)} a ${fmtN(C.ball + 5)} g), caixas tapadas e etiquetadas, frigorífico.<br>
           <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. Ciclo: biga num dia, massa batida no dia seguinte (de tarde), pizza no dia a seguir. Massa batida na terça: vale de quarta ao almoço até quinta ao jantar. Em SOS pode usar-se na própria terça à noite (ver nota no fim do checklist da massa).</div></details>
       <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
-      <label class="field" style="margin-top:14px;">Quantas bolas estão dentro do prazo?
+      <label class="field" style="margin-top:14px;">Quantas bolas vão sobrar DENTRO do prazo depois do serviço de hoje?
         <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pValid(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do serviço de hoje: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã. (Registado na app: ${fmtN(E.regValid)}.)</div>
-      <label class="field">Quantas bolas estão vencidas ou vencem antes de amanhã?
+      <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do jantar: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã. (Registado na app: ${fmtN(E.regValid)}.)</div>
+      <label class="field">Quantas bolas vão sobrar VENCIDAS depois do serviço de hoje?
         <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pExp(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Massa batida antes de ontem: já passou do prazo e não vai ao forno. Entra na massa final, nunca na biga. (Registado na app: ${fmtN(E.regExp)}.)</div>`;
+      <div class="save-note" style="margin:4px 0 14px;">As bolas mais antigas ainda servem hoje e são usadas primeiro: só contam aqui as que sobrarem depois do serviço e já não servem amanhã. Entram na massa final (até ${fmtN(C.reuseMax)}% da massa), nunca na biga; as que passarem do limite descartam-se. (Registado na app: ${fmtN(E.regExp)}.)</div>`;
   }
   const MSG_NIVEL = 'Quantidade de massas abaixo do nível para hoje, converse com um responsável.';
   const emFalta = () => !previsaoVazia() && E.valid != null && E.expired != null && plan(parse(E.date), lotesPlano()).short > 0;
@@ -6187,8 +6191,9 @@ const IMPASTO = (function(){
       el('impPlanoResultado').innerHTML = '<div class="save-note" style="margin-top:6px;">Responde às duas perguntas (pode ser 0) para ver o que vamos produzir.</div>';
       return;
     }
-    const reuse = E.expired;
-    const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
+    const P = plan(B, lotesPlano());
+    const reuse = reaproveitaveis(P.target, E.expired), descartar = Math.max(0, E.expired - reuse);
+    const q = quantities(P.target, reuse);
     if(P.target === 0 && reuse === 0){
       h += `<div class="imp-alert ok">As bolas dentro do prazo cobrem a previsão até ${esc(sLabel(B, P.coverEnd))}. Não é preciso fazer biga hoje.</div>`;
     }else{
@@ -6197,6 +6202,7 @@ const IMPASTO = (function(){
       if(q.batches > 1) h += `<div class="imp-alert ok">Vão ser ${q.batches} batidas iguais (a masseira leva no máximo ${fmtN(C.maxFlour)} kg de farinha).</div>`;
       if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas vencidas já cobrem a previsão toda. Massa só de reaproveitamento não tem estrutura: revê as quantidades.</div>';
     }
+    if(descartar > 0) h += `<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram: descarta-os. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
     if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
     const podeComecar = q.flour > 0;
     h += `<div class="footer-bar"><button class="btn" ${podeComecar ? '' : 'disabled'} onclick="IMPASTO.comecarBiga()">✔ OK, começar a biga</button></div>`;
@@ -6205,8 +6211,10 @@ const IMPASTO = (function(){
 
   async function comecarBiga(){
     if(E.valid == null || E.expired == null) return;
-    const B = parse(E.date), reuse = E.expired;
-    const P = plan(B, lotesPlano()), q = quantities(P.target, reuse);
+    const B = parse(E.date);
+    const P = plan(B, lotesPlano());
+    const reuse = reaproveitaveis(P.target, E.expired), descartadas = Math.max(0, E.expired - reuse);
+    const q = quantities(P.target, reuse);
     if(previsaoVazia() || q.flour <= 0){ await showAlert('Não há biga para fazer com estes números.'); return; }
     if(PRODS.some(p => p.data_biga === E.date)){ await showAlert('Já existe uma produção para esse dia. Abre-a na lista "Em curso".'); return; }
     if(P.short > 0 && !(await showConfirm(`⚠️ ${MSG_NIVEL}\n\nJá falaste com um responsável? Continuar com a biga?`))) return;
@@ -6231,7 +6239,7 @@ const IMPASTO = (function(){
       const id = novoId();
       await enviar('POST', 'impasto_producoes', {
         id, data_biga: E.date, alvo: P.target, farinha_g: q.flour, bolas_reaprov: reuse, bolas_previstas: q.balls,
-        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid },
+        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid, vencidas: E.expired, descartadas },
         checklist: {}, criado_por: usuarioAtualEmail
       });
       await carregarBase();
