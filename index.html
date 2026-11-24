@@ -6165,7 +6165,7 @@ const IMPASTO = (function(){
     const hoje = iso(new Date()), ontem = iso(addDays(new Date(), -1));
     const soma = f => LOTES.filter(f).reduce((a, l) => a + Math.max(0, num(l.bolas)), 0);
     // os campos começam vazios: só se calcula (e só se avisa) depois de o colaborador dizer o que tem
-    E = { date: hoje, valid: null, expired: null, c2: null, c1: null, c0: null, f: null, proj: null, regValid: soma(l => l.data_batida >= ontem), regExp: soma(l => l.data_batida < ontem), dbHoje: soma(l => l.data_batida >= hoje), dbOntem: soma(l => l.data_batida === ontem) };
+    E = { date: hoje, valid: null, expired: null, regValid: soma(l => l.data_batida >= ontem), regExp: soma(l => l.data_batida < ontem), dbHoje: soma(l => l.data_batida >= hoje), dbOntem: soma(l => l.data_batida === ontem) };
     renderEntradas(); renderResultado();
     mostrarOperScreen('oper-screen-impasto-plano');
   }
@@ -6177,19 +6177,12 @@ const IMPASTO = (function(){
           <b>Massa final</b> (por 500 g de farinha da biga): toda a biga + fermento fresco 1 g (0,2%) · água 140 g (28%) · sal 15 g (3%). As bolas vencidas entram na fase final. Dividir em bolas de ${fmtN(C.ball)} g (${fmtN(C.ball - 5)} a ${fmtN(C.ball + 5)} g), caixas tapadas e etiquetadas, frigorífico.<br>
           <b>Serviço</b>: tirar as bolas do frio 2 h antes. Forno a 380 °C, cerca de 60 s. Ciclo: biga num dia, massa batida no dia seguinte (de tarde), pizza no dia a seguir. Massa batida na terça: vale de quarta ao almoço até quinta ao jantar. Em SOS pode usar-se na própria terça à noite (ver nota no fim do checklist da massa).</div></details>
       <label class="field">Dia da biga<input type="date" value="${esc(E.date)}" onchange="IMPASTO.pData(this.value)"></label>
-      <div class="save-note" style="margin:14px 0 4px;"><b>Conta as bolas que tens agora na prateleira</b>, por dia de batida. A app calcula sozinha o que vai sobrar depois do jantar: as mais antigas são usadas primeiro.</div>
-      <label class="field" style="margin-top:10px;">Bolas batidas há 2 dias (ou antes) — vencem hoje ao jantar
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pC('c2',this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 10px;">(Registado na app: ${fmtN(E.regExp)}.)</div>
-      <label class="field">Bolas batidas ontem — servem hoje e amanhã
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pC('c1',this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 10px;">(Registado na app: ${fmtN(E.dbOntem)}.)</div>
-      <label class="field">Bolas batidas hoje — ainda a descansar, servem a partir de amanhã
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pC('c0',this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 10px;">(Registado na app: ${fmtN(E.dbHoje)}.)</div>
-      <label class="field">Quantas bolas esperas vender ainda hoje (no jantar)?
-        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" value="${jantarPrevisto()}" oninput="IMPASTO.pF(this.value)" onchange="IMPASTO.avisarNivel()"></label>
-      <div class="save-note" style="margin:4px 0 14px;">Vem da previsão de vendas (${fmtN(jantarPrevisto())} para o jantar de hoje). Muda se hoje estiver mais fraco ou mais forte. As bolas vencidas entram na massa final até ${fmtN(C.reuseMax)}% da massa; as que passarem do limite ficam para o crostini e o pão.</div>`;
+      <label class="field" style="margin-top:14px;">Quantas bolas estão dentro do prazo?
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pValid(this.value)" onchange="IMPASTO.avisarNivel()"></label>
+      <div class="save-note" style="margin:4px 0 14px;">Estimativa do que sobra depois do serviço de hoje: massa batida hoje ou ontem, que ainda pode ir ao forno amanhã. (Registado na app: ${fmtN(E.regValid)}.)</div>
+      <label class="field">Quantas bolas estão vencidas ou vencem antes de amanhã?
+        <input type="number" min="0" step="1" inputmode="numeric" class="imp-input" placeholder="quantas?" oninput="IMPASTO.pExp(this.value)" onchange="IMPASTO.avisarNivel()"></label>
+      <div class="save-note" style="margin:4px 0 14px;">Massa batida antes de ontem: já passou do prazo e não vai ao forno. Entra na massa final, nunca na biga. (Registado na app: ${fmtN(E.regExp)}.)</div>`;
   }
   const MSG_NIVEL = 'Quantidade de massas abaixo do nível para hoje, converse com um responsável.';
   const emFalta = () => !previsaoVazia() && E.valid != null && E.expired != null && plan(parse(E.date), lotesPlano()).short > 0;
@@ -6199,29 +6192,12 @@ const IMPASTO = (function(){
     if(falta && !E.avisado){ E.avisado = true; showAlert('⚠️ ' + MSG_NIVEL); }
     if(!falta) E.avisado = false;
   }
-  function pData(v){ if(v){ E.date = v; projetar(); renderResultado(); avisarNivel(); } }
+  function pData(v){ if(v){ E.date = v; renderResultado(); avisarNivel(); } }
   function pValid(v){ E.valid = v === '' ? null : Math.max(0, Math.floor(num(v))); renderResultado(); }
   function pExp(v){ E.expired = v === '' ? null : Math.max(0, Math.floor(num(v))); renderResultado(); }
-  // bolas a vender ainda hoje no jantar, segundo a previsão (total do dia menos a parte do almoço)
-  const jantarPrevisto = () => {
-    const t = DEM[wd(parse(E.date))];
-    return t == null ? 0 : Math.max(0, Math.floor(num(t)) - Math.round(num(t) * C.pctAlmoco / 100));
-  };
-  // projeção do fim do dia: o jantar gasta primeiro as bolas mais antigas; o que sobra de cada dia passa a "dentro do prazo" ou "vencida"
-  function projetar(){
-    if(E.c2 == null || E.c1 == null || E.c0 == null){ E.proj = null; E.valid = null; E.expired = null; return; }
-    const f = E.f == null ? jantarPrevisto() : E.f;
-    const gasta2 = Math.min(E.c2, f), gasta1 = Math.min(E.c1, f - gasta2);
-    const sobra2 = E.c2 - gasta2, sobra1 = E.c1 - gasta1;
-    E.proj = { f, ontem: sobra1, hoje: E.c0, vencidas: sobra2, falta: Math.max(0, f - gasta2 - gasta1) };
-    E.valid = sobra1 + E.c0; E.expired = sobra2;
-  }
-  function pC(campo, v){ E[campo] = v === '' ? null : Math.max(0, Math.floor(num(v))); projetar(); renderResultado(); }
-  function pF(v){ E.f = v === '' ? null : Math.max(0, Math.floor(num(v))); projetar(); renderResultado(); }
   // o serviço gasta primeiro as bolas mais antigas, por isso o que sobra é o mais novo: se o total baixa,
   // baixam primeiro as de ontem; se sobe, o extra conta como de hoje
   const repartirValidas = () => {
-    if(E.proj) return { ontem: E.proj.ontem, hoje: E.proj.hoje };
     const valid = E.valid || 0;
     const ontem = Math.max(0, Math.min(E.dbOntem, valid - E.dbHoje));
     return { ontem, hoje: valid - ontem };
@@ -6237,13 +6213,12 @@ const IMPASTO = (function(){
       el('impPlanoResultado').innerHTML = h; return;
     }
     if(!informado){
-      el('impPlanoResultado').innerHTML = '<div class="save-note" style="margin-top:6px;">Conta as bolas das três linhas (pode ser 0) para ver o que vamos produzir.</div>';
+      el('impPlanoResultado').innerHTML = '<div class="save-note" style="margin-top:6px;">Responde às duas perguntas (pode ser 0) para ver o que vamos produzir.</div>';
       return;
     }
     const P = plan(B, lotesPlano());
     const reuse = reaproveitaveis(P.target, E.expired), descartar = Math.max(0, E.expired - reuse);
     const q = quantities(P.target, reuse);
-    if(E.proj) h += `<div class="save-note" style="margin:6px 0 10px;">Depois do jantar de hoje (${fmtN(E.proj.f)} bolas): sobram <b>${fmtN(E.proj.ontem + E.proj.hoje)}</b> dentro do prazo e <b>${fmtN(E.proj.vencidas)}</b> vencida(s).${E.proj.falta > 0 ? ` <span style="color:var(--danger-text);">Não chegam bolas para o jantar de hoje (faltam ${fmtN(E.proj.falta)}): confirma a contagem.</span>` : ''}</div>`;
     if(P.target > 0) h += `<div class="save-note" style="margin:0 0 10px;">Limite de reaproveitamento: no máximo <b>${fmtN(Math.floor(P.target * C.reuseMax / 100 + 1e-9))}</b> bolas vencidas (${fmtN(C.reuseMax)}% de ${fmtN(P.target)} bolas a produzir).</div>`;
     if(P.target === 0 && reuse === 0){
       h += `<div class="imp-alert ok">As bolas dentro do prazo cobrem a previsão até ${esc(sLabel(B, P.coverEnd))}. Não é preciso fazer biga hoje.</div>`;
@@ -6492,7 +6467,7 @@ const IMPASTO = (function(){
     }catch(e){ await avisarErroGravar(); }
   }
 
-  return { entrar, voltarHome, abrirAdmin, aba, semana, servicoHora, copiarRelatorio, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, pC, pF, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
+  return { entrar, voltarHome, abrirAdmin, aba, semana, servicoHora, copiarRelatorio, regra, previsao, pctAlmoco, editarProd, apagarProd, zerarProducao, zerarStock, editarLote, apagarLote, novoLote, novoPlano, pData, pValid, pExp, avisarNivel, comecarBiga, abrirBiga, abrirMassa, alternarMise, bigaNoFrio, marcar, fecharMassa, sobras };
 })();
 
 // ---------- CONTROLE DE IVA E PONTO DE EQUILÍBRIO ----------
