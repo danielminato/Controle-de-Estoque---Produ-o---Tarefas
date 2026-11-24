@@ -5947,7 +5947,7 @@ const IMPASTO = (function(){
     const pctVenc = totProd > 0 ? totVenc / totProd * 100 : 0;
     const celula = (x, k, kAb, negrito) => x.temFech ? (negrito ? `<b>${fmtN(x[k])}</b>` : fmtN(x[k])) : '<span class="save-note">—</span>';
     // nota de rodapé: o ideal é as vencidas não passarem de 30% do total produzido; acima disso produz-se a mais
-    const LIM_VENC = 30;
+    const LIM_VENC = C.reuseMax;
     const excesso = totVenc - totProd * LIM_VENC / 100, porMassa = nMassas ? Math.ceil(excesso / nMassas) : 0;
     const sugestaoSem = pctVenc > LIM_VENC
       ? `<div class="imp-alert warn" style="margin:10px 0 0;"><b>Nota:</b> as vencidas estão em ${fmtN(pctVenc, 1)}% do total produzido, acima do ideal (máximo ${LIM_VENC}%). Estamos a produzir a mais. Sugestão: baixar a produção em cerca de <b>${fmtN(porMassa)}</b> bola(s) por massa (ou baixar a previsão de vendas nos dias em que mais sobra) e ver como fica a semana seguinte.</div>`
@@ -6073,6 +6073,7 @@ const IMPASTO = (function(){
         const feitos = Object.keys(p.checklist || {}).length;
         return `<div class="card" style="margin-bottom:10px;"><div style="font-weight:600;">Biga de ${esc(dLabel(parse(p.data_biga)))}</div>
           <div class="save-note">${fmtN(num(p.farinha_g) / 1000, 2)} kg de farinha · ${p.bolas_previstas == null ? '—' : fmtN(p.bolas_previstas)} bolas previstas · ${bigaFeita ? 'biga no frio desde ' + esc(hora(p.biga_feita_em)) : 'biga por fazer'}</div>
+          ${num((p.quantidades || {}).reuse) > 0 ? `<div style="margin-top:6px;font-weight:700;color:var(--danger-text);">🔶 Juntar ${fmtN(num(p.quantidades.reuse))} panetos vencidos na massa final</div>` : ''}
           <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;align-items:center;">
             ${bigaFeita
               ? `<button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Bater massa final</button>
@@ -6368,6 +6369,7 @@ const IMPASTO = (function(){
           <div style="margin-top:6px;"><button class="link-btn" onclick="IMPASTO.marcar('biga','b-cold',false)">Foi engano: desfazer</button></div></div>
         <div class="imp-alert bad" style="text-align:center;font-weight:800;font-size:18px;line-height:1.35;letter-spacing:.3px;">⏰ COLOQUE UM AVISO NO SEU ALARME/CALENDÁRIO<div style="font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px;">Bater a massa e bolear entre ${esc(janelaBolear(t).txt)}</div>${melhorParaBater(t) ? `<div style="font-size:14px;font-weight:700;letter-spacing:0;margin-top:6px;">Melhor hora (equipa em trabalho, fora da ponta): entre as ${esc(melhorParaBater(t))}</div>` : ""}</div>
         <div class="imp-alert warn" style="border-style:dashed;"><b>🏷️ Escrever na caixa da biga</b><br>Data: <b>${esc(dLabel(t))}</b> · Hora: <b>${esc(hora(t))}</b> · Farinha da biga: <b>${g(q.flour)}</b><br>Nome de quem produziu: <b>escrever o seu nome</b></div>
+        ${q.reuse > 0 ? `<div class="imp-alert warn" style="border-width:2px;font-size:16px;"><b>🔶 Separa ${fmtN(q.reuse)} panetos vencidos</b> para a massa final de amanhã: identifica-os (VENCIDOS + data) e guarda-os no frio, à parte. Quem bater a massa vai juntá-los.${q.restantes > 0 ? `<div style="font-size:13px;margin-top:4px;">Os outros ${fmtN(q.restantes)} vencidos ficam para o crostini e o pão.</div>` : ''}</div>` : ''}
         <div class="footer-bar"><button class="btn" onclick="IMPASTO.abrirMassa('${p.id}')">Ir para a massa final</button></div>`;
     }else if(!miseOk){
       h = `<h4 style="margin:0 0 4px;">Mise en place</h4>
@@ -6408,7 +6410,10 @@ const IMPASTO = (function(){
     const miseFeita = itensMise(q).every(([id]) => feito(id)), bigaFeita = feito('m-biga'), instrucoes = feito('m-ok');
     const jan = janelaBolear(new Date(p.biga_feita_em || p.criado_em));
     const dataBatida = p.massa_batida_em ? new Date(p.massa_batida_em) : new Date();
-    const topo = `<div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.${melhorParaBater(p.biga_feita_em || p.criado_em) ? ` <b>Melhor hora (fora da ponta): entre as ${esc(melhorParaBater(p.biga_feita_em || p.criado_em))}.</b>` : ""}</div>
+    const caixaVencidos = q.reuse > 0
+      ? `<div class="imp-alert warn" style="border-width:2px;font-size:17px;line-height:1.5;"><b>🔶 Hoje levas ${fmtN(q.reuse)} panetos vencidos</b>${q.reusePct != null ? ` (${fmtN(q.reusePct, 0)}% da massa)` : ''}.<div style="font-size:14px;margin-top:4px;">Estão separados e identificados no frio (os de há dois dias ou mais). Corta-os e junta-os na parte final da batida. Confirma o número antes de começar.</div></div>`
+      : `<div class="imp-alert ok">Esta massa não leva panetos vencidos.</div>`;
+    const topo = `${caixaVencidos}<div class="imp-alert ok">Biga no frio às ${esc(hora(p.biga_feita_em || p.criado_em))}. Bater a massa e bolear entre <b>${esc(jan.txt)}</b>.${melhorParaBater(p.biga_feita_em || p.criado_em) ? ` <b>Melhor hora (fora da ponta): entre as ${esc(melhorParaBater(p.biga_feita_em || p.criado_em))}.</b>` : ""}</div>
       <div class="imp-alert ${ok ? 'ok' : 'warn'}">Repouso da biga: <b>${fmtN(rep, 1)} h</b> ${ok ? '(dentro do ideal, 17 a 22 h).' : rep < 17 ? '(ainda cedo: o ideal é 17 a 22 h).' : '(passou das 22 h: confirma com o dono antes de continuar).'}</div>
       ${q.batches > 1 ? `<div class="imp-alert ok">Dividir em ${q.batches} batidas iguais: cada uma leva ${g(Math.round(q.flour / q.batches))} de farinha da biga.</div>` : ''}`;
     let h;
