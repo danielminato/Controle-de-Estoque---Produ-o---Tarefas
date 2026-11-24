@@ -1423,6 +1423,14 @@
     <button class="grupo-btn" onclick="abrirProducaoArea('Área de Pizza')">🍕 Área de pizza</button>
   </div>
 
+  <!-- PRODUÇÃO: área de pizza (impasto ou produção diária) -->
+  <div class="oper-screen" id="oper-screen-producao-pizza">
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <h3 style="margin-bottom:14px;">🍕 Área de pizza: o que vais fazer?</h3>
+    <button class="grupo-btn" onclick="IMPASTO.entrar()">🍞 Impasto — massa de biga</button>
+    <button class="grupo-btn" onclick="iniciarProducaoItens(['Área de Pizza'])">🥬 Produção diária da pizza</button>
+  </div>
+
   <!-- PRODUÇÃO: escolher área(s) -->
   <div class="oper-screen" id="oper-screen-producao-areas">
     <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
@@ -1435,7 +1443,7 @@
 
   <!-- IMPASTO (massa de biga) -->
   <div class="oper-screen" id="oper-screen-impasto-home">
-    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')" style="margin-bottom:12px;">← voltar</button>
+    <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-pizza')" style="margin-bottom:12px;">← voltar</button>
     <h3 style="margin-bottom:14px;">🍞 Impasto — massa de biga</h3>
     <div id="impHomeConteudo"></div>
   </div>
@@ -1457,7 +1465,7 @@
   <div class="oper-screen" id="oper-screen-producao-itens">
     <div class="top-actions">
       <h3 id="producaoItensTitulo"></h3>
-      <button class="link-btn" onclick="mostrarOperScreen('oper-screen-producao-tipo')">← voltar</button>
+      <button class="link-btn" onclick="voltarDaListaProducao()">← voltar</button>
     </div>
     <div id="producaoItensTopo"></div>
     <div class="save-note" style="margin-bottom:10px;">Diz quanto já tens, vê quanto falta produzir e carrega em ✔ Feito quando acabares — o item desaparece para todos, para não haver duplicação.</div>
@@ -6219,6 +6227,7 @@ const IMPASTO = (function(){
     const reuse = reaproveitaveis(P.target, E.expired), descartar = Math.max(0, E.expired - reuse);
     const q = quantities(P.target, reuse);
     if(E.proj) h += `<div class="save-note" style="margin:6px 0 10px;">Depois do jantar de hoje (${fmtN(E.proj.f)} bolas): sobram <b>${fmtN(E.proj.ontem + E.proj.hoje)}</b> dentro do prazo e <b>${fmtN(E.proj.vencidas)}</b> vencida(s).${E.proj.falta > 0 ? ` <span style="color:var(--danger-text);">Não chegam bolas para o jantar de hoje (faltam ${fmtN(E.proj.falta)}): confirma a contagem.</span>` : ''}</div>`;
+    if(P.target > 0) h += `<div class="save-note" style="margin:0 0 10px;">Limite de reaproveitamento: no máximo <b>${fmtN(Math.floor(P.target * C.reuseMax / 100 + 1e-9))}</b> bolas vencidas (${fmtN(C.reuseMax)}% de ${fmtN(P.target)} bolas a produzir).</div>`;
     if(P.target === 0 && reuse === 0){
       h += `<div class="imp-alert ok">As bolas dentro do prazo cobrem a previsão até ${esc(sLabel(B, P.coverEnd))}. Não é preciso fazer biga hoje.</div>`;
     }else{
@@ -9533,8 +9542,14 @@ function selecionarProducaoCategoria(categoria){
 // Funil da produção diária: Produção → onde vais produzir (Cozinha / Área de pizza) → lista do dia
 function abrirProducaoArea(area){
   producaoCategoriaOperacional = 'insumos';
+  // a área de pizza tem duas coisas: o impasto (massa) e a produção diária; escolhe-se aqui
+  if(area === 'Área de Pizza'){ mostrarOperScreen('oper-screen-producao-pizza'); return; }
   iniciarProducaoItens([area]);
 }
+function voltarDaListaProducao(){
+  mostrarOperScreen(producaoAreaAtualPizza ? 'oper-screen-producao-pizza' : 'oper-screen-producao-tipo');
+}
+let producaoAreaAtualPizza = false;
 
 async function iniciarProducaoItens(areasEscolhidas){
   const marcadas = Array.isArray(areasEscolhidas)
@@ -9559,10 +9574,8 @@ async function iniciarProducaoItens(areasEscolhidas){
   itens.sort((a,b) => a.area.localeCompare(b.area) || (a.ordem||0)-(b.ordem||0));
 
   document.getElementById('producaoItensTitulo').textContent = `${marcadas.includes('Área de Pizza') ? '🍕' : '🍝'} ${marcadas.join(', ')}`;
-  // a área de pizza também faz as massas (impasto): atalho no topo
-  document.getElementById('producaoItensTopo').innerHTML = marcadas.includes('Área de Pizza')
-    ? '<button class="grupo-btn" style="margin-bottom:14px;" onclick="IMPASTO.entrar()">🍞 Impasto — fazer a massa de biga</button>'
-    : '';
+  producaoAreaAtualPizza = marcadas.includes('Área de Pizza');
+  document.getElementById('producaoItensTopo').innerHTML = '';
 
   renderListaProducaoItens(itens);
   mostrarOperScreen('oper-screen-producao-itens');
