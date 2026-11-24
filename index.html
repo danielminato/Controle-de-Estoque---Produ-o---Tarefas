@@ -5626,7 +5626,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, reuseMax: 50, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, reuseMax: 50, reuseYeastAbove: 40, yeastLow: 0.5, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
@@ -5677,6 +5677,10 @@ const IMPASTO = (function(){
     q.fresh = F * factor(); q.total = q.fresh + reuseMass;
     q.balls = Math.floor(q.total / ball + 1e-9);
     q.reusePct = q.total > 0 ? reuseMass / q.total * 100 : 0;
+    // com muita massa velha (já fermentada) na massa final, o fermento da fase final baixa de 1 g para 0,5 g por 500 g de farinha (0,2% -> 0,1%)
+    q.mYeastNormal = q.mYeast;
+    q.yeastBaixo = q.reusePct > C.reuseYeastAbove;
+    if(q.yeastBaixo) q.mYeast = F * C.yeastLow / 500;
     q.batches = F > 0 ? Math.ceil(F / (Math.max(1, C.maxFlour) * 1000)) : 0;
     return q;
   }
@@ -6237,7 +6241,8 @@ const IMPASTO = (function(){
       if(q.batches > 1) h += `<div class="imp-alert ok">Vão ser ${q.batches} batidas iguais (a masseira leva no máximo ${fmtN(C.maxFlour)} kg de farinha).</div>`;
       if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas vencidas já cobrem a previsão toda. Massa só de reaproveitamento não tem estrutura: revê as quantidades.</div>';
     }
-    if(descartar > 0) h += `<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram na massa: ficam para o crostini e o pão. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
+    if(q.yeastBaixo) h += `<div class="imp-alert ok">As vencidas são <b>${fmtN(q.reusePct, 0)}%</b> da massa (mais de ${fmtN(C.reuseYeastAbove)}%): na massa final usa só <b>0,1%</b> de fermento (${gy(q.mYeast)} em vez de ${gy(q.mYeastNormal)}), porque a massa velha já traz fermentação.</div>`;
+    if(descartar > 0) h +=`<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram na massa: ficam para o crostini e o pão. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
     if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
     const podeComecar = q.flour > 0;
     h += `<div class="footer-bar"><button class="btn" ${podeComecar ? '' : 'disabled'} onclick="IMPASTO.comecarBiga()">✔ OK, começar a biga</button></div>`;
@@ -6274,7 +6279,7 @@ const IMPASTO = (function(){
       const id = novoId();
       await enviar('POST', 'impasto_producoes', {
         id, data_biga: E.date, alvo: P.target, farinha_g: q.flour, bolas_reaprov: reuse, bolas_previstas: q.balls,
-        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid, vencidas: E.expired, restantes: descartadas },
+        quantidades: { flour: q.flour, bWater: q.bWater, bYeast: q.bYeast, mWater: q.mWater, mYeast: q.mYeast, mYeastNormal: q.mYeastNormal, yeastBaixo: q.yeastBaixo, reusePct: q.reusePct, salt: q.salt, reuse, reuseMass: q.reuseMass, balls: q.balls, batches: q.batches, ball: C.ball, need: P.need, valid: E.valid, vencidas: E.expired, restantes: descartadas },
         checklist: {}, criado_por: usuarioAtualEmail
       });
       await carregarBase();
@@ -6294,7 +6299,7 @@ const IMPASTO = (function(){
     ['b-yeast', 'Levedura fresca', gy(q.bYeast)]
   ]; }
   const itensMise = q => {
-    const it = [['m-yeast', 'Levedura fresca (sempre com a balança de precisão)', gy(q.mYeast)], ['m-water', 'Água gelada', g(q.mWater)], ['m-salt', 'Sal', g(q.salt)]];
+    const it = [['m-yeast', 'Levedura fresca (sempre com a balança de precisão)' + (q.yeastBaixo ? ` — só 0,1%: as vencidas são mais de ${fmtN(C.reuseYeastAbove)}% da massa` : ''), gy(q.mYeast)], ['m-water', 'Água gelada', g(q.mWater)], ['m-salt', 'Sal', g(q.salt)]];
     if(q.reuse > 0) it.push(['m-reuse', 'Panetos vencidos separados (passaram dos dois dias)', fmtN(q.reuse) + ' panetos']);
     return it;
   };
