@@ -1261,7 +1261,7 @@
       <div class="save-note" id="receitaDelSugestao" style="margin-bottom:10px;"></div>
       <div class="field-row">
         <label class="field">% Comissão da plataforma (desconta do delivery)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% IVA sobre a comissão<input type="number" id="receitaDelIvaTaxaPct" step="any" value="23" title="A comissão é um serviço da plataforma, normalmente taxado à parte do IVA do prato (em regra 23%)." oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">% IVA sobre a comissão (custo)<input type="number" id="receitaDelIvaTaxaPct" step="any" value="0" title="O IVA que a plataforma cobra sobre a comissão é dedutível, por isso não é custo: 0. Só põe 23 se não o puderes deduzir." oninput="atualizarPreviewCustoReceita()"></label>
         <label class="field">% CMV máximo (alerta)<input type="number" id="receitaCmvAlertaPct" step="any" value="35" title="Se o CMV real (loja ou delivery) passar disto, o app avisa a vermelho." oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="card" style="background:var(--cream);">
@@ -8265,7 +8265,7 @@ function openReceitaModal(id){
 
   const x = (r && r.extra) || {};
   document.getElementById('receitaPrecoVendaDelivery').value = x.precoVendaDelivery ?? '';
-  document.getElementById('receitaDelIvaTaxaPct').value = (x.deliveryIvaTaxaPct !== undefined && x.deliveryIvaTaxaPct !== null && x.deliveryIvaTaxaPct !== '') ? x.deliveryIvaTaxaPct : 23;
+  document.getElementById('receitaDelIvaTaxaPct').value = (x.deliveryIvaTaxaPct !== undefined && x.deliveryIvaTaxaPct !== null && x.deliveryIvaTaxaPct !== '') ? x.deliveryIvaTaxaPct : 0;
   document.getElementById('receitaIncluirCaixa').checked = !!x.incluirCaixaPizza;
   document.getElementById('receitaDelCmvPct').value = '';
   const def = (v, d) => (v !== undefined && v !== null && v !== '') ? v : d;
@@ -8749,7 +8749,7 @@ async function deleteReceita(id){
 // ---------- BEBIDAS (precificação direta, sem ficha técnica) ----------
 // Estado por produto (não gravado — recalcula sempre a partir dos valores por defeito).
 let bebidasEstado = {};
-let bebidasGlobal = { comissaoPct: 30, ivaComissaoPct: 23 };
+let bebidasGlobal = { comissaoPct: 30, ivaComissaoPct: 0 }; // o IVA da comissão é dedutível: não é custo
 
 // Custo de UMA unidade de venda.
 //  - embalagem em unidades (garrafa, lata...): custo de 1 unidade.
@@ -8880,7 +8880,7 @@ function renderBebidas(){
     <div class="card" style="background:var(--cream);margin-bottom:14px;">
       <div class="field-row">
         <label class="field">% Comissão da plataforma (delivery)<input type="number" id="bebComissaoPct" step="any" value="${bebidasGlobal.comissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
-        <label class="field">% IVA sobre a comissão<input type="number" id="bebIvaComissaoPct" step="any" value="${bebidasGlobal.ivaComissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
+        <label class="field" title="O IVA da comissão é dedutível, por isso não é custo: 0.">% IVA sobre a comissão (custo)<input type="number" id="bebIvaComissaoPct" step="any" value="${bebidasGlobal.ivaComissaoPct}" oninput="atualizarComissaoGlobalBebidas()"></label>
       </div>
     </div>
     <div style="overflow-x:auto;">
