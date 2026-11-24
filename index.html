@@ -5626,7 +5626,7 @@ const IMPASTO = (function(){
   }
 
   /* ---------- estado ---------- */
-  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, reuseMax: 50, reuseYeastAbove: 40, yeastLow: 0.5, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
+  const PADRAO = { ball: 290, margin: 0, yeast: 1, maxFlour: 10, reuseMax: 50, reuseYeastAbove: 40, yeastLowPct: 0.1, readyOff: 2, validDays: 2, interval: 1, pctAlmoco: 20, servico: { almIni: '12:00', almFim: '15:00', jantIni: '18:30', jantFim: '22:00', almPontaIni: '13:00', almPontaFim: '14:30', jantPontaIni: '20:00' } };
   let C = { ...PADRAO }, DEM = vazioDem(), LOTES = [], PRODS = [];
   // previsão = total de bolas por dia da semana (null = sem previsão); o split almoço/jantar usa só a regra pctAlmoco
   function vazioDem(){ return Array.from({ length: 7 }, () => null); }
@@ -5657,6 +5657,10 @@ const IMPASTO = (function(){
       const pv = r.previsao, lista = Array.isArray(pv) ? pv : ((pv && pv.dias) || []);
       if(pv && !Array.isArray(pv) && pv.pctAlmoco != null) C.pctAlmoco = num(pv.pctAlmoco, PADRAO.pctAlmoco);
       C.servico = { ...PADRAO.servico, ...((pv && !Array.isArray(pv) && pv.servico) || {}) };
+      // regras do fermento com massa velha (guardadas junto da previsão, sem precisar de colunas novas)
+      const rg = (pv && !Array.isArray(pv) && pv.regras) || {};
+      C.reuseYeastAbove = Math.min(100, Math.max(0, num(rg.reuseYeastAbove, PADRAO.reuseYeastAbove)));
+      C.yeastLowPct = Math.min(1, Math.max(0, num(rg.yeastLowPct, PADRAO.yeastLowPct)));
       lista.forEach(p => {
         if(!p || !(p.dia >= 0 && p.dia <= 6)) return;
         const t = p.total != null ? p.total : ((p.almoco == null && p.jantar == null) ? null : num(p.almoco) + num(p.jantar));
@@ -5680,7 +5684,7 @@ const IMPASTO = (function(){
     // com muita massa velha (já fermentada) na massa final, o fermento da fase final baixa de 1 g para 0,5 g por 500 g de farinha (0,2% -> 0,1%)
     q.mYeastNormal = q.mYeast;
     q.yeastBaixo = q.reusePct > C.reuseYeastAbove;
-    if(q.yeastBaixo) q.mYeast = F * C.yeastLow / 500;
+    if(q.yeastBaixo) q.mYeast = F * C.yeastLowPct / 100;
     q.batches = F > 0 ? Math.ceil(F / (Math.max(1, C.maxFlour) * 1000)) : 0;
     return q;
   }
@@ -5733,12 +5737,17 @@ const IMPASTO = (function(){
     if(campo === 'ball' && v < 100) v = PADRAO.ball;
     if(campo === 'maxFlour' && v < 1) v = PADRAO.maxFlour;
     if(campo === 'reuseMax') v = Math.min(100, Math.max(0, v));
+    if(campo === 'reuseYeastAbove') v = Math.min(100, Math.max(0, v));
+    if(campo === 'yeastLowPct') v = Math.min(1, Math.max(0, v));
     const antes = C[campo]; C[campo] = v;
-    try{ await enviar('PATCH', 'impasto_config?id=eq.principal', { [COLUNA[campo]]: v }); }
+    try{
+      if(campo === 'reuseYeastAbove' || campo === 'yeastLowPct') await enviar('PATCH', 'impasto_config?id=eq.principal', { previsao: previsaoJson() });
+      else await enviar('PATCH', 'impasto_config?id=eq.principal', { [COLUNA[campo]]: v });
+    }
     catch(e){ C[campo] = antes; avisarErroGravar(); }
     renderAdmin();
   }
-  const previsaoJson = () => ({ pctAlmoco: C.pctAlmoco, servico: C.servico, dias: DEM.map((total, dia) => ({ dia, total })) });
+  const previsaoJson = () => ({ pctAlmoco: C.pctAlmoco, servico: C.servico, regras: { reuseYeastAbove: C.reuseYeastAbove, yeastLowPct: C.yeastLowPct }, dias: DEM.map((total, dia) => ({ dia, total })) });
   async function servicoHora(campo, valor){
     if(!/^\d{1,2}:\d{2}$/.test(valor || '')){ renderAdmin(); return; }
     const antes = C.servico; C.servico = { ...C.servico, [campo]: valor };
@@ -5853,6 +5862,8 @@ const IMPASTO = (function(){
         <div class="field-row">
           ${campo('Peso da bola (g)', 'ball', 'number', 1, 'Aceita de ' + fmtN(C.ball - 5) + ' a ' + fmtN(C.ball + 5) + ' g por bola.')}
           ${campo('Farinha por batida (kg)', 'maxFlour', 'number', 0.5, 'Base da receita e máximo da masseira. Todos os cálculos partem daqui; acima disto a app manda dividir em batidas iguais.')}
+          ${campo('Fermento reduzido quando as vencidas passam de (% da massa)', 'reuseYeastAbove', 'number', 1, 'Acima deste valor o fermento da massa final baixa (campo ao lado).')}
+          ${campo('Fermento da massa final nesse caso (% da farinha)', 'yeastLowPct', 'number', 0.05, 'Normal: 0,2%. Com muita massa velha, que já traz fermentação, usa-se menos.')}
           ${campo('Reaproveitamento máximo (% da massa)', 'reuseMax', 'number', 1, 'As bolas vencidas perdem estrutura: só entram até este limite; as restantes vão para o crostini e o pão. Há sempre farinha nova a segurar a massa.')}
         </div>
         <h4 style="margin:16px 0 6px;">Receita (percentagens sobre o peso da farinha)</h4>
@@ -6241,7 +6252,6 @@ const IMPASTO = (function(){
       if(q.batches > 1) h += `<div class="imp-alert ok">Vão ser ${q.batches} batidas iguais (a masseira leva no máximo ${fmtN(C.maxFlour)} kg de farinha).</div>`;
       if(P.target > 0 && q.flour === 0) h += '<div class="imp-alert warn">As bolas vencidas já cobrem a previsão toda. Massa só de reaproveitamento não tem estrutura: revê as quantidades.</div>';
     }
-    if(q.yeastBaixo) h += `<div class="imp-alert ok">As vencidas são <b>${fmtN(q.reusePct, 0)}%</b> da massa (mais de ${fmtN(C.reuseYeastAbove)}%): na massa final usa só <b>0,1%</b> de fermento (${gy(q.mYeast)} em vez de ${gy(q.mYeastNormal)}), porque a massa velha já traz fermentação.</div>`;
     if(descartar > 0) h +=`<div class="imp-alert warn">Só se reaproveita até ${fmtN(C.reuseMax)}% da massa (${fmtN(reuse)} panetos). Os outros <b>${fmtN(descartar)}</b> panetos vencidos não entram na massa: ficam para o crostini e o pão. As bolas vencidas perdem estrutura, por isso leva sempre farinha nova a segurar a massa.</div>`;
     if(P.short > 0) h += `<div class="imp-alert bad">Faltam ${fmtN(P.short)} bola(s) antes de a massa nova ficar pronta (${esc(sLabel(B, P.newReady))}). Em SOS, a massa batida amanhã à tarde pode servir amanhã à noite (ver nota no checklist da massa).</div>`;
     const podeComecar = q.flour > 0;
@@ -6299,7 +6309,7 @@ const IMPASTO = (function(){
     ['b-yeast', 'Levedura fresca', gy(q.bYeast)]
   ]; }
   const itensMise = q => {
-    const it = [['m-yeast', 'Levedura fresca (sempre com a balança de precisão)' + (q.yeastBaixo ? ` — só 0,1%: as vencidas são mais de ${fmtN(C.reuseYeastAbove)}% da massa` : ''), gy(q.mYeast)], ['m-water', 'Água gelada', g(q.mWater)], ['m-salt', 'Sal', g(q.salt)]];
+    const it = [['m-yeast', 'Levedura fresca (sempre com a balança de precisão)', gy(q.mYeast)], ['m-water', 'Água gelada', g(q.mWater)], ['m-salt', 'Sal', g(q.salt)]];
     if(q.reuse > 0) it.push(['m-reuse', 'Panetos vencidos separados (passaram dos dois dias)', fmtN(q.reuse) + ' panetos']);
     return it;
   };
