@@ -547,7 +547,7 @@
       </div>
       <div class="row" id="estoqueFiltroGrupoWrap" style="display:none;">
         <label class="field">Grupo
-          <select id="filtroGrupo" onchange="renderEstoque()"><option value="">Escolhe um grupo</option></select>
+          <select id="filtroGrupo" onchange="renderEstoque(); atualizarCompras()"><option value="">Escolhe um grupo</option></select>
         </label>
       </div>
     </div>
@@ -1733,7 +1733,7 @@ function pedidoBloqueadoPeloPerfil(url, opts){
   const metodo = String((opts && opts.method) || 'GET').toUpperCase();
   if(metodo === 'GET' || metodo === 'HEAD') return false;
   const tabela = url.slice((SUPABASE_URL + '/rest/v1/').length).split(/[?/]/)[0];
-  if(metodo === 'DELETE') return tabela !== 'contagens'; // contagens: a base só deixa sair os "cadeados" vazios
+  if(metodo === 'DELETE') return tabela !== 'contagens' && tabela !== 'compras_marcadas'; // contagens: a base só deixa sair os "cadeados" vazios
   if(!TABELAS_ESTRUTURA.has(tabela)) return false;
   if(tabela === 'produtos' && metodo === 'PATCH'){
     try{ return Object.keys(JSON.parse(opts.body || '{}')).some(k => k !== 'qtd_atual'); }catch(e){ return true; }
@@ -1879,6 +1879,7 @@ async function loadAll(){
     fotografarProdutos();
     grupos = (await sbGet('grupos')).map(grupoFromDb);
     contagens = await sbGet('contagens');
+    await carregarMarcas();
     checklistItens = await sbGet('checklist_itens');
     checklistExecucoes = await sbGet('checklist_execucoes');
     producaoItens = await sbGet('producao_itens');
@@ -2716,7 +2717,7 @@ function contagensReaisDesdeUltimoZero(g){
   const t0 = ultimoZeroDoGrupo(g);
   return contagens.filter(c =>
     c.grupo_id === g.id && c.status === 'finalizada' && c.area &&
-    (!t0 || new Date(c.criado_em) > new Date(t0)) &&
+    (!t0 || new Date(c.aplicada_em || c.criado_em) > new Date(t0)) &&
     (c.itens||[]).some(it => (Number(it.quantidade)||0) > 0)
   );
 }
@@ -3085,6 +3086,11 @@ function setEstoqueMode(mode){
   document.getElementById('estoqueFiltroWrap').style.display = mode === 'area' ? 'flex' : 'none';
   document.getElementById('estoqueFiltroGrupoWrap').style.display = mode === 'grupo' ? 'flex' : 'none';
   renderEstoque();
+  if(mode === 'grupo') atualizarCompras();
+}
+// ao abrir a lista de compras, vai buscar os vistos e as contagens mais recentes
+async function atualizarCompras(){
+  try{ await recarregarQtdEContagens(); renderEstoque(); }catch(e){}
 }
 
 function renderEstoque(){
@@ -3177,18 +3183,24 @@ function renderEstoque(){
       content.innerHTML = avisoAreas || '<div class="empty">Nada a comprar deste grupo de momento.</div>';
       return;
     }
+    const porMarcar = paraComprar.filter(l => !estaMarcado(g.id, l.p.id));
+    const jaMarcados = paraComprar.filter(l => estaMarcado(g.id, l.p.id)).sort((a,b) => a.p.nome.localeCompare(b.p.nome));
     const porFornecedor = {};
-    paraComprar.forEach(l => {
+    porMarcar.forEach(l => {
       const key = l.fornecedorCompraId;
       if(!porFornecedor[key]) porFornecedor[key] = [];
       porFornecedor[key].push(l);
     });
+    const blocoComprados = jaMarcados.length ? `
+      <details class="card" style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:600;">Já comprados (${jaMarcados.length})</summary>
+        ${jaMarcados.map(l => `<label style="display:flex;gap:10px;align-items:center;padding:8px 0;"><input type="checkbox" checked onchange="marcarComprado('${g.id}','${l.p.id}', this.checked)" style="width:18px;height:18px;"><span style="text-decoration:line-through;opacity:.7;">${l.p.nome} — ${l.aComprar}</span></label>`).join('')}
+      </details>` : '';
     content.innerHTML = avisoAreas + `
       <div class="row between" style="margin-bottom:14px;">
-        <h3>${g.nome} — o que falta comprar</h3>
+        <h3>${g.nome} — o que falta comprar (${porMarcar.length} de ${paraComprar.length})</h3>
         <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="finalizarGrupoCompra('${g.id}')">Finalizar pedido (zerar contagem do grupo)</button>
       </div>
-      ` + Object.keys(porFornecedor).map(fid => {
+      ` + (porMarcar.length ? '' : '<div class="card" style="margin-bottom:14px;">✅ Está tudo comprado. Se o pedido não finalizou sozinho, carrega em "Finalizar pedido".</div>') + Object.keys(porFornecedor).map(fid => {
       const f = fornecedores.find(x => x.id === fid);
       const nome = f ? f.nome : 'Sem fornecedor definido';
       const dia = f && (f.diasEntrega||[]).length ? f.diasEntrega.join(", ") : null;
@@ -3210,7 +3222,7 @@ function renderEstoque(){
         }
         linhasHtml += `
           <tr class="compra-row" id="compra-row-${l.p.id}">
-            <td style="width:36px;"><input type="checkbox" onchange="marcarComprado('${l.p.id}')" style="width:18px;height:18px;"></td>
+            <td style="width:36px;"><input type="checkbox" onchange="marcarComprado('${g.id}','${l.p.id}', this.checked)" style="width:18px;height:18px;"></td>
             <td>${l.p.nome}${obsLinha(obsMap, l.p.id)}</td>
             <td>${l.p.qtdAtual||0}</td>
             <td><strong>${l.aComprar}</strong></td>
@@ -3226,7 +3238,7 @@ function renderEstoque(){
         <table><thead><tr><th></th><th>Produto</th><th>Contado</th><th>A comprar</th></tr></thead>
         <tbody>${linhasHtml}</tbody></table>
       </div>`;
-    }).join('');
+    }).join('') + blocoComprados;
   } else {
     const paraComprar = linhas.filter(l => l.aComprar > 0);
     if(paraComprar.length === 0){
@@ -3405,7 +3417,7 @@ async function registarHistoricoAntesDeZerar(produtosAfetados, origem, grupoId){
     return { produto_id: p.id, quantidade: p.qtdAtual||0, valor_unitario: preco };
   });
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
       method: 'POST',
       headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
       body: JSON.stringify({
@@ -3420,8 +3432,9 @@ async function registarHistoricoAntesDeZerar(produtosAfetados, origem, grupoId){
         status: 'finalizada'
       })
     });
+    return res.ok;
   }catch(e){
-    // não bloqueia a operação principal se o registo de histórico falhar
+    return false; // sem histórico não se zera: não haveria como repor
   }
 }
 
@@ -3431,17 +3444,17 @@ const HORA_MS = 3600000;
 const quandoContagem = d => d ? new Date(d).toLocaleString('pt-PT', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
 
 // contagens enviadas pela equipa (pendentes ou já aplicadas), da mais recente para a mais antiga
-function contagensDaEquipa(dias){
+function contagensDaEquipa(dias, ignorar){
   const limite = Date.now() - dias * 24 * HORA_MS;
   return contagens
-    .filter(c => (c.status === 'pendente' || c.status === 'finalizada') && (c.itens||[]).length
+    .filter(c => (c.status === 'pendente' || c.status === 'finalizada') && (c.itens||[]).length && !(ignorar && ignorar.has(c.id))
       && !/\(finaliza|^Zerar/i.test(c.grupo_nome||'') && new Date(c.criado_em).getTime() >= limite)
     .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
 }
 // última linha contada de cada produto em cada área
-function ultimaContagemPorProdutoArea(dias){
+function ultimaContagemPorProdutoArea(dias, ignorar){
   const mapa = new Map();
-  contagensDaEquipa(dias).forEach(c => (c.itens||[]).forEach(it => {
+  contagensDaEquipa(dias, ignorar).forEach(c => (c.itens||[]).forEach(it => {
     const chave = it.produto_id + '|' + (c.area||'');
     if(!mapa.has(chave)) mapa.set(chave, { it, c });
   }));
@@ -3461,7 +3474,7 @@ function totalContado(p, mapa){
 }
 
 async function recarregarQtdEContagens(){
-  const [rows, cont] = await Promise.all([sbGet('produtos'), sbGet('contagens')]);
+  const [rows, cont] = await Promise.all([sbGet('produtos'), sbGet('contagens'), carregarMarcas()]);
   const q = new Map(rows.map(r => [r.id, Number(r.qtd_atual)||0]));
   produtos.forEach(p => {
     if(!q.has(p.id)) return;
@@ -3489,6 +3502,7 @@ async function marcarAplicadas(lista){
   for(const c of lista){
     await sbUpdateRow('contagens', c.id, {status: 'finalizada'});
     c.status = 'finalizada';
+    c.aplicada_em = new Date().toISOString(); // a base grava a hora dela (gatilho contagem_aplicada)
   }
 }
 
@@ -3496,7 +3510,11 @@ async function aplicarContagens(lista){
   const ids = new Set(lista.map(c => c.id));
   await recarregarQtdEContagens();
   const alvo = contagens.filter(c => ids.has(c.id));
-  const mapa = ultimaContagemPorProdutoArea(7);
+  const bloqueios = alvo.map(contagemBloqueada).filter(Boolean);
+  if(bloqueios.length){ renderAll(); await showAlert(avisoContagemBloqueada(bloqueios)); return false; }
+  // as outras contagens por aplicar não entram nas somas
+  const foraDaConta = new Set(contagens.filter(c => c.status === 'pendente' && !ids.has(c.id)).map(c => c.id));
+  const mapa = ultimaContagemPorProdutoArea(7, foraDaConta);
   const itens = new Map();
   alvo.forEach(c => (c.itens||[]).forEach(it => itens.set(it.produto_id, Number(it.quantidade)||0)));
   const mexidos = [];
@@ -3512,13 +3530,17 @@ async function aplicarContagens(lista){
 }
 
 async function aplicarTodasPendentes(){
-  const pendentes = contagens.filter(c => c.status === 'pendente');
-  if(!pendentes.length){ await showAlert('Não há contagens por aplicar.'); return; }
+  try{ await recarregarQtdEContagens(); }
+  catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
+  const todas = contagens.filter(c => c.status === 'pendente');
+  const bloqueios = todas.map(contagemBloqueada).filter(Boolean);
+  const pendentes = todas.filter(c => !bloqueios.some(b => b.c === c));
+  if(!pendentes.length){ renderAll(); await showAlert(bloqueios.length ? avisoContagemBloqueada(bloqueios) : 'Não há contagens por aplicar.'); return; }
   if(!(await showConfirm(`Aplicar ao estoque ${pendentes.length} contagem(ns) enviada(s) pela equipa?`))) return;
   try{ if(!(await aplicarContagens(pendentes))) return; }
   catch(e){ await showAlert('Não consegui aplicar. Verifica a internet e tenta de novo.'); return; }
   renderAll();
-  await showAlert('Contagens aplicadas ao estoque.');
+  await showAlert('Contagens aplicadas ao estoque.' + (bloqueios.length ? '\n\n' + avisoContagemBloqueada(bloqueios) : ''));
 }
 
 // Volta a pôr no estoque a última contagem (depois de um "zerar" por engano).
@@ -3526,8 +3548,9 @@ async function aplicarTodasPendentes(){
 async function reporUltimaContagem(){
   try{ await recarregarQtdEContagens(); }
   catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
-  const recentes = contagensDaEquipa(7);
-  const mapa = ultimaContagemPorProdutoArea(7);
+  const emEspera = new Set(contagens.filter(contagemBloqueada).map(c => c.id));
+  const recentes = contagensDaEquipa(7, emEspera);
+  const mapa = ultimaContagemPorProdutoArea(7, emEspera);
   const maisRecente = recentes.length ? new Date(recentes[0].criado_em) : 0;
   // registo guardado pelo botão "Zerar" depois da última contagem: tem os valores exatos de antes de zerar
   const zero = contagens
@@ -3535,7 +3558,7 @@ async function reporUltimaContagem(){
       && Date.now() - new Date(c.criado_em) < 72 * HORA_MS && (c.itens||[]).some(it => Number(it.quantidade) > 0))
     .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em))[0];
   const doZero = new Map(zero ? zero.itens.map(it => [it.produto_id, Number(it.quantidade)||0]) : []);
-  const pendentes = contagens.filter(c => c.status === 'pendente');
+  const pendentes = contagens.filter(c => c.status === 'pendente' && !emEspera.has(c.id));
   const emPendente = new Set(pendentes.flatMap(c => (c.itens||[]).map(it => it.produto_id)));
 
   const mudar = [];
@@ -3586,7 +3609,17 @@ function renderAvisosEstoque(obsMap){
   const el = document.getElementById('estoqueAvisos');
   if(!el) return;
   let h = '';
-  const pendentes = contagens.filter(c => c.status === 'pendente');
+  const todasPendentes = contagens.filter(c => c.status === 'pendente');
+  const bloqueios = todasPendentes.map(contagemBloqueada).filter(Boolean);
+  [...new Set(bloqueios.map(b => b.g))].forEach(g => {
+    const doGrupo = bloqueios.filter(b => b.g === g);
+    h += `<div class="card" style="margin-bottom:12px;border-color:var(--danger-text);">
+      <div style="font-weight:700;color:var(--danger-text);margin-bottom:6px;">⚠️ Há uma contagem nova de "${escContagem(g.nome)}", mas ainda tens ${doGrupo[0].faltam} item(ns) por comprar</div>
+      <div class="save-note" style="margin-bottom:8px;">${doGrupo.map(b => `${escContagem(b.c.area || '')} (${escContagem((b.c.usuario_email||'?').split('@')[0])}, ${quandoContagem(b.c.criado_em)})`).join(' · ')}. A contagem nova fica à espera até finalizares esta compra.</div>
+      <div class="row" style="gap:8px;"><button class="btn" onclick="verCompra('${g.id}')">Ver compra</button>
+      <button class="btn secondary" onclick="finalizarGrupoCompra('${g.id}')">Finalizar pedido</button></div></div>`;
+  });
+  const pendentes = todasPendentes.filter(c => !bloqueios.some(b => b.c === c));
   if(pendentes.length){
     h += `<div class="card" style="margin-bottom:12px;border-color:var(--danger-text);">
       <div style="font-weight:700;color:var(--danger-text);margin-bottom:6px;">⚠️ A equipa enviou contagens que ainda não estão no estoque</div>
@@ -3599,32 +3632,104 @@ function renderAvisosEstoque(obsMap){
     h += `<div class="card" style="margin-bottom:12px;"><div class="save-note" style="margin-bottom:8px;">O estoque está quase todo a zero.</div>
       <button class="btn" onclick="reporUltimaContagem()">↩ Repor última contagem</button></div>`;
   }
-  const grupoSel = estoqueMode === 'grupo' ? grupos.find(x => x.id === document.getElementById('filtroGrupo').value) : null;
-  const linhas = [];
-  obsMap.forEach((lista, produtoId) => {
-    const p = produtos.find(x => x.id === produtoId);
-    if(!p || (grupoSel && !produtoPertenceAoGrupo(grupoSel, p))) return;
-    lista.forEach(o => linhas.push({ p, o }));
-  });
-  if(linhas.length){
-    linhas.sort((a,b) => a.p.nome.localeCompare(b.p.nome));
-    h += `<div class="card" style="margin-bottom:12px;"><h3 style="font-size:15px;margin-bottom:6px;">📝 Observações da equipa (${linhas.length})</h3>
-      ${linhas.map(({p,o}) => `<div style="margin-bottom:6px;"><strong>${escContagem(p.nome)}</strong>: ${escContagem(o.obs)}<div class="save-note">${escContagem(o.area)}${o.quem ? ' · ' + escContagem(o.quem) : ''} · ${quandoContagem(o.quando)}</div></div>`).join('')}</div>`;
-  }
   el.innerHTML = h;
 }
 
-function marcarComprado(produtoId){
-  const row = document.getElementById('compra-row-' + produtoId);
-  if(!row) return;
-  row.style.transition = 'opacity .25s';
-  row.style.opacity = '0';
-  setTimeout(() => { row.style.display = 'none'; }, 250);
+// ---------- lista de compras: vistos guardados na base ----------
+var comprasMarcadas = [];
+async function carregarMarcas(){
+  try{ comprasMarcadas = await sbGet('compras_marcadas'); }catch(e){}
+}
+const estaMarcado = (grupoId, produtoId) => comprasMarcadas.some(m => m.grupo_id === grupoId && m.produto_id === produtoId);
+// o que está na lista de compras de um grupo: por marcar e já marcado
+function listaDoGrupo(g){
+  const reais = contagensReaisDesdeUltimoZero(g);
+  const recontados = produtos.filter(p => produtoAtivo(p) && (p.qtdMinima||0) - (p.qtdAtual||0) > 0
+    && produtoPertenceAoGrupo(g, p) && produtoFoiRecontado(p, reais));
+  return {
+    reais,
+    porMarcar: recontados.filter(p => !estaMarcado(g.id, p.id)),
+    marcados: recontados.filter(p => estaMarcado(g.id, p.id)),
+  };
+}
+// uma contagem nova não pode substituir a de uma compra que ainda tem vistos por fazer
+function contagemBloqueada(c){
+  if(c.status !== 'pendente') return null;
+  const g = grupos.find(x => x.id === c.grupo_id);
+  if(!g) return null;
+  const l = listaDoGrupo(g);
+  if(!l.porMarcar.length) return null;
+  const sobrepoe = c.area ? l.reais.some(r => r.area === c.area) : l.reais.length > 0;
+  return sobrepoe ? { c, g, faltam: l.porMarcar.length } : null;
+}
+function avisoContagemBloqueada(bloqueios){
+  const nomes = [...new Set(bloqueios.map(b => `"${b.g.nome}" (faltam ${b.faltam} item(ns))`))].join('; ');
+  return `Há uma contagem nova, mas a compra anterior ainda está aberta: ${nomes}.\n\nMarca o que falta ou carrega em "Finalizar pedido". Só depois a contagem nova pode ser aplicada.`;
+}
+function verCompra(grupoId){
+  ativarView('estoque');
+  document.getElementById('filtroGrupo').value = grupoId;
+  setEstoqueMode('grupo');
 }
 
-async function finalizarGrupoCompra(grupoId){
+async function marcarComprado(grupoId, produtoId, marcado){
+  if(marcado){
+    if(estaMarcado(grupoId, produtoId)) return;
+    const m = { id: uid(), grupo_id: grupoId, produto_id: produtoId, por: usuarioAtualEmail };
+    comprasMarcadas.push(m);
+    renderEstoque();
+    try{ await sbInsertRow('compras_marcadas', m); }
+    catch(e){
+      await carregarMarcas();
+      if(!estaMarcado(grupoId, produtoId) || comprasMarcadas.includes(m)){
+        comprasMarcadas = comprasMarcadas.filter(x => x !== m);
+        renderEstoque();
+        await showAlert('Este visto não ficou guardado. Verifica a internet e volta a marcar.');
+        return;
+      }
+      renderEstoque();
+    }
+    verificarCompraCompleta(grupoId);
+  }else{
+    cancelarFinalizacao();
+    const antes = comprasMarcadas.filter(m => m.grupo_id === grupoId && m.produto_id === produtoId);
+    comprasMarcadas = comprasMarcadas.filter(m => !antes.includes(m));
+    renderEstoque();
+    try{ for(const m of antes) await sbDeleteRow('compras_marcadas', m.id); }
+    catch(e){ comprasMarcadas.push(...antes); renderEstoque(); await showAlert('Não consegui tirar o visto. Verifica a internet.'); }
+  }
+}
+// com tudo marcado, o pedido finaliza-se sozinho (com alguns segundos para anular um toque por engano)
+let finalizacaoAgendada = null;
+function cancelarFinalizacao(){
+  if(finalizacaoAgendada) clearTimeout(finalizacaoAgendada);
+  finalizacaoAgendada = null;
+  document.getElementById('avisoFinalizacao')?.remove();
+}
+function verificarCompraCompleta(grupoId){
+  const g = grupos.find(x => x.id === grupoId);
+  if(!g || finalizacaoAgendada) return;
+  const l = listaDoGrupo(g);
+  if(l.porMarcar.length || !l.marcados.length) return;
+  const box = document.createElement('div');
+  box.id = 'avisoFinalizacao';
+  box.style.cssText = 'position:fixed;left:12px;right:12px;bottom:16px;z-index:9999;max-width:520px;margin:0 auto;background:var(--terracotta-dark);color:#fff;border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;';
+  box.innerHTML = '<span>✅ Compraste tudo. A finalizar o pedido…</span><button class="btn secondary" type="button">Anular</button>';
+  box.querySelector('button').onclick = cancelarFinalizacao;
+  document.body.appendChild(box);
+  finalizacaoAgendada = setTimeout(() => { cancelarFinalizacao(); finalizarGrupoCompra(grupoId, true); }, 7000);
+}
+async function apagarMarcas(filtro){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/compras_marcadas?${filtro}`, { method: 'DELETE', headers: sbHeadersFn() });
+  if(!res.ok) throw new Error('Falha ao limpar os vistos');
+}
+
+async function finalizarGrupoCompra(grupoId, automatico){
   const g = grupos.find(x => x.id === grupoId);
   if(!g) return;
+  cancelarFinalizacao();
+  try{ await recarregarQtdEContagens(); }
+  catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
   const todosAfetados = produtos.filter(p => produtoPertenceAoGrupo(g, p));
   if(todosAfetados.length === 0){ await showAlert('Nenhum produto associado a este grupo.'); return; }
 
@@ -3645,14 +3750,30 @@ async function finalizarGrupoCompra(grupoId){
     aviso = `\n\n⚠️ ${ignorados.length} produto(s) NÃO serão zerados por ainda não terem sido recontados: ${ignorados.map(p => p.nome).join(', ')}. Esses mantêm o valor atual em estoque.`;
   }
 
-  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em ${afetados.length} produto(s) do grupo "${g.nome}" (das áreas já recontadas), para a próxima contagem começar do zero.${aviso}\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
-  if(!ok) return;
+  if(!automatico){
+    const faltam = listaDoGrupo(g).porMarcar.length;
+    const ok = await showConfirm(`${faltam ? `⚠️ Ainda tens ${faltam} item(ns) por marcar.\n\n` : ''}Isto vai colocar "Em estoque" de volta a 0 em ${afetados.length} produto(s) do grupo "${g.nome}" (das áreas já recontadas), para a próxima contagem começar do zero.${aviso}\n\nOs valores atuais ficam guardados no histórico (aba Contagens). Os outros grupos não são afetados. Esta ação não tem "desfazer". Continuar?`);
+    if(!ok) return;
+  }
 
-  await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`, g.id);
+  if(!(await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`, g.id))){
+    await showAlert('Não consegui guardar o histórico, por isso o pedido NÃO foi finalizado. Verifica a internet e tenta de novo.');
+    return;
+  }
   afetados.forEach(p => { p.qtdAtual = 0; });
   if(!(await gravarQuantidades(afetados))) return;
+  try{
+    await apagarMarcas('grupo_id=eq.' + encodeURIComponent(g.id));
+    comprasMarcadas = comprasMarcadas.filter(m => m.grupo_id !== g.id);
+  }catch(e){}
+  try{ await recarregarQtdEContagens(); }catch(e){}
   renderAll();
   await showAlert(`Pedido do "${g.nome}" finalizado. ${afetados.length} produto(s) das áreas recontadas foram zerados.${ignorados.length > 0 ? ' '+ignorados.length+' produto(s) de áreas ainda não recontadas foram mantidos como estavam.' : ''}`);
+  const emEspera = contagens.filter(c => c.status === 'pendente' && c.grupo_id === g.id);
+  if(emEspera.length && await showConfirm(`Há uma contagem nova do "${g.nome}" à espera. Aplicar agora?`)){
+    try{ if(await aplicarContagens(emEspera)) renderAll(); }
+    catch(e){ await showAlert('Não consegui aplicar a contagem. Tenta em "Aplicar agora".'); }
+  }
 }
 
 async function zerarContagemEstoque(){
@@ -3661,12 +3782,16 @@ async function zerarContagemEstoque(){
   catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
   const comStock = produtos.filter(p => p.qtdAtual > 0);
   const ultima = contagensDaEquipa(7)[0];
-  const ok = await showConfirm(`ATENÇÃO: isto APAGA a contagem de ${comStock.length} produto(s) e põe tudo a 0.${ultima ? `\n\nA última contagem da equipa é de ${quandoContagem(ultima.criado_em)} — se ainda vais comprar com ela, carrega em Cancelar.` : ''}\n\nPara só ver se há alterações, NÃO uses este botão. Continuar?`);
+  const ok = await showConfirm(`${comprasMarcadas.length ? '⚠️ Há uma compra em curso: os vistos também são apagados.\n\n' : ''}ATENÇÃO: isto APAGA a contagem de ${comStock.length} produto(s) e põe tudo a 0.${ultima ? `\n\nA última contagem da equipa é de ${quandoContagem(ultima.criado_em)} — se ainda vais comprar com ela, carrega em Cancelar.` : ''}\n\nPara só ver se há alterações, NÃO uses este botão. Continuar?`);
   if(!ok) return;
 
-  await registarHistoricoAntesDeZerar(produtos, 'Zerar geral (todos os produtos)');
+  if(!(await registarHistoricoAntesDeZerar(produtos, 'Zerar geral (todos os produtos)'))){
+    await showAlert('Não consegui guardar o histórico, por isso NADA foi zerado.');
+    return;
+  }
   produtos.forEach(p => { p.qtdAtual = 0; });
   if(!(await gravarQuantidades(comStock))) return;
+  try{ await apagarMarcas('grupo_id=not.is.null'); comprasMarcadas = []; }catch(e){}
   renderAll();
   await showAlert('Contagem zerada. O valor anterior ficou guardado no histórico. Todos os produtos voltaram a aparecer como "a comprar" até serem recontados.');
 }
