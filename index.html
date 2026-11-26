@@ -1027,16 +1027,6 @@
     <p class="status" id="chStatus"></p>
   </div>
 
-  <!-- BACKUP -->
-  <div class="view" id="view-backup">
-    <div class="card" style="max-width:560px;">
-      <h3 style="font-size:16px;margin-bottom:4px;">Backup dos dados</h3>
-      <div class="save-note" style="margin-bottom:14px;">Baixa um arquivo com todos os dados do sistema (produtos, receitas, contagens, fornecedores, áreas, grupos, checklists, produção, utilizadores). Guarda o arquivo na pasta de backups do Drive. O código do app já fica guardado no GitHub.</div>
-      <button class="btn" id="btnBackup" onclick="fazerBackupDados()">Fazer backup agora</button>
-      <div class="save-note" id="backupResultado" style="margin-top:12px;"></div>
-    </div>
-  </div>
-
   <!-- ÁREA AINDA SEM ABAS (ex.: Marketing) -->
   <div class="view" id="view-vazio">
     <div class="empty">Esta área ainda não tem nada por aqui — chegará com o tempo.</div>
@@ -7321,46 +7311,6 @@ const FINANCAS = (function(){
   return { IVA, PE, CH, DRE };
 })();
 
-// ---------- BACKUP ----------
-async function fazerBackupDados(){
-  if(nivelAtual !== 'master'){ await showAlert('Só o administrador master pode fazer backup.'); return; }
-  const btn = document.getElementById('btnBackup');
-  const out = document.getElementById('backupResultado');
-  const tabelas = ['produtos','fornecedores','areas','grupos','contagens','receitas','receita_itens','checklist_itens','checklist_execucoes','producao_itens','producao_execucoes','colaboradores','admins','cenarios','escala_areas','escala_funcionarios','escala_dias','escala_necessidades','escala_assignments','escala_config','controle_iva','custos_fixos','config_financeiro','parecer_claude','impasto_config','impasto_producoes','impasto_lotes'];
-  btn.disabled = true;
-  out.textContent = 'A exportar...';
-  const resultado = { exportadoEm: new Date().toISOString() };
-  try{
-    for(const t of tabelas){
-      let linhas = [], offset = 0;
-      while(true){
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/${t}?select=*&limit=1000&offset=${offset}`, { headers: sbHeadersFn() });
-        if(!res.ok) throw new Error(`${t} (erro ${res.status})`);
-        const pagina = await res.json();
-        linhas = linhas.concat(pagina);
-        if(pagina.length < 1000) break;
-        offset += 1000;
-      }
-      resultado[t] = linhas;
-    }
-  }catch(e){
-    btn.disabled = false;
-    out.textContent = '';
-    await showAlert('O backup NÃO foi gerado: falhou ao ler ' + e.message + '. Tenta de novo (se persistir, sai e entra outra vez).');
-    return;
-  }
-  const blob = new Blob([JSON.stringify(resultado, null, 2)], {type: 'application/json'});
-  const nome = 'ilfortunato-backup-dados-' + new Date().toISOString().slice(0,10) + '.json';
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = nome;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  btn.disabled = false;
-  out.textContent = `Backup gerado (${nome}, ${Math.round(blob.size/1024)} KB): ` + tabelas.map(t => `${t} ${resultado[t].length}`).join(' · ') + '. Move o arquivo para a pasta de backups do Drive.';
-}
-
 // ---------- NAV / MODAL ----------
 // Estrutura de navegação em 2-3 níveis: grande área (Administrativo/Financeiro/
 // Operacional/Marketing) → dentro de Operacional, subgrupos (Estoque/Boas Práticas/
@@ -7370,7 +7320,6 @@ const NAV_AREAS = {
   administrativo: { label: 'Administrativo', tabs: [
     { view: 'escalas', label: 'Escalas' },
     { view: 'utilizadores', label: 'Utilizadores' },
-    { view: 'backup', label: 'Backup' },
   ]},
   financeiro: { label: 'Financeiro', tabs: [
     { view: 'iva', label: 'Controle de IVA' },
@@ -7408,8 +7357,6 @@ let navAreaAtual = 'operacional';
 let navGrupoAtual = 'estoque';
 let navViewAtual = 'produtos';
 
-// o separador Backup é só do administrador master
-const separadorPermitido = t => t.view !== 'backup' || nivelAtual === 'master';
 function tabsDaAreaAtual(){
   const area = NAV_AREAS[navAreaAtual];
   if(!area) return [];
@@ -7417,7 +7364,7 @@ function tabsDaAreaAtual(){
     const grupo = area.grupos.find(g => g.key === navGrupoAtual) || area.grupos[0];
     return grupo ? grupo.tabs : [];
   }
-  return (area.tabs || []).filter(separadorPermitido);
+  return area.tabs || [];
 }
 
 function ativarView(view){
@@ -7629,7 +7576,6 @@ async function continuarAposLogin(){
   if(usuarioEhAdmin){
     document.getElementById('appRoot').style.display = 'block';
     await loadAll();
-    renderNav(); // já se sabe o nível: mostra os separadores certos
     verificarAlertasSeguranca();
   }else{
     document.getElementById('operRoot').style.display = 'block';
