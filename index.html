@@ -10074,11 +10074,11 @@ async function selecionarGrupoOperacional(grupoId){
     if(jaTeu && bloqueio.status === 'pendente'){
       const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
       return `
-        <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--ok-text, #2e7d32);border-radius:10px;background:var(--card);cursor:pointer;">
-          <input type="checkbox" class="grupo-area-check" value="${area}" style="width:18px;height:18px;">
+        <label style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px;border:1px solid var(--ok-text, #2e7d32);border-radius:10px;background:var(--card);opacity:.85;">
+          <input type="checkbox" disabled style="width:18px;height:18px;">
           <div>
             <div style="font-weight:600;">✅ ${area} — já enviada</div>
-            <div class="save-note">Enviaste às ${hora} e está a aguardar revisão. Só marca esta área se precisares de corrigir o que enviaste.</div>
+            <div class="save-note">Enviada às ${hora}. Depois de enviada já não se altera; se houver um erro, avisa o responsável.</div>
           </div>
         </label>`;
     }
@@ -10106,7 +10106,7 @@ async function iniciarContagemPorAreas(){
   const roubadas = [];
   marcadas = marcadas.filter(area => {
     const bloqueio = bloqueioDaArea(g.id, area);
-    if(bloqueio && bloqueio.usuario_email !== usuarioAtualEmail){
+    if(bloqueio && (bloqueio.usuario_email !== usuarioAtualEmail || bloqueio.status === 'pendente')){
       roubadas.push({area, quem: bloqueio.usuario_email});
       return false;
     }
@@ -10128,29 +10128,26 @@ async function iniciarContagemPorAreas(){
 async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
   const bloqueio = bloqueioDaArea(g.id, area);
 
-  if(bloqueio && bloqueio.usuario_email !== usuarioAtualEmail){
+  // uma contagem enviada já não se reabre, nem por quem a enviou
+  if(bloqueio && (bloqueio.usuario_email !== usuarioAtualEmail || bloqueio.status === 'pendente')){
     const hora = bloqueio.criado_em ? new Date(bloqueio.criado_em).toLocaleString('pt-PT') : '';
     const texto = bloqueio.status === 'em_andamento'
       ? `${bloqueio.usuario_email} está a contar agora, desde ${hora}.`
-      : `já foi enviada por ${bloqueio.usuario_email} desde ${hora} e ainda não foi revista pelo teu patrão.`;
+      : `já foi enviada por ${bloqueio.usuario_email} (${hora}). Depois de enviada já não se altera; se houver um erro, avisa o responsável.`;
     document.getElementById('operBloqueadoMsg').textContent =
       `${area ? 'A área "'+area+'" d' : 'E'}este grupo ${texto}\n\nNão é possível contar de novo até lá.`;
     mostrarOperScreen('oper-screen-bloqueado');
     return;
   }
 
-  const pendente = bloqueio && bloqueio.status === 'pendente' ? bloqueio : null;
+  const pendente = null;
   grupoAreaAtualOperacional = area;
-  contagemEditandoId = pendente ? pendente.id : null;
-
-  if(!contagemEditandoId){
-    try{
-      contagemEditandoId = await criarLockEmAndamento(g, area);
-    }catch(e){
-      await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
-      voltarParaGruposOperacional();
-      return;
-    }
+  try{
+    contagemEditandoId = await criarLockEmAndamento(g, area);
+  }catch(e){
+    await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
+    voltarParaGruposOperacional();
+    return;
   }
 
   const itensDaArea = area
@@ -10364,9 +10361,7 @@ async function voltarParaGruposOperacional(){
 }
 
 async function confirmarEnvioOperacional(){
-  const mensagem = (contagemEditandoId || grupoAreasAtuaisOperacional)
-    ? 'Isto vai enviar a tua contagem. Se já tinhas começado alguma destas áreas antes, atualiza o que já enviaste.\n\nContinuar?'
-    : 'Isto vai enviar a tua contagem e reiniciar o formulário. Depois de enviares, só o teu patrão consegue corrigir.\n\nTens a certeza que já contaste tudo?';
+  const mensagem = 'Depois de enviares já NÃO podes corrigir.\n\nConfere as quantidades: se houver um erro, carrega em Cancelar e corrige agora.\n\nEnviar a contagem?';
   const ok = await showConfirm(mensagem);
   if(!ok) return;
 
@@ -10406,10 +10401,11 @@ async function confirmarEnvioOperacional(){
         if(idExistente){
           const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(idExistente)}`, {
             method: 'PATCH',
-            headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+            headers: { ...sbHeadersFn(), Prefer: 'return=representation' },
             body: JSON.stringify({ itens: itensDaArea, status: 'pendente' })
           });
-          if(!res.ok) throw new Error();
+          // sem nenhuma linha alterada, a contagem NÃO foi enviada (já tinha sido enviada antes)
+          if(!res.ok || !(await res.json()).length) throw new Error();
         }else{
           const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
             method: 'POST',
@@ -10430,10 +10426,10 @@ async function confirmarEnvioOperacional(){
     }else if(contagemEditandoId){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(contagemEditandoId)}`, {
         method: 'PATCH',
-        headers: { ...sbHeadersFn(), Prefer: 'return=minimal' },
+        headers: { ...sbHeadersFn(), Prefer: 'return=representation' },
         body: JSON.stringify({ itens: itensTodos, status: 'pendente' })
       });
-      if(!res.ok) throw new Error();
+      if(!res.ok || !(await res.json()).length) throw new Error();
     }else{
       const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens`, {
         method: 'POST',
