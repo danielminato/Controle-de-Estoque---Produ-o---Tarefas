@@ -3576,6 +3576,48 @@ async function reporUltimaContagem(){
   await showAlert(`Reposto: ${mudar.length} produto(s).`);
 }
 
+// ---------- reposição única dos mínimos alterados a 23/11/2026 sem o dono os ter editado ----------
+// [produto, mínimo antigo, mínimo posto a 23/11]. Pode ser apagado depois de usado.
+const MINIMOS_2311 = [["Coca-Cola Lata Zero (Imp.)",65,34],["Vinho Tinto CONSCIÊNCIA 750ml",17,13],["Vinho do Porto Tawny",3,2],["Fanta Laranja lata",13,14],["Cerveja Super Bock 33cl",100,118],["Água Tónica 20cl",16,13],["Ice Tea Pêssego lata",13,11],["Vinho Rosé EA",5,4],["Guardanapos 30x40x150un Natural (PACOTE)",3,2],["Saquinhos Descartáveis 40x30cm",1,2],["Rolo Seca-Mãos 90mts 6unid",4,5],["Caixa de Pizza 031x031 100unid.",1,2],["Papel Charcutaria Silvex 30cmX150m",1,2],["Desengordurante Spray 500ml",1,2],["Spray Limpa Superfícies",1,2],["Sabão Lava-Loiça Manual 5L",1,2],["Cogumelos Brancos Médios 35/55 cx3kg",1.5,2.5],["Aipo 350g",1,2],["Manjericão pé (coloquei 5 porções por pé)",15,18],["Rúcula Selvagem pacote 250g",5,6],["Cebola Roxa pac1kg",1,2],["Tomate Chucha",8,9],["Tomate Cherry Chucha kg CX2,5KG",1,2],["Alho Seco Dentes 500g",1,2],["Salame Picante Italiano Italmarket 700g",3,4],["Bolacha Digestíveis pacote",2,1],["Azeitonas Verdes 18/20",1,2],["Ovos CAIXA GRANDE (15Duz)",1,2],["Alcaparra c/ gambo",1,2],["Azeite Virgem Extra Makro 5L",1,2],["Aceto Balsâmico Makro 500ml",2,3],["Tomate Seco 1700g",1,2],["Chocolate em Barra Pantagruel Culinária barra",2,1],["Mel de Flores 500g (Metro Chef) UNIDADE",1,2],["Carne de Vaca Picada 1Kg",2,3],["Carne de Porco Rojões 1Kg",1,2],["Ricota Galbani 250g",3,4],["Mozzarella Fior de Latte Fresca 125g",10,8],["Natas Vaqueiro 1l",4,3],["Mozzarella Fior de Latte Ralada 3kg - Fiordoro",6,5],["Burrata 125g",25,23],["Saco de Gelo 2kg",3,4],["Fiambre da Perna Extra",4,3],["Limão Grande",7,9],["Gnocchi di patate 500g",10,14]];
+// só os que ainda têm o valor posto a 23/11 (não toca em nada que tenha sido mudado depois)
+function minimosPorRepor(){
+  return MINIMOS_2311.map(([nome, antes, posto]) => {
+    const p = produtos.find(x => x.nome === nome);
+    return p && Number(p.qtdMinima) === posto ? { p, antes, posto } : null;
+  }).filter(Boolean);
+}
+function mostrarReporMinimos(){
+  let feito = false;
+  try{ feito = !!localStorage.getItem('minimos2311Repostos'); }catch(e){}
+  return nivelAtual === 'master' && !feito && Date.now() < Date.parse('2026-12-04') && minimosPorRepor().length > 0;
+}
+async function reporMinimos(){
+  try{
+    const rows = await sbGet('produtos');
+    const m = new Map(rows.map(r => [r.id, Number(r.qtd_minima)||0]));
+    produtos.forEach(p => { if(!m.has(p.id)) return; p.qtdMinima = m.get(p.id); const d = produtosServidor.get(p.id); if(d) d.qtd_minima = p.qtdMinima; });
+  }catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
+  const lista = minimosPorRepor();
+  if(!lista.length){ await showAlert('Não há mínimos por repor.'); renderAll(); return; }
+  const txt = lista.map(x => `• ${x.p.nome}: ${x.posto} → ${x.antes}`).join('\n');
+  if(!(await showConfirm(`Repor ${lista.length} mínimo(s) ao valor de antes de 23/11?\n\n${txt}`))) return;
+  try{
+    for(let i = 0; i < lista.length; i += 10){
+      await Promise.all(lista.slice(i, i + 10).map(async x => {
+        await sbUpdateRow('produtos', x.p.id, { qtd_minima: x.antes });
+        x.p.qtdMinima = x.antes;
+        const d = produtosServidor.get(x.p.id); if(d) d.qtd_minima = x.antes;
+      }));
+    }
+  }catch(e){ await avisarErroGravar(); renderAll(); return; }
+  // confirma o que ficou mesmo na base
+  const depois = new Map((await sbGet('produtos')).map(r => [r.id, Number(r.qtd_minima)]));
+  const falhas = lista.filter(x => depois.get(x.p.id) !== x.antes);
+  if(!falhas.length){ try{ localStorage.setItem('minimos2311Repostos', '1'); }catch(e){} }
+  renderAll();
+  await showAlert(falhas.length ? `Atenção: ${falhas.length} mínimo(s) não ficaram gravados: ${falhas.map(x => x.p.nome).join(', ')}.` : `Feito: ${lista.length} mínimo(s) repostos.`);
+}
+
 // observações escritas pela equipa na última contagem de cada produto
 function observacoesDaEquipa(){
   const porProduto = new Map();
@@ -3596,6 +3638,12 @@ function renderAvisosEstoque(obsMap){
   const el = document.getElementById('estoqueAvisos');
   if(!el) return;
   let h = '';
+  if(typeof mostrarReporMinimos === 'function' && mostrarReporMinimos()){
+    h += `<div class="card" style="margin-bottom:12px;border-color:var(--danger-text);">
+      <div style="font-weight:700;margin-bottom:6px;">Mínimos alterados a 23/11: ${minimosPorRepor().length} por repor</div>
+      <div class="save-note" style="margin-bottom:8px;">Os 10 que editaste ficam como estão.</div>
+      <button class="btn" onclick="reporMinimos()">Repor mínimos anteriores</button></div>`;
+  }
   const pendentes = contagens.filter(c => c.status === 'pendente');
   if(pendentes.length){
     h += `<div class="card" style="margin-bottom:12px;border-color:var(--danger-text);">
