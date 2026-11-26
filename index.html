@@ -542,6 +542,7 @@
         <button class="btn secondary" onclick="exportarContagemExcel()">Exportar Excel p/ colaboradores</button>
         <button class="btn secondary" onclick="document.getElementById('inputImportarContagem').click()">Importar Excel preenchido</button>
         <input type="file" id="inputImportarContagem" accept=".xlsx,.xls" style="display:none;" onchange="importarContagemExcel(this.files[0])">
+        <button class="btn secondary" onclick="reporUltimaContagem()">↩ Repor última contagem</button>
         <button class="btn secondary" style="border-color:var(--danger-text);color:var(--danger-text);" onclick="zerarContagemEstoque()">Zerar contagem (nova semana)</button>
       </div>
       <div class="row" id="estoqueFiltroGrupoWrap" style="display:none;">
@@ -551,6 +552,7 @@
       </div>
     </div>
 
+    <div id="estoqueAvisos"></div>
     <div id="estoqueContent"></div>
   </div>
 
@@ -1780,7 +1782,9 @@ function avisarErroGravar(){
 }
 
 async function sbGet(table){
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, { headers: sbHeadersFn() });
+  // contagens: da mais recente para a mais antiga (a base devolve no máximo 1000 linhas)
+  const ordem = table === 'contagens' ? '&order=criado_em.desc' : '';
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${ordem}`, { headers: sbHeadersFn() });
   if(!res.ok) throw new Error('Falha ao carregar ' + table);
   return res.json();
 }
@@ -2306,22 +2310,8 @@ async function finalizarTodasPendentesDoGrupo(grupoId){
   const ok = await showConfirm(`Isto vai aplicar ao estoque as contagens de ${pendentes.length} área(s) do grupo "${g.nome}" (${areasDesc}), e libertá-las para nova contagem. Continuar?`);
   if(!ok) return;
 
-  pendentes.forEach(c => {
-    (c.itens||[]).forEach(it => {
-      const p = produtos.find(x => x.id === it.produto_id);
-      if(p) p.qtdAtual = Number(it.quantidade) || 0;
-    });
-  });
-  await saveProdutos();
-
-  try{
-    for(const c of pendentes){
-      await sbUpdateRow('contagens', c.id, {status: 'finalizada'});
-      c.status = 'finalizada';
-    }
-  }catch(e){
-    await showAlert('Algumas contagens podem não ter sido marcadas como finalizadas — verifica e tenta de novo se necessário.');
-  }
+  try{ if(!(await aplicarContagens(pendentes))) return; }
+  catch(e){ await showAlert('Algumas contagens podem não ter sido aplicadas — verifica e tenta de novo.'); }
 
   renderAll();
   await showAlert(`Aplicado ao estoque. O grupo "${g.nome}" já está livre para nova contagem nessas áreas.`);
@@ -2333,15 +2323,8 @@ async function finalizarContagem(contagemId){
   const ok = await showConfirm(`Isto vai aplicar estas quantidades ao estoque e libertar o grupo "${c.grupo_nome}" para uma nova contagem. Continuar?`);
   if(!ok) return;
 
-  (c.itens||[]).forEach(it => {
-    const p = produtos.find(x => x.id === it.produto_id);
-    if(p) p.qtdAtual = Number(it.quantidade) || 0;
-  });
-  await saveProdutos();
-
-  try{ await sbUpdateRow('contagens', c.id, {status: 'finalizada'}); }
-  catch(e){ await showAlert('Erro ao marcar a contagem como finalizada — tenta novamente.'); return; }
-  c.status = 'finalizada';
+  try{ if(!(await aplicarContagens([c]))) return; }
+  catch(e){ await showAlert('Erro ao aplicar a contagem — tenta novamente.'); return; }
 
   renderAll();
   await showAlert('Contagem aplicada ao estoque. O grupo já está livre para nova contagem.');
@@ -3139,6 +3122,8 @@ function renderEstoque(){
   });
 
   renderValorPorGrupoResumo();
+  const obsMap = observacoesDaEquipa();
+  renderAvisosEstoque(obsMap);
 
   const content = document.getElementById('estoqueContent');
 
@@ -3153,7 +3138,7 @@ function renderEstoque(){
       <th>Produto</th><th>Área(s)</th><th>Mínima</th><th>Em estoque</th><th>A comprar</th><th>Valor em estoque</th><th>Estado</th>
     </tr></thead><tbody>${filtradas.map(l => `
       <tr>
-        <td>${l.p.nome}</td>
+        <td>${l.p.nome}${obsLinha(obsMap, l.p.id)}</td>
         <td>${areaBadges(l.p.areaIds)}</td>
         <td>${l.p.qtdMinima||0}</td>
         <td><input type="number" step="any" value="${l.p.qtdAtual||0}" style="width:80px;" onchange="updateQtdAtual('${l.p.id}', this.value)"></td>
@@ -3236,7 +3221,7 @@ function renderEstoque(){
         linhasHtml += `
           <tr class="compra-row" id="compra-row-${l.p.id}">
             <td style="width:36px;"><input type="checkbox" onchange="marcarComprado('${l.p.id}')" style="width:18px;height:18px;"></td>
-            <td>${l.p.nome}</td>
+            <td>${l.p.nome}${obsLinha(obsMap, l.p.id)}</td>
             <td>${l.p.qtdAtual||0}</td>
             <td><strong>${l.aComprar}</strong></td>
           </tr>`;
@@ -3285,7 +3270,7 @@ function renderEstoque(){
         <table><thead><tr><th>Produto</th><th>Área(s)</th><th>Mínima</th><th>Em estoque</th><th>A comprar</th></tr></thead>
         <tbody>${grupos[fid].map(l => `
           <tr>
-            <td>${l.p.nome}</td>
+            <td>${l.p.nome}${obsLinha(obsMap, l.p.id)}</td>
             <td>${areaBadges(l.p.areaIds)}</td>
             <td>${l.p.qtdMinima||0}</td>
             <td><input type="number" step="any" value="${l.p.qtdAtual||0}" style="width:80px;" onchange="updateQtdAtual('${l.p.id}', this.value)"></td>
@@ -3450,6 +3435,195 @@ async function registarHistoricoAntesDeZerar(produtosAfetados, origem, grupoId){
   }
 }
 
+// ---------- contagens da equipa: repor, aplicar e mostrar observações ----------
+const escContagem = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const HORA_MS = 3600000;
+const quandoContagem = d => d ? new Date(d).toLocaleString('pt-PT', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+
+// contagens enviadas pela equipa (pendentes ou já aplicadas), da mais recente para a mais antiga
+function contagensDaEquipa(dias){
+  const limite = Date.now() - dias * 24 * HORA_MS;
+  return contagens
+    .filter(c => (c.status === 'pendente' || c.status === 'finalizada') && (c.itens||[]).length
+      && !/\(finaliza|^Zerar/i.test(c.grupo_nome||'') && new Date(c.criado_em).getTime() >= limite)
+    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em));
+}
+// última linha contada de cada produto em cada área
+function ultimaContagemPorProdutoArea(dias){
+  const mapa = new Map();
+  contagensDaEquipa(dias).forEach(c => (c.itens||[]).forEach(it => {
+    const chave = it.produto_id + '|' + (c.area||'');
+    if(!mapa.has(chave)) mapa.set(chave, { it, c });
+  }));
+  return mapa;
+}
+// total contado de um produto: soma a última contagem de cada área onde ele está
+function totalContado(p, mapa){
+  const linhas = [];
+  mapa.forEach(v => { if(v.it.produto_id === p.id) linhas.push(v); });
+  if(!linhas.length) return null;
+  linhas.sort((a,b) => new Date(b.c.criado_em) - new Date(a.c.criado_em));
+  if(!linhas[0].c.area) return Number(linhas[0].it.quantidade) || 0;
+  const areasP = (p.areaIds||[]).map(id => nomeArea(id));
+  const comArea = linhas.filter(v => v.c.area);
+  const nasAreas = comArea.filter(v => areasP.includes(v.c.area));
+  return (nasAreas.length ? nasAreas : comArea).reduce((s,v) => s + (Number(v.it.quantidade)||0), 0);
+}
+
+async function recarregarQtdEContagens(){
+  const [rows, cont] = await Promise.all([sbGet('produtos'), sbGet('contagens')]);
+  const q = new Map(rows.map(r => [r.id, Number(r.qtd_atual)||0]));
+  produtos.forEach(p => {
+    if(!q.has(p.id)) return;
+    p.qtdAtual = q.get(p.id);
+    const d = produtosServidor.get(p.id); if(d) d.qtd_atual = p.qtdAtual;
+  });
+  contagens = cont;
+}
+
+// grava SÓ a quantidade em estoque — nunca regrava mínimos, preços, etc. a partir de um ecrã que pode estar desatualizado
+async function gravarQuantidades(lista){
+  try{
+    for(let i = 0; i < lista.length; i += 10){
+      await Promise.all(lista.slice(i, i + 10).map(async p => {
+        await sbUpdateRow('produtos', p.id, { qtd_atual: p.qtdAtual || 0 });
+        const d = produtosServidor.get(p.id); if(d) d.qtd_atual = p.qtdAtual || 0;
+      }));
+    }
+    setNote('Guardado');
+    return true;
+  }catch(e){ await avisarErroGravar(); return false; }
+}
+
+async function marcarAplicadas(lista){
+  for(const c of lista){
+    await sbUpdateRow('contagens', c.id, {status: 'finalizada'});
+    c.status = 'finalizada';
+  }
+}
+
+async function aplicarContagens(lista){
+  const ids = new Set(lista.map(c => c.id));
+  await recarregarQtdEContagens();
+  const alvo = contagens.filter(c => ids.has(c.id));
+  const mapa = ultimaContagemPorProdutoArea(7);
+  const itens = new Map();
+  alvo.forEach(c => (c.itens||[]).forEach(it => itens.set(it.produto_id, Number(it.quantidade)||0)));
+  const mexidos = [];
+  produtos.forEach(p => {
+    if(!itens.has(p.id)) return;
+    const total = totalContado(p, mapa);
+    p.qtdAtual = total != null ? total : itens.get(p.id);
+    mexidos.push(p);
+  });
+  if(!(await gravarQuantidades(mexidos))) return false;
+  await marcarAplicadas(alvo.filter(c => c.status === 'pendente'));
+  return true;
+}
+
+async function aplicarTodasPendentes(){
+  const pendentes = contagens.filter(c => c.status === 'pendente');
+  if(!pendentes.length){ await showAlert('Não há contagens por aplicar.'); return; }
+  if(!(await showConfirm(`Aplicar ao estoque ${pendentes.length} contagem(ns) enviada(s) pela equipa?`))) return;
+  try{ if(!(await aplicarContagens(pendentes))) return; }
+  catch(e){ await showAlert('Não consegui aplicar. Verifica a internet e tenta de novo.'); return; }
+  renderAll();
+  await showAlert('Contagens aplicadas ao estoque.');
+}
+
+// Volta a pôr no estoque a última contagem (depois de um "zerar" por engano).
+// Só preenche o que está a zero (ou o que tem contagem ainda por aplicar); não mexe em mínimos.
+async function reporUltimaContagem(){
+  try{ await recarregarQtdEContagens(); }
+  catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
+  const recentes = contagensDaEquipa(7);
+  const mapa = ultimaContagemPorProdutoArea(7);
+  const maisRecente = recentes.length ? new Date(recentes[0].criado_em) : 0;
+  // registo guardado pelo botão "Zerar" depois da última contagem: tem os valores exatos de antes de zerar
+  const zero = contagens
+    .filter(c => /^Zerar geral/.test(c.grupo_nome||'') && new Date(c.criado_em) > maisRecente
+      && Date.now() - new Date(c.criado_em) < 72 * HORA_MS && (c.itens||[]).some(it => Number(it.quantidade) > 0))
+    .sort((a,b) => new Date(b.criado_em) - new Date(a.criado_em))[0];
+  const doZero = new Map(zero ? zero.itens.map(it => [it.produto_id, Number(it.quantidade)||0]) : []);
+  const pendentes = contagens.filter(c => c.status === 'pendente');
+  const emPendente = new Set(pendentes.flatMap(c => (c.itens||[]).map(it => it.produto_id)));
+
+  const mudar = [];
+  produtos.forEach(p => {
+    const porAplicar = emPendente.has(p.id);
+    if((p.qtdAtual||0) > 0 && !porAplicar) return;
+    let v = totalContado(p, mapa);
+    if(!porAplicar && doZero.get(p.id) > 0) v = doZero.get(p.id);
+    if(v != null && v !== (p.qtdAtual||0)) mudar.push([p, v]);
+  });
+
+  const vistos = new Set();
+  const resumo = recentes.filter(c => { const k = c.grupo_id + '|' + (c.area||''); if(vistos.has(k)) return false; vistos.add(k); return true; })
+    .slice(0, 10)
+    .map(c => `• ${c.area || c.grupo_nome}: ${(c.itens||[]).filter(it => Number(it.quantidade) > 0).length} de ${(c.itens||[]).length} com quantidade — ${(c.usuario_email||'?').split('@')[0]}, ${quandoContagem(c.criado_em)}`)
+    .join('\n');
+
+  if(!mudar.length){
+    await showAlert(`Não há nada para repor.\n\nContagens dos últimos 7 dias:\n${resumo || '(nenhuma)'}`);
+    return;
+  }
+  const ok = await showConfirm(`Repor o estoque de ${mudar.length} produto(s) com a última contagem?\n\nContagens usadas:\n${resumo || '(registo de antes de zerar)'}\n\nOs mínimos não mudam.`);
+  if(!ok) return;
+  mudar.forEach(([p, v]) => { p.qtdAtual = v; });
+  if(!(await gravarQuantidades(mudar.map(([p]) => p)))) return;
+  try{ await marcarAplicadas(pendentes); }catch(e){}
+  renderAll();
+  await showAlert(`Reposto: ${mudar.length} produto(s).`);
+}
+
+// observações escritas pela equipa na última contagem de cada produto
+function observacoesDaEquipa(){
+  const porProduto = new Map();
+  ultimaContagemPorProdutoArea(7).forEach(v => {
+    if(!v.it.observacao) return;
+    const lista = porProduto.get(v.it.produto_id) || [];
+    if(!lista.some(o => o.obs === v.it.observacao)){
+      lista.push({ obs: v.it.observacao, area: v.c.area || '', quem: (v.c.usuario_email||'').split('@')[0], quando: v.c.criado_em });
+    }
+    porProduto.set(v.it.produto_id, lista);
+  });
+  return porProduto;
+}
+function obsLinha(obsMap, produtoId){
+  return (obsMap.get(produtoId) || []).map(o => `<div class="save-note" style="color:var(--danger-text);font-weight:700;">📝 ${escContagem(o.obs)}</div>`).join('');
+}
+function renderAvisosEstoque(obsMap){
+  const el = document.getElementById('estoqueAvisos');
+  if(!el) return;
+  let h = '';
+  const pendentes = contagens.filter(c => c.status === 'pendente');
+  if(pendentes.length){
+    h += `<div class="card" style="margin-bottom:12px;border-color:var(--danger-text);">
+      <div style="font-weight:700;color:var(--danger-text);margin-bottom:6px;">⚠️ A equipa enviou contagens que ainda não estão no estoque</div>
+      <div class="save-note" style="margin-bottom:8px;">${pendentes.map(c => `${escContagem(c.area || c.grupo_nome)} (${escContagem((c.usuario_email||'?').split('@')[0])}, ${quandoContagem(c.criado_em)})`).join(' · ')}</div>
+      <button class="btn" onclick="aplicarTodasPendentes()">Aplicar agora</button></div>`;
+  }
+  const ativos = produtos.filter(produtoAtivo);
+  const zerados = ativos.filter(p => !(p.qtdAtual > 0)).length;
+  if(ativos.length && zerados / ativos.length > 0.6 && contagensDaEquipa(7).length){
+    h += `<div class="card" style="margin-bottom:12px;"><div class="save-note" style="margin-bottom:8px;">O estoque está quase todo a zero.</div>
+      <button class="btn" onclick="reporUltimaContagem()">↩ Repor última contagem</button></div>`;
+  }
+  const grupoSel = estoqueMode === 'grupo' ? grupos.find(x => x.id === document.getElementById('filtroGrupo').value) : null;
+  const linhas = [];
+  obsMap.forEach((lista, produtoId) => {
+    const p = produtos.find(x => x.id === produtoId);
+    if(!p || (grupoSel && !produtoPertenceAoGrupo(grupoSel, p))) return;
+    lista.forEach(o => linhas.push({ p, o }));
+  });
+  if(linhas.length){
+    linhas.sort((a,b) => a.p.nome.localeCompare(b.p.nome));
+    h += `<div class="card" style="margin-bottom:12px;"><h3 style="font-size:15px;margin-bottom:6px;">📝 Observações da equipa (${linhas.length})</h3>
+      ${linhas.map(({p,o}) => `<div style="margin-bottom:6px;"><strong>${escContagem(p.nome)}</strong>: ${escContagem(o.obs)}<div class="save-note">${escContagem(o.area)}${o.quem ? ' · ' + escContagem(o.quem) : ''} · ${quandoContagem(o.quando)}</div></div>`).join('')}</div>`;
+  }
+  el.innerHTML = h;
+}
+
 function marcarComprado(produtoId){
   const row = document.getElementById('compra-row-' + produtoId);
   if(!row) return;
@@ -3486,19 +3660,23 @@ async function finalizarGrupoCompra(grupoId){
 
   await registarHistoricoAntesDeZerar(afetados, `${g.nome} (finalização de pedido)`, g.id);
   afetados.forEach(p => { p.qtdAtual = 0; });
-  await saveProdutos();
+  if(!(await gravarQuantidades(afetados))) return;
   renderAll();
   await showAlert(`Pedido do "${g.nome}" finalizado. ${afetados.length} produto(s) das áreas recontadas foram zerados.${ignorados.length > 0 ? ' '+ignorados.length+' produto(s) de áreas ainda não recontadas foram mantidos como estavam.' : ''}`);
 }
 
 async function zerarContagemEstoque(){
   if(produtos.length === 0){ await showAlert('Ainda não há produtos.'); return; }
-  const ok = await showConfirm(`Isto vai colocar "Em estoque" de volta a 0 em todos os ${produtos.length} produtos, para começares a contagem da semana do zero.\n\nOs valores atuais ficam guardados no histórico (aba Contagens). As quantidades mínimas não são afetadas. Esta ação não tem "desfazer". Continuar?`);
+  try{ await recarregarQtdEContagens(); }
+  catch(e){ await showAlert('Não consegui ler a base de dados. Verifica a internet e tenta de novo.'); return; }
+  const comStock = produtos.filter(p => p.qtdAtual > 0);
+  const ultima = contagensDaEquipa(7)[0];
+  const ok = await showConfirm(`ATENÇÃO: isto APAGA a contagem de ${comStock.length} produto(s) e põe tudo a 0.${ultima ? `\n\nA última contagem da equipa é de ${quandoContagem(ultima.criado_em)} — se ainda vais comprar com ela, carrega em Cancelar.` : ''}\n\nPara só ver se há alterações, NÃO uses este botão. Continuar?`);
   if(!ok) return;
 
   await registarHistoricoAntesDeZerar(produtos, 'Zerar geral (todos os produtos)');
   produtos.forEach(p => { p.qtdAtual = 0; });
-  await saveProdutos();
+  if(!(await gravarQuantidades(comStock))) return;
   renderAll();
   await showAlert('Contagem zerada. O valor anterior ficou guardado no histórico. Todos os produtos voltaram a aparecer como "a comprar" até serem recontados.');
 }
@@ -3508,7 +3686,7 @@ async function updateQtdAtual(produtoId, valor){
   if(!p) return;
   const n = parseFloat(valor);
   p.qtdAtual = isNaN(n) ? 0 : n;
-  await saveProdutos();
+  await gravarQuantidades([p]);
   renderEstoque();
 }
 
