@@ -1491,6 +1491,7 @@
       <h3 id="operContagemTitulo"></h3>
       <button class="link-btn" onclick="voltarParaGruposOperacional()">← voltar</button>
     </div>
+    <div id="operRascunhoNota" class="save-note" style="margin-bottom:8px;"></div>
     <div id="operListaProdutos"></div>
     <div class="footer-bar">
       <button class="btn" onclick="confirmarEnvioOperacional()">OK — enviar contagem</button>
@@ -2171,6 +2172,20 @@ async function atualizarContagensDoServidor(){
   }
 }
 
+// só o master reabre uma contagem enviada: volta a "em curso" com os números que lá estavam
+async function devolverContagem(contagemId){
+  if(nivelAtual !== 'master') return;
+  const c = contagens.find(x => x.id === contagemId);
+  if(!c) return;
+  if(!(await showConfirm(`Devolver a contagem de "${c.area || c.grupo_nome}" a ${c.usuario_email} para corrigir?\n\nOs números ficam lá. A pessoa entra na mesma área, corrige e volta a enviar.`))) return;
+  try{
+    await sbUpdateRow('contagens', c.id, { status: 'em_andamento', criado_em: new Date().toISOString() });
+    contagens = await sbGet('contagens');
+  }catch(e){ await showAlert('Não consegui devolver a contagem. Verifica a internet e tenta de novo.'); return; }
+  renderContagens();
+  await showAlert('Contagem devolvida. Avisa a pessoa para a corrigir e voltar a enviar.');
+}
+
 function renderResumoGrupos(){
   const el = document.getElementById('resumoGruposContent');
   if(!el) return;
@@ -2183,7 +2198,8 @@ function renderResumoGrupos(){
       const pendente = contagens.find(c => c.grupo_id === g.id && c.area === area && c.status === 'pendente');
       if(pendente){
         const hora = pendente.criado_em ? new Date(pendente.criado_em).toLocaleString('pt-PT') : '';
-        return `<tr><td>${area}</td><td><span class="badge ok">Enviada</span></td><td>${pendente.usuario_email || '?'}</td><td>${hora}</td></tr>`;
+        const devolver = nivelAtual === 'master' ? ` <button class="btn secondary small" onclick="devolverContagem('${pendente.id}')">Devolver para corrigir</button>` : '';
+        return `<tr><td>${area}</td><td><span class="badge ok">Enviada</span>${devolver}</td><td>${pendente.usuario_email || '?'}</td><td>${hora}</td></tr>`;
       }
       const bloqueio = bloqueioDaArea(g.id, area);
       if(bloqueio && bloqueio.status === 'em_andamento'){
@@ -10030,14 +10046,96 @@ async function criarLockEmAndamento(g, area){
 }
 
 async function liberarLocksNovos(){
+  await guardarRascunhoAgora();
   if(locksNovosIds.length === 0) return;
-  const ids = locksNovosIds.map(id => `"${id}"`).join(',');
-  try{
-    await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=in.(${ids})`, { method: 'DELETE', headers: sbHeadersFn() });
-  }catch(e){}
-  contagens = contagens.filter(c => !locksNovosIds.includes(c.id));
+  // só os "cadeados" vazios saem; os que já têm números são o rascunho e ficam
+  const vazios = locksNovosIds.filter(id => !((contagens.find(c => c.id === id) || {}).itens || []).length);
+  if(vazios.length){
+    try{
+      await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=in.(${vazios.map(id => `"${id}"`).join(',')})&status=eq.em_andamento`, { method: 'DELETE', headers: sbHeadersFn() });
+    }catch(e){}
+    contagens = contagens.filter(c => !vazios.includes(c.id));
+  }
   locksNovosIds = [];
 }
+
+// ---------- rascunho da contagem: o que se escreve fica guardado até enviar ----------
+let rascunhoIds = {};          // área ('' = sem área) -> id da contagem em curso
+let rascunhoTimer = null;
+const RASCUNHO_VALIDADE_MS = 36 * 3600000;
+function meuRascunho(grupoId, area){
+  return contagens
+    .filter(c => c.grupo_id === grupoId && (c.area || null) === (area || null) && c.status === 'em_andamento'
+      && c.usuario_email === usuarioAtualEmail && Date.now() - new Date(c.criado_em).getTime() < RASCUNHO_VALIDADE_MS)
+    .sort((a,b) => (((b.itens||[]).length > 0) - ((a.itens||[]).length > 0)) || (new Date(b.criado_em) - new Date(a.criado_em)))[0] || null;
+}
+// o mais recente entre o que está no telemóvel e o que está na base
+function itensDoRascunho(c){
+  if(!c) return [];
+  let local = null;
+  try{ local = JSON.parse(localStorage.getItem('rascunho:' + c.id) || 'null'); }catch(e){}
+  const naBase = c.itens || [];
+  const horaBase = Math.max(0, ...naBase.map(i => i.t || 0));
+  return local && local.t >= horaBase ? local.itens : naBase;
+}
+function lerEcraContagem(){
+  const porArea = {};
+  Object.keys(rascunhoIds).forEach(a => porArea[a] = []);
+  const agora = Date.now();
+  document.querySelectorAll('#operListaProdutos > div[data-produto-id]').forEach(row => {
+    const observacao = (row.querySelector('.obs-input')?.value || '').trim();
+    const juntar = (area, texto) => {
+      if(texto === '' && !observacao) return;
+      const lista = porArea[area] || porArea[''];
+      if(!lista) return;
+      const item = { produto_id: row.dataset.produtoId, t: agora };
+      if(texto !== '') item.quantidade = parseFloat(texto) || 0;
+      if(observacao) item.observacao = observacao;
+      lista.push(item);
+    };
+    if(row.dataset.multiArea === 'true') row.querySelectorAll('.qtd-input-multi').forEach(inp => juntar(inp.dataset.area, inp.value));
+    else juntar(row.dataset.area || Object.keys(rascunhoIds)[0], row.querySelector('.qtd-input')?.value ?? '');
+  });
+  return porArea;
+}
+function notaRascunho(texto){
+  const el = document.getElementById('operRascunhoNota');
+  if(el) el.textContent = texto;
+}
+function agendarRascunho(){
+  if(!Object.keys(rascunhoIds).length) return;
+  const porArea = lerEcraContagem();
+  Object.entries(rascunhoIds).forEach(([area, id]) => {
+    try{ localStorage.setItem('rascunho:' + id, JSON.stringify({ t: Date.now(), itens: porArea[area] || [] })); }catch(e){}
+    const c = contagens.find(x => x.id === id); if(c) c.itens = porArea[area] || [];
+  });
+  clearTimeout(rascunhoTimer);
+  rascunhoTimer = setTimeout(guardarRascunhoAgora, 800);
+}
+async function guardarRascunhoAgora(){
+  if(!rascunhoTimer) return;
+  clearTimeout(rascunhoTimer);
+  rascunhoTimer = null;
+  const porArea = lerEcraContagem();
+  try{
+    for(const [area, id] of Object.entries(rascunhoIds)){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(id)}&status=eq.em_andamento`, {
+        method: 'PATCH', headers: { ...sbHeadersFn(), Prefer: 'return=minimal' }, keepalive: true,
+        body: JSON.stringify({ itens: porArea[area] || [], criado_em: new Date().toISOString() })
+      });
+      if(!res.ok) throw new Error();
+    }
+    notaRascunho('✓ Guardado. Podes sair e continuar depois.');
+  }catch(e){ notaRascunho('Guardado só neste telemóvel (sem internet). Não envies sem rede.'); }
+}
+function fecharRascunho(apagarLocal){
+  clearTimeout(rascunhoTimer);
+  rascunhoTimer = null;
+  if(apagarLocal) Object.values(rascunhoIds).forEach(id => { try{ localStorage.removeItem('rascunho:' + id); }catch(e){} });
+  rascunhoIds = {};
+}
+document.addEventListener('input', e => { if(e.target.closest && e.target.closest('#operListaProdutos')) agendarRascunho(); });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') guardarRascunhoAgora(); });
 
 async function selecionarGrupoOperacional(grupoId){
   try{ contagens = await sbGet('contagens'); }catch(e){}
@@ -10140,28 +10238,30 @@ async function entrarNaContagemDeArea(g, area, produtosDoGrupo){
     return;
   }
 
-  const pendente = null;
+  fecharRascunho();
   grupoAreaAtualOperacional = area;
+  const rascunho = meuRascunho(g.id, area);
+  const itensGuardados = itensDoRascunho(rascunho);
   try{
-    contagemEditandoId = await criarLockEmAndamento(g, area);
+    contagemEditandoId = rascunho ? rascunho.id : await criarLockEmAndamento(g, area);
   }catch(e){
     await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
     voltarParaGruposOperacional();
     return;
   }
+  rascunhoIds = { [area || '']: contagemEditandoId };
 
   const itensDaArea = area
     ? produtosDoGrupo.filter(p => (p.areaIds||[]).some(id => nomeArea(id) === area))
     : produtosDoGrupo;
 
-  document.getElementById('operContagemTitulo').textContent = g.nome + (area ? ' — ' + area : '') + (pendente ? ' (a corrigir o teu envio anterior)' : '');
+  document.getElementById('operContagemTitulo').textContent = g.nome + (area ? ' — ' + area : '') + (itensGuardados.length ? ' (a continuar)' : '');
 
   const valoresAnteriores = {};
-  if(pendente){
-    (pendente.itens||[]).forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
-  }
+  itensGuardados.forEach(it => { valoresAnteriores[it.produto_id] = { quantidade: it.quantidade, observacao: it.observacao }; });
 
   renderProdutosListaOperacional(itensDaArea, valoresAnteriores);
+  notaRascunho(itensGuardados.length ? '✓ Recuperei o que já tinhas contado.' : 'O que escreveres fica guardado até enviares.');
   mostrarOperScreen('oper-screen-contagem');
 }
 
@@ -10174,23 +10274,21 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
   contagemEditandoId = null;
   contagemEditandoIdsPorArea = {};
 
-  const itensPorAreaPendente = {};
+  fecharRascunho();
+  const itensPorAreaPendente = {};   // rascunhos desta contagem, por área
   for(const area of areasEscolhidas){
-    const bloqueio = bloqueioDaArea(g.id, area);
-    const pendente = bloqueio && bloqueio.status === 'pendente' && bloqueio.usuario_email === usuarioAtualEmail ? bloqueio : null;
-    if(pendente){
-      contagemEditandoIdsPorArea[area] = pendente.id;
-      itensPorAreaPendente[area] = pendente.itens || [];
-    }else{
-      try{
-        contagemEditandoIdsPorArea[area] = await criarLockEmAndamento(g, area);
-      }catch(e){
-        await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
-        voltarParaGruposOperacional();
-        return;
-      }
+    const rascunho = meuRascunho(g.id, area);
+    const guardados = itensDoRascunho(rascunho);
+    if(guardados.length) itensPorAreaPendente[area] = guardados;
+    try{
+      contagemEditandoIdsPorArea[area] = rascunho ? rascunho.id : await criarLockEmAndamento(g, area);
+    }catch(e){
+      await showAlert('Não consegui iniciar a contagem — houve um problema a ligar à base de dados. Fala com o teu patrão antes de continuares, e tenta de novo daqui a pouco.');
+      voltarParaGruposOperacional();
+      return;
     }
   }
+  rascunhoIds = { ...contagemEditandoIdsPorArea };
 
   // reconstrói valores anteriores — produtos em mais do que uma área escolhida guardam um valor por área
   const valoresAnteriores = {};
@@ -10214,9 +10312,10 @@ async function entrarNaContagemMultiplasAreas(g, areasEscolhidas, produtosDoGrup
     (p.areaIds||[]).some(id => areasEscolhidas.includes(nomeArea(id)))
   );
 
-  const corrigindo = Object.keys(itensPorAreaPendente).length > 0;
-  document.getElementById('operContagemTitulo').textContent = g.nome + ' — ' + areasEscolhidas.join(', ') + (corrigindo ? ' (a corrigir o teu envio anterior)' : '');
+  const continuando = Object.keys(itensPorAreaPendente).length > 0;
+  document.getElementById('operContagemTitulo').textContent = g.nome + ' — ' + areasEscolhidas.join(', ') + (continuando ? ' (a continuar)' : '');
   renderProdutosListaOperacionalPorArea(itensDasAreas, areasEscolhidas, valoresAnteriores);
+  notaRascunho(continuando ? '✓ Recuperei o que já tinhas contado.' : 'O que escreveres fica guardado até enviares.');
   mostrarOperScreen('oper-screen-contagem');
 }
 
@@ -10351,6 +10450,7 @@ function mostrarOperScreen(id){
 
 async function voltarParaGruposOperacional(){
   await liberarLocksNovos();
+  fecharRascunho();
   grupoAtualOperacional = null;
   grupoAreaAtualOperacional = null;
   grupoAreasAtuaisOperacional = null;
@@ -10361,9 +10461,13 @@ async function voltarParaGruposOperacional(){
 }
 
 async function confirmarEnvioOperacional(){
-  const mensagem = 'Depois de enviares já NÃO podes corrigir.\n\nConfere as quantidades: se houver um erro, carrega em Cancelar e corrige agora.\n\nEnviar a contagem?';
+  const emBranco = Array.from(document.querySelectorAll('#operListaProdutos > div[data-produto-id]'))
+    .filter(row => Array.from(row.querySelectorAll('.qtd-input, .qtd-input-multi')).every(i => i.value === '')).length;
+  const mensagem = `${emBranco ? `⚠️ ${emBranco} produto(s) sem número: vão como 0.\n\n` : ''}Depois de enviares já NÃO podes corrigir.\n\nConfere as quantidades: se houver um erro, carrega em Cancelar e corrige agora.\n\nEnviar a contagem?`;
   const ok = await showConfirm(mensagem);
   if(!ok) return;
+  clearTimeout(rascunhoTimer);   // o envio substitui o rascunho
+  rascunhoTimer = null;
 
   const linhas = document.querySelectorAll('#operListaProdutos > div[data-produto-id]');
   const itensPorArea = {};
@@ -10402,7 +10506,7 @@ async function confirmarEnvioOperacional(){
           const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(idExistente)}`, {
             method: 'PATCH',
             headers: { ...sbHeadersFn(), Prefer: 'return=representation' },
-            body: JSON.stringify({ itens: itensDaArea, status: 'pendente' })
+            body: JSON.stringify({ itens: itensDaArea, status: 'pendente', criado_em: new Date().toISOString() })
           });
           // sem nenhuma linha alterada, a contagem NÃO foi enviada (já tinha sido enviada antes)
           if(!res.ok || !(await res.json()).length) throw new Error();
@@ -10427,7 +10531,7 @@ async function confirmarEnvioOperacional(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/contagens?id=eq.${encodeURIComponent(contagemEditandoId)}`, {
         method: 'PATCH',
         headers: { ...sbHeadersFn(), Prefer: 'return=representation' },
-        body: JSON.stringify({ itens: itensTodos, status: 'pendente' })
+        body: JSON.stringify({ itens: itensTodos, status: 'pendente', criado_em: new Date().toISOString() })
       });
       if(!res.ok || !(await res.json()).length) throw new Error();
     }else{
@@ -10451,6 +10555,7 @@ async function confirmarEnvioOperacional(){
     return;
   }
 
+  fecharRascunho(true);
   grupoAtualOperacional = null;
   grupoAreaAtualOperacional = null;
   grupoAreasAtuaisOperacional = null;
