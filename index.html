@@ -8257,18 +8257,20 @@ function calcularPrecificacao(custoPorcao, x){
 
 // Dado um preço que decidiste mesmo praticar (já com IVA), quanto fica de retorno líquido
 // por porção — descontando custo, participação e (no delivery) a comissão e o IVA dela.
-// Preço a publicar no delivery (c/ IVA) para dar exatamente o mesmo CMV que a loja,
-// depois de descontada a comissão da plataforma e o IVA sobre ela.
+// Preço a publicar no delivery (c/ IVA) para te ficar o valor líquido pedido (o mesmo CMV
+// que a loja), depois do IVA do prato, da comissão e do IVA dela que não recuperes.
 function precoDeliveryParaMesmoCmv(sIvaLoja, x){
   const pct = v => (Number(v) || 0) / 100;
-  const divisor = 1 - pct(x.deliveryTaxaPct) * (1 + pct(x.deliveryIvaTaxaPct));
-  return divisor > 0 ? sIvaLoja * (1 + pct(x.ivaPct)) / divisor : 0;
+  const divisor = 1 / (1 + pct(x.ivaPct)) - pct(x.deliveryTaxaPct) * (1 + pct(x.deliveryIvaTaxaPct));
+  return divisor > 0 ? sIvaLoja / divisor : 0;
 }
 
-// A comissão da plataforma incide sobre o preço TOTAL que o cliente paga (já com o teu IVA
-// dentro) — não sobre um preço líquido teu. Depois de tirar comissão + IVA da comissão, o
-// que sobra ainda tem o teu IVA embutido, por isso divide-se por (1+IVA) para chegar ao
-// valor líquido de verdade. Para a loja (taxa=0) isto reduz-se à conta simples de sempre.
+// O IVA do prato é sobre o preço TOTAL que o cliente paga. A comissão da plataforma é uma
+// percentagem desse mesmo preço (com IVA) e é uma despesa à parte; o IVA que a plataforma
+// cobra sobre a comissão deduz-se, por isso o campo fica a 0 (só se põe se não for dedutível).
+// Líquido = preço ÷ (1+IVA) − comissão − IVA da comissão não recuperado.
+// Para a loja (taxa=0) isto reduz-se à conta simples de sempre.
+// (Termos Uber Eats Portugal, cláusula 5; confirmado com o dono em 27-11-2026.)
 function calcularRetornoReal(custoPorcao, precoCIva, x){
   const pct = v => (Number(v) || 0) / 100;
   const iva = pct(x.ivaPct), part = pct(x.participacaoPct);
@@ -8276,8 +8278,7 @@ function calcularRetornoReal(custoPorcao, precoCIva, x){
   if(precoCIva <= 0) return { sIva: 0, comissao: 0, ivaComissao: 0, participacao: 0, retorno: 0, cmvReal: 0 };
   const comissao = precoCIva * taxa;
   const ivaComissao = comissao * ivaTaxa;
-  const sobraComIva = precoCIva - comissao - ivaComissao;
-  const sIva = sobraComIva / (1 + iva);
+  const sIva = precoCIva / (1 + iva) - comissao - ivaComissao;
   const participacao = sIva * part;
   const retorno = sIva - participacao - custoPorcao;
   const cmvReal = sIva > 0 ? custoPorcao / sIva * 100 : 0;
@@ -8881,7 +8882,8 @@ function atualizarPreviewCustoReceita(){
     retLojaCmvEl.textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' : '—';
     retLojaCmvEl.style.color = precoLoja > 0 ? cmvColor(retLoja.cmvReal) : '';
 
-    document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(retDel.sIva) : '—';
+    // na ficha, "Preço s/ IVA" é o preço sem o IVA do prato; a comissão aparece a seguir, a descontar
+    document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(precoDel / (1 + (Number(x.ivaPct) || 0) / 100)) : '—';
     document.getElementById('retDelComissao').textContent = precoDel > 0 ? eur(retDel.comissao) : '—';
     document.getElementById('retDelIvaComissao').textContent = precoDel > 0 ? eur(retDel.ivaComissao) : '—';
     document.getElementById('retDelPart').textContent = precoDel > 0 ? eur(retDel.participacao) : '—';
@@ -9415,9 +9417,20 @@ const MENUS = (function(){
              comPct: delivery ? bebidasGlobal.comissaoPct : 0, comIva: delivery ? bebidasGlobal.ivaComissaoPct : 0 };
   }
 
-  // retorno de um item vendido ao preço p (c/ IVA)
+  // retorno de um item vendido ao preço p (c/ IVA). Um item oferecido (preço 0) custa na mesma.
   function retItem(d, p){
+    if(!(p > 0)) return { sIva:0, comissao:0, ivaComissao:0, participacao:0, retorno: -(d.custo + d.extra), cmvReal:0 };
     return calcularRetornoReal(d.custo + d.extra, p, { ivaPct:d.ivaPct, participacaoPct:d.part, comissaoPct:d.comPct, ivaComissaoPct:d.comIva });
+  }
+  // preço que o item tem dentro deste menu, quando foi escrito; senão o preço avulso
+  function noCombo(d, id, precos){
+    return precos && precos[id] != null ? Object.assign({}, d, { preco: Number(precos[id]) || 0 }) : d;
+  }
+  // preço (c/ IVA) a que o item dá retorno zero, arredondado ao cêntimo acima
+  function precoRetornoZero(d){
+    const sIva = (d.custo + d.extra) / (1 - (Number(d.part) || 0) / 100);
+    const p = precoDeliveryParaMesmoCmv(sIva, { ivaPct:d.ivaPct, deliveryTaxaPct:d.comPct, deliveryIvaTaxaPct:d.comIva });
+    return Math.ceil(p * 100 - 1e-6) / 100;
   }
   // um menu = uma opção de cada parte; o preço do menu reparte-se pelos itens na proporção dos preços avulsos
   function calcCombo(dados, precoMenu){
@@ -9526,16 +9539,25 @@ const MENUS = (function(){
     const precoMenu = parseFloat(atual.preco) > 0 ? parseFloat(atual.preco) : null;
     // uma só conta, da combinação à vista (a opção escolhida em cada parte; por omissão a primeira):
     // uma coluna por item, o total do menu, e cada custo na sua linha, até ao retorno
+    // sem "Preço do menu", cada item pode ter o seu preço dentro do menu
+    const precos = precoMenu ? {} : (atual.itens.precos || {});
     const sel = listas.map(l => l.find(x => x.it.id === escolha[x.slot.key]) || l[0]);
-    const tot = calcCombo(sel.map(x => x.d), precoMenu);
+    const somaAvulso = sel.reduce((s, x) => s + x.d.preco, 0);
+    const tot = calcCombo(sel.map(x => noCombo(x.d, x.it.id, precos)), precoMenu);
     const cols = sel.map(x => {
-      const preco = tot.soma > 0 ? tot.preco * x.d.preco / tot.soma : 0;
-      const r = retItem(x.d, preco);
-      return { nome:x.it.nome, preco, comissao:r.comissao, ivaCom:r.ivaComissao, iva: preco - r.comissao - r.ivaComissao - r.sIva,
-               part:r.participacao, custo:x.d.custo, extra:x.d.extra, retorno:r.retorno, sIva:r.sIva };
+      const d = noCombo(x.d, x.it.id, precos);
+      const preco = tot.soma > 0 ? tot.preco * d.preco / tot.soma : 0;
+      const r = retItem(d, preco);
+      return { id:x.it.id, nome:x.it.nome, avulso:x.d.preco, escrito:precos[x.it.id], zero:precoRetornoZero(x.d), preco, comissao:r.comissao, ivaCom:r.ivaComissao,
+               iva: preco > 0 ? preco - r.comissao - r.ivaComissao - r.sIva : 0, part:r.participacao, custo:x.d.custo, extra:x.d.extra, retorno:r.retorno, sIva:r.sIva };
     });
     const total = { nome:'Total do menu' };
-    ['preco','comissao','ivaCom','iva','part','custo','extra','retorno','sIva'].forEach(k => { total[k] = cols.reduce((s, c) => s + c[k], 0); });
+    ['preco','zero','comissao','ivaCom','iva','part','custo','extra','retorno','sIva'].forEach(k => { total[k] = cols.reduce((s, c) => s + c[k], 0); });
+    const desconto = somaAvulso > 0 ? (1 - total.preco / somaAvulso) * 100 : 0;
+    const celPreco = c => (c === total || precoMenu) ? eur(c.preco)
+      : `<input type="number" min="0" step="0.05" value="${c.escrito != null ? c.escrito : ''}" placeholder="${c.avulso.toFixed(2)}" style="width:84px;text-align:right;" onchange="MENUS.precoItem('${esc(c.id)}',this.value)">`;
+    const celZero = c => (c === total || precoMenu) ? eur(c.zero)
+      : `<a href="#" title="Usar este preço" onclick="MENUS.precoItem('${esc(c.id)}','${c.zero.toFixed(2)}');return false;">${eur(c.zero)}</a>`;
     const cmvDe = c => c.sIva > 0 ? (c.custo + c.extra) / c.sIva * 100 : 0;
     const margemDe = c => c.sIva > 0 ? c.retorno / c.sIva * 100 : 0;
     const cmvCor = v => v > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
@@ -9556,7 +9578,8 @@ const MENUS = (function(){
 
     let html = `<div class="card">
       <h3 style="font-size:16px;margin:0 0 4px;">${esc(atual.nome || 'Menu sem nome')} · ${delivery ? 'delivery' : 'loja (almoço)'}</h3>
-      <div class="save-note" style="margin-bottom:10px;">${precoMenu ? 'Preço do menu ' + eur(precoMenu) + ' · avulso ' + eur(tot.soma) + ' · desconto ' + pct(tot.desconto) : 'Sem preço do menu: soma dos preços avulsos.'}</div>
+      <div class="save-note" style="margin-bottom:10px;">${precoMenu ? 'Preço do menu ' + eur(precoMenu) + ' · avulso ' + eur(somaAvulso) + ' · desconto ' + pct(desconto) + '. Para pores um preço em cada item, apaga o "Preço do menu".'
+        : 'Escreve em "O cliente paga" o preço de cada item no menu (vazio = preço avulso).' + (Math.abs(desconto) > 0.05 ? ' Avulso ' + eur(somaAvulso) + ' · desconto ' + pct(desconto) + '.' : '')}</div>
       ${escolhas}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
         ${quadro('O cliente paga', eur(total.preco), 'com IVA')}
@@ -9566,7 +9589,7 @@ const MENUS = (function(){
         ${quadro('Retorno', eur(total.retorno), 'margem ' + pct(margemDe(total)), retCor(total.retorno))}
       </div>
       <div style="overflow-x:auto;"><table><thead><tr><th style="${fixa}"></th>${todas.map(c => `<th style="text-align:right;white-space:normal;min-width:76px;">${esc(c.nome)}</th>`).join('')}</tr></thead><tbody>
-        ${linha('O cliente paga', c => eur(c.preco))}
+        ${linha('O cliente paga', celPreco)}
         ${menos('Comissão da plataforma', 'comissao')}
         ${menos('IVA da comissão', 'ivaCom')}
         ${menos('IVA da venda', 'iva')}
@@ -9574,18 +9597,24 @@ const MENUS = (function(){
         ${menos('Ingredientes', 'custo')}
         ${menos('Embalagem', 'extra')}
         ${linha('<b>Retorno</b>', c => '<b>' + eur(c.retorno) + '</b>', c => 'color:' + retCor(c.retorno))}
-        ${linha('Margem de retorno', c => pct(margemDe(c)))}
-        ${linha('CMV', c => pct(cmvDe(c)), c => 'color:' + cmvCor(cmvDe(c)))}
+        ${linha('Margem de retorno', c => c.sIva > 0 ? pct(margemDe(c)) : '—')}
+        ${linha('CMV', c => c.sIva > 0 ? pct(cmvDe(c)) : '—', c => 'color:' + cmvCor(cmvDe(c)))}
+        ${linha('Preço para retorno zero', celZero)}
       </tbody></table></div>
       <div class="save-note" style="margin-top:8px;">Margem e CMV sobre o que te fica sem IVA${delivery ? ', já depois da comissão' : ''}.</div>`;
     if(nCombos > 1){
-      const rs = produtoCartesiano(listas).map(c => calcCombo(c.map(x => x.d), precoMenu));
+      const rs = produtoCartesiano(listas).map(c => calcCombo(c.map(x => noCombo(x.d, x.it.id, precos)), precoMenu));
       const faixa = (k, f) => { const v = rs.map(r => r[k]); return f(Math.min(...v)) + ' a ' + f(Math.max(...v)); };
       html += `<div class="save-note" style="margin-top:4px;">Entre as ${nCombos} combinações possíveis: retorno de ${faixa('retorno', eur)} · CMV de ${faixa('cmv', pct)}.</div>`;
     }
     el.innerHTML = html + '</div>';
   }
   function escolher(slot, id){ escolha[slot] = id; renderResultado(); }
+  function precoItem(id, v){
+    const precos = atual.itens.precos || (atual.itens.precos = {}), n = parseFloat(v);
+    if(n >= 0) precos[id] = n; else delete precos[id];
+    renderResultado();
+  }
 
   function tudo(){
     if(!montado || !document.getElementById('menusSlots')) montar();
@@ -9604,7 +9633,7 @@ const MENUS = (function(){
     const m = guardados.find(x => x.id === id); if(!m) return;
     const it = m.itens || {};
     atual = { id:m.id, nome:m.nome || '', canal:m.canal === 'delivery' ? 'delivery' : 'loja', preco: m.preco == null ? '' : m.preco,
-              itens:{ entrada:it.entrada||[], principal:it.principal||[], bebida:it.bebida||[], sobremesa:it.sobremesa||[], cafe:it.cafe||[] } };
+              itens:{ entrada:it.entrada||[], principal:it.principal||[], bebida:it.bebida||[], sobremesa:it.sobremesa||[], cafe:it.cafe||[], precos:Object.assign({}, it.precos) } };
     tudo();
   }
   function setCanal(c){ atual.canal = c; renderSlots(); renderResultado(); }
@@ -9646,7 +9675,7 @@ const MENUS = (function(){
         if(!x){ falta.push('um item já não existe'); return null; }
         const d = dadosItem(x, canal);
         if(!d.ok){ falta.push(x.nome + ': ' + d.avisos[0]); return null; }
-        return { it:x, d };
+        return { it:x, d: parseFloat(m.preco) > 0 ? d : noCombo(d, id, it.precos) };
       }).filter(Boolean));
       if(falta.length || listas.some(l => !l.length)){ out.push({ id:m.id, nome:m.nome, ok:false, aviso: falta[0] || 'faltam itens' }); return; }
       if(listas.reduce((n, l) => n * l.length, 1) > 5000){ out.push({ id:m.id, nome:m.nome, ok:false, aviso:'combinações a mais' }); return; }
@@ -9659,7 +9688,7 @@ const MENUS = (function(){
     return out;
   }
 
-  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, escolher, guardar, apagar, resumos };
+  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, escolher, precoItem, guardar, apagar, resumos };
 })();
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
