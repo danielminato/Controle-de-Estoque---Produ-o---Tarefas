@@ -179,9 +179,35 @@
   #modalReceita:not(.adv) .ri-adv{display:none !important;}
   /* ocupa o topo do modal inteiro (compensa o padding de 24px) e fica fixo ao rolar */
   #receitaResumoFixo{position:sticky;top:-24px;z-index:5;background:#f2f4f8;border-bottom:1px solid rgba(0,0,0,.12);padding:16px 24px 10px;margin:-24px -24px 14px;box-shadow:0 3px 8px rgba(0,0,0,.08);}
-  #receitaResumoFixo h3{margin:0 0 6px;}
-  #receitaResumoFixo .rs-linha{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;}
-  #receitaResumoFixo strong{font-weight:700;}
+  #receitaResumoFixo h3{margin:0;}
+  .ft-quadros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;}
+  .ft-q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 8px;}
+  .ft-q small{display:block;color:var(--ink-soft);font-size:11px;}
+  .ft-q b{font-size:16px;}
+  .ft-sec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+  .ft-sec > h3{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:6px;}
+  .ft-sec summary{cursor:pointer;font-size:13px;font-weight:600;}
+  .ft-sec[open] > summary{margin-bottom:10px;}
+  .ft-aj{display:inline-flex;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);align-items:center;justify-content:center;font:600 11px 'Inter',sans-serif;color:var(--ink-soft);cursor:help;}
+  .modal .ft-tab{width:100%;font-size:13px;}
+  .modal .ft-tab th,.modal .ft-tab td{padding:6px 5px;text-align:right;}
+  .modal .ft-tab th:first-child,.modal .ft-tab td:first-child{text-align:left;padding-left:0;}
+  .ft-tab tr.ft-total td{border-top:2px solid var(--line);font-weight:700;}
+  .modal .ft-tab input.ft-preco{width:92px;text-align:right;margin:0;}
+  .ft-min{font-size:13px;margin-bottom:8px;}
+  @media (max-width:520px){
+    #modalReceita{padding:8px;}
+    #receitaResumoFixo h3{font-size:16px;}
+    #ftSub{display:none;}
+    .ft-quadros{gap:6px;margin-top:6px;}
+    .ft-q{padding:5px 6px;}
+    .ft-q small[id$="n"]{display:none;}
+    .ft-q b{font-size:14px;}
+    .ft-sec{padding:10px;}
+    .modal .ft-tab{font-size:12px;}
+    .modal .ft-tab th,.modal .ft-tab td{padding:5px 2px;}
+    .modal .ft-tab input.ft-preco{width:76px;padding:6px 4px;font-size:13px;}
+  }
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   .stat{font-size:22px;font-family:'Playfair Display',serif;font-weight:600;}
   .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
@@ -1143,140 +1169,105 @@
 <div class="modal-bg" id="modalReceita">
   <div class="modal" style="max-width:640px;">
     <div id="receitaResumoFixo">
-      <h3>Ficha técnica</h3>
-      <div class="rs-linha">
-        <span>Custo por porção <strong id="rsCusto">—</strong></span>
-        <span>Preço mínimo c/ IVA <strong id="rsMin">—</strong></span>
-        <span id="rsPratoWrap" style="display:contents;">
-          <span>Loja: <strong id="rsLoja">—</strong></span>
-          <span>Delivery: <strong id="rsDel">—</strong></span>
-        </span>
+      <h3 id="ftNome">Ficha técnica</h3>
+      <div class="save-note" id="ftSub"></div>
+      <div class="ft-quadros">
+        <div class="ft-q"><small id="ftQ1t">Custo dos ingredientes</small><b id="ftQ1">—</b><small id="ftQ1n"></small></div>
+        <div class="ft-q"><small id="ftQ2t">Sobra na loja</small><b id="ftQ2">—</b><small id="ftQ2n"></small></div>
+        <div class="ft-q"><small id="ftQ3t">Sobra no delivery</small><b id="ftQ3">—</b><small id="ftQ3n"></small></div>
       </div>
     </div>
     <input type="hidden" id="receitaId">
-    <label class="field">Produto resultante
-      <select id="receitaProdutoId" onchange="onReceitaProdutoIdChange()"></select>
-    </label>
-    <label class="field">Grupo (para organizar e filtrar a lista)
-      <input type="text" id="receitaGrupo" list="receitaGrupoOpcoes" placeholder="ex.: Pizzas, Massas, Molhos, Bebidas...">
-      <datalist id="receitaGrupoOpcoes"></datalist>
-    </label>
-    <div class="field-row">
-      <label class="field">Rendimento total (g/ml)
-        <input type="number" id="receitaRendimentoG" step="any" placeholder="deixa vazio = soma dos ingredientes" oninput="atualizarPreviewCustoReceita()">
-      </label>
-      <label class="field">Nº de porções (ex.: 60 bolas de pizza)
-        <input type="number" id="receitaPorcoes" step="any" value="1" oninput="atualizarPreviewCustoReceita()">
-      </label>
-      <label class="field">% de perda (quebras no preparo)
-        <input type="number" id="receitaPerdaPct" step="any" value="0" title="Ex.: 10 = de 60 bolas feitas, só 54 ficam boas para vender" oninput="atualizarPreviewCustoReceita()">
-      </label>
-    </div>
 
-    <div class="save-note" id="receitaRendimentoAuto" style="margin-bottom:6px;"></div>
-    <h3 style="font-size:15px;margin:16px 0 8px;">Ingredientes</h3>
-    <details class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
-      <summary style="cursor:pointer;font-weight:600;">❓ Como preencher cada ingrediente</summary>
-      <div>🔢 <strong>Quantidade</strong> — quanto entra na receita, em gramas ou ml. Para a maioria dos pratos é só isto que precisas de preencher.</div>
-      <div>⚖️ <strong>Base</strong> — marca isto só num ingrediente, e só se os outros forem uma % dele (ex.: massa de pizza: a farinha é a base, a água é 72% dela). Se cada ingrediente tem um peso fixo próprio (a maioria dos pratos), não marques nenhum.</div>
-      <div>％ <strong>% da base</strong> — só funciona depois de marcares uma base acima. Escreves a % em vez do peso, e o app calcula o peso sozinho.</div>
-      <div>♻️ <strong>Rend.%</strong> — deixa em 100 na maioria dos casos. Só baixa se ESTE ingrediente em concreto perde peso ao preparar (ex.: descascar, coar) — quanto menor, mais caro fica, porque parte do que compraste vai para o lixo.</div>
-      <div>🔻▪️🔺🗑️ <strong>Base / Recheio / Finalização / Descartáveis</strong> — só muda a ORDEM em que aparece na ficha pronta (não mexe no custo). Serve para a ficha ler na ordem em que montas o prato: primeiro a base (ex.: massa, molho), depois o recheio, depois quem entra ao fim (ex.: azeite, ervas por cima), e por último os descartáveis (ex.: guardanapo).</div>
+    <details class="ft-sec" id="ftDados">
+      <summary>Dados da ficha <span class="save-note">produto, grupo, porções</span></summary>
+      <label class="field">Produto resultante
+        <select id="receitaProdutoId" onchange="onReceitaProdutoIdChange()"></select>
+      </label>
+      <label class="field">Grupo (para organizar e filtrar a lista)
+        <input type="text" id="receitaGrupo" list="receitaGrupoOpcoes" placeholder="ex.: Pizzas, Massas, Molhos, Bebidas...">
+        <datalist id="receitaGrupoOpcoes"></datalist>
+      </label>
+      <div class="field-row">
+        <label class="field">Rendimento total (g/ml)
+          <input type="number" id="receitaRendimentoG" step="any" placeholder="vazio = soma dos ingredientes" oninput="atualizarPreviewCustoReceita()">
+        </label>
+        <label class="field">Nº de porções
+          <input type="number" id="receitaPorcoes" step="any" value="1" oninput="atualizarPreviewCustoReceita()">
+        </label>
+        <label class="field">% de perda
+          <input type="number" id="receitaPerdaPct" step="any" value="0" title="Ex.: 10 = de 60 bolas feitas, só 54 ficam boas para vender" oninput="atualizarPreviewCustoReceita()">
+        </label>
+      </div>
+      <div class="save-note" id="receitaRendimentoAuto"></div>
+      <div class="save-note" id="receitaPorcoesUteis"></div>
     </details>
-    <div class="row between" style="margin-bottom:6px;">
-      <span class="save-note">Em cada linha: ingrediente, quantidade (g ou ml) e onde entra na montagem.</span>
-      <button class="icon-btn" type="button" onclick="alternarAvancadoReceita()">⚙️ opções avançadas</button>
-    </div>
-    <div id="receitaItensList"></div>
-    <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
 
-    <div class="card" style="margin-top:16px;background:var(--cream);">
-      <div class="row between">
-        <div>
-          <div class="stat-label">Custo total da receita</div>
-          <div class="stat" id="receitaCustoTotal" style="font-size:18px;">€0.00</div>
-        </div>
-        <div>
-          <div class="stat-label">Custo por grama</div>
-          <div class="stat" id="receitaCustoPorGrama" style="font-size:18px;">€0.0000</div>
-        </div>
-        <div>
-          <div class="stat-label">Custo por porção</div>
-          <div class="stat" id="receitaCustoPorcao" style="font-size:18px;">€0.00</div>
-        </div>
-        <div>
-          <div class="stat-label">Peso por porção</div>
-          <div class="stat" id="receitaPesoPorcao" style="font-size:18px;">0 g</div>
-          <div class="save-note" id="receitaPorcoesUteis"></div>
-        </div>
-      </div>
+    <div class="ft-sec" id="ftPrecos">
+      <h3>Preço e margem <span class="ft-aj" title="Escreve o preço que praticas. A tabela mostra para onde vai cada euro até ao que te sobra. Campo vazio = simulado ao preço mínimo.">?</span></h3>
+      <div class="ft-min" id="ftMinimos"></div>
+      <div style="overflow-x:auto;"><table class="ft-tab">
+        <thead><tr><th></th><th>Loja</th><th>Delivery</th></tr></thead>
+        <tbody>
+          <tr><td>O cliente paga</td>
+            <td><input type="number" id="receitaPrecoVenda" class="ft-preco" step="any" min="0" oninput="atualizarPreviewCustoReceita()"></td>
+            <td><input type="number" id="receitaPrecoVendaDelivery" class="ft-preco" step="any" min="0" oninput="atualizarPreviewCustoReceita()"></td></tr>
+          <tr><td>IVA da venda</td><td id="ftL_iva"></td><td id="ftD_iva"></td></tr>
+          <tr><td>Comissão da plataforma</td><td id="ftL_com"></td><td id="ftD_com"></td></tr>
+          <tr id="ftLinhaIvaCom"><td>IVA da comissão não dedutível</td><td id="ftL_ivacom"></td><td id="ftD_ivacom"></td></tr>
+          <tr><td>Participação</td><td id="ftL_part"></td><td id="ftD_part"></td></tr>
+          <tr><td>Ingredientes</td><td id="ftL_custo"></td><td id="ftD_custo"></td></tr>
+          <tr><td>Embalagem</td><td id="ftL_emb"></td><td id="ftD_emb"></td></tr>
+          <tr class="ft-total"><td>Sobra por unidade</td><td id="ftL_sobra"></td><td id="ftD_sobra"></td></tr>
+          <tr><td>Margem</td><td id="ftL_margem"></td><td id="ftD_margem"></td></tr>
+          <tr><td>CMV</td><td id="ftL_cmv"></td><td id="ftD_cmv"></td></tr>
+        </tbody>
+      </table></div>
+      <div class="save-note" id="receitaDelSugestao"></div>
+      <div class="save-note">Sobra por unidade = antes de salários, renda e outras despesas fixas. Margem e CMV sobre o que te fica sem IVA.</div>
     </div>
 
-    <div id="receitaPrecifWrap">
-      <h3 style="font-size:15px;margin:16px 0 8px;">Preço mínimo sugerido (por porção)</h3>
-      <div class="card" style="background:var(--cream);margin-bottom:12px;font-size:13px;line-height:1.7;">
-        <div>1️⃣ <strong>Preço s/ IVA</strong> = Custo ÷ % CMV alvo → 2️⃣ <strong>+ Participação</strong> (% sobre o preço s/ IVA) → 3️⃣ <strong>× (1 + % IVA)</strong> = preço final.</div>
-        <div>Este é o preço mínimo para a LOJA. No delivery a plataforma desconta comissão (e IVA sobre ela) e há a embalagem, então o preço a publicar é mais alto — a sugestão para o delivery aparece em "O que vais cobrar de verdade", mais abaixo.</div>
+    <div class="ft-sec">
+      <h3>Ingredientes <span class="ft-aj" title="Quantidade que entra, preço de compra e quanto isso custa na receita inteira.">?</span></h3>
+      <div id="ftIngredientes" style="overflow-x:auto;"></div>
+      <details id="ftEditar">
+        <summary>Editar ingredientes</summary>
+        <details class="card" style="background:var(--cream);margin:8px 0 12px;font-size:13px;line-height:1.7;">
+          <summary style="cursor:pointer;font-weight:600;">Como preencher cada ingrediente</summary>
+          <div><strong>Quantidade</strong>: quanto entra na receita, em gramas ou ml. Para a maioria dos pratos é só isto.</div>
+          <div><strong>Base</strong>: marca só num ingrediente, e só se os outros forem uma % dele (ex.: massa, em que a água é 72% da farinha).</div>
+          <div><strong>% da base</strong>: depois de marcares a base, escreves a % e a app calcula o peso.</div>
+          <div><strong>Rend.%</strong>: deixa em 100. Baixa só se o ingrediente perde peso ao preparar (descascar, coar).</div>
+          <div><strong>Base / Recheio / Finalização / Descartáveis</strong>: muda só a ordem em que aparece na ficha, não o custo.</div>
+        </details>
+        <div class="row between" style="margin-bottom:6px;">
+          <span class="save-note">Ingrediente, quantidade (g ou ml) e onde entra na montagem.</span>
+          <button class="icon-btn" type="button" onclick="alternarAvancadoReceita()">opções avançadas</button>
+        </div>
+        <div id="receitaItensList"></div>
+        <button class="icon-btn" onclick="addReceitaItemRow()">+ adicionar ingrediente</button>
+      </details>
+    </div>
+
+    <details class="ft-sec" id="ftPercent">
+      <summary>Percentagens desta ficha</summary>
+      <div class="field-row">
+        <label class="field">CMV alvo (%)<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">Participação dos colaboradores (%)<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">IVA do prato (%)<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
       </div>
       <div class="field-row">
-        <label class="field">% CMV alvo<input type="number" id="receitaCmvPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% Participação (colaboradores)<input type="number" id="receitaPartPct" step="any" value="10" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% IVA (do prato)<input type="number" id="receitaIvaPct" step="any" value="13" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">Comissão do delivery (%)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">IVA da comissão não dedutível (%)<input type="number" id="receitaDelIvaTaxaPct" step="any" value="0" title="O IVA que a plataforma cobra sobre a comissão deduz-se, por isso é 0. Só põe 23 se não o puderes deduzir." oninput="atualizarPreviewCustoReceita()"></label>
+        <label class="field">Avisar se o CMV passar (%)<input type="number" id="receitaCmvAlertaPct" step="any" value="35" oninput="atualizarPreviewCustoReceita()"></label>
       </div>
-      <div class="card" style="background:var(--cream);">
-        <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label" title="Custo da porção ÷ % CMV alvo">1️⃣ Preço s/ IVA</div><div class="stat" id="precSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="Preço s/ IVA × % Participação">2️⃣ + Participação</div><div class="stat" id="precPart" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="(Preço s/ IVA + Participação) × (1 + % IVA)">3️⃣ Preço final c/ IVA</div><div class="stat" id="precFinal" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="Preço s/ IVA − Custo da porção (sem contar participação nem IVA)">Margem</div><div class="stat" id="precMargem" style="font-size:16px;">—</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="receitaRetornoWrap" style="display:none;">
-      <h3 style="font-size:15px;margin:16px 0 8px;">O que vais cobrar de verdade</h3>
-      <div class="save-note" style="margin-bottom:10px;">O preço acima é o mínimo. Aqui é o preço que TU escolhes praticar (pode ser maior) — e o que sobra de verdade depois de tudo.</div>
       <div class="field-row">
-        <label class="field">Preço publicado — loja (c/ IVA)
-          <input type="number" id="receitaPrecoVenda" step="any" placeholder="ex.: 16.00" oninput="atualizarPreviewCustoReceita()">
-        </label>
-        <label class="field">Preço publicado — delivery (c/ IVA)
-          <input type="number" id="receitaPrecoVendaDelivery" step="any" placeholder="ex.: 18.00" oninput="atualizarPreviewCustoReceita()">
-        </label>
-        <label class="field">…ou escolhe o CMV alvo do delivery (%)
-          <input type="number" id="receitaDelCmvPct" step="any" placeholder="ex.: 20" title="Escreve o CMV que queres no delivery e o preço a publicar é preenchido ao lado (com comissão, IVA da comissão e caixa já contados)." oninput="aplicarCmvDelivery()">
-        </label>
+        <label class="field">Preencher o preço do delivery a partir de um CMV (%)<input type="number" id="receitaDelCmvPct" step="any" placeholder="ex.: 20" oninput="aplicarCmvDelivery()"></label>
       </div>
-      <label class="save-note" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:10px;" title="Soma o custo da caixa de pizza (produto cadastrado em Produtos) só na conta do delivery">
-        <input type="checkbox" id="receitaIncluirCaixa" onchange="atualizarPreviewCustoReceita()"> 📦 Incluir custo da caixa de pizza no delivery
+      <label class="save-note" style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Soma o custo da caixa de pizza (produto cadastrado em Produtos) só na conta do delivery">
+        <input type="checkbox" id="receitaIncluirCaixa" onchange="atualizarPreviewCustoReceita()"> Contar a caixa de pizza no delivery
       </label>
-      <div class="save-note" id="receitaDelSugestao" style="margin-bottom:10px;"></div>
-      <div class="field-row">
-        <label class="field">% Comissão da plataforma (desconta do delivery)<input type="number" id="receitaDelTaxaPct" step="any" value="30" oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% IVA sobre a comissão (custo)<input type="number" id="receitaDelIvaTaxaPct" step="any" value="0" title="O IVA que a plataforma cobra sobre a comissão é dedutível, por isso não é custo: 0. Só põe 23 se não o puderes deduzir." oninput="atualizarPreviewCustoReceita()"></label>
-        <label class="field">% CMV máximo (alerta)<input type="number" id="receitaCmvAlertaPct" step="any" value="35" title="Se o CMV real (loja ou delivery) passar disto, o app avisa a vermelho." oninput="atualizarPreviewCustoReceita()"></label>
-      </div>
-      <div class="card" style="background:var(--cream);">
-        <div class="save-note" style="font-weight:600;margin-bottom:6px;">LOJA</div>
-        <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="retLojaSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− Participação</div><div class="stat" id="retLojaPart" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− Custo</div><div class="stat" id="retLojaCusto" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="O que fica mesmo no teu bolso, por porção, depois de custo e participação">= Retorno líquido</div><div class="stat" id="retLojaRetorno" style="font-size:18px;font-weight:700;">—</div></div>
-          <div><div class="stat-label">CMV real</div><div class="stat" id="retLojaCmv" style="font-size:16px;">—</div></div>
-        </div>
-        <div class="save-note" style="font-weight:600;margin:14px 0 6px;">DELIVERY</div>
-        <div class="row between" style="flex-wrap:wrap;gap:12px;">
-          <div><div class="stat-label">Preço s/ IVA</div><div class="stat" id="retDelSIva" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− Comissão</div><div class="stat" id="retDelComissao" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− IVA da comissão</div><div class="stat" id="retDelIvaComissao" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− Participação</div><div class="stat" id="retDelPart" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label">− Custo</div><div class="stat" id="retDelCusto" style="font-size:16px;">—</div></div>
-          <div><div class="stat-label" title="O que fica mesmo no teu bolso, por porção, depois de comissão, IVA da comissão, custo e participação">= Retorno líquido</div><div class="stat" id="retDelRetorno" style="font-size:18px;font-weight:700;">—</div></div>
-          <div><div class="stat-label">CMV real</div><div class="stat" id="retDelCmv" style="font-size:16px;">—</div></div>
-        </div>
-      </div>
-    </div>
+    </details>
 
     <label class="field" style="margin-top:14px;">Modo de fazer
       <textarea id="receitaModoFazer" rows="4" style="width:100%;" placeholder="passo a passo (opcional)"></textarea>
@@ -1869,7 +1860,7 @@ function grupoFromDb(r){ return {
 };}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function eur(v){ return '€' + (Number(v)||0).toFixed(2); }
+function eur(v){ return (Number(v)||0).toFixed(2).replace('.', ',') + ' €'; }
 function setNote(t){ document.getElementById('saveNote').textContent = t; }
 
 async function loadAll(){
@@ -8376,13 +8367,13 @@ function renderReceitas(){
     const cmvBadge = (label, v) => `
             <div style="text-align:right;">
               <div class="stat-label">${label}</div>
-              <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${v.toFixed(1)}%</div>
+              <div class="stat" style="font-size:17px;color:${v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)'};">${pctPt(v)}%</div>
             </div>`;
     const aberto = receitasAbertas.has(r.id);
 
     const resumoLinha = `${eur(custoPorcao)}/porção` +
-      (retLoja ? ' · loja ' + eur(r.precoVenda) + ' → retorno ' + eur(retLoja.retorno) : '') +
-      (retDel ? ' · delivery ' + eur(precoDelivery) + ' → retorno ' + eur(retDel.retorno) : '');
+      (retLoja ? ' · loja ' + eur(r.precoVenda) + ' → sobra ' + eur(retLoja.retorno) : '') +
+      (retDel ? ' · delivery ' + eur(precoDelivery) + ' → sobra ' + eur(retDel.retorno) : '');
 
     const detalhe = !aberto ? '' : `
         <div style="padding:0 18px 18px;border-top:1px solid var(--line);">
@@ -8393,13 +8384,13 @@ function renderReceitas(){
               <div class="stat" style="font-size:17px;">${eur(custoTotal)}</div>
             </div>
             <div style="text-align:right;">
-              <div class="stat-label">Custo/g</div>
-              <div class="stat" style="font-size:17px;">${custoPorGrama.toFixed(4)}€</div>
+              <div class="stat-label">Custo/kg</div>
+              <div class="stat" style="font-size:17px;">${eur(custoPorGrama * 1000)}</div>
             </div>
             ${retLoja ? cmvBadge('CMV loja', retLoja.cmvReal) : ''}
             ${retDel ? cmvBadge('CMV delivery', retDel.cmvReal) : ''}
           </div>
-          <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Custo/g</th><th>Custo</th></tr></thead>
+          <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Preço de compra</th><th>Custo</th></tr></thead>
           <tbody>${(() => {
             const NOME_CAMADA = ['🔻 Base', '▪️ Recheio', '🔺 Finalização', '🗑️ Descartáveis'];
             let camadaAnterior = null;
@@ -8415,9 +8406,9 @@ function renderReceitas(){
               camadaAnterior = camadaAtual;
               return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
                 <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
-                <td>${ri.quantidadeG}g</td>
+                <td>${ri.quantidadeG} ${ip ? unidadeDoIngrediente(ip) : 'g'}</td>
                 <td>${rend}%</td>
-                <td>${custoG.toFixed(4)}€</td>
+                <td>${ip ? precoDeCompra(ip) : '—'}</td>
                 <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
               </tr>`;
             }).join('');
@@ -8533,7 +8524,11 @@ function openReceitaModal(id){
 
   onReceitaProdutoChange();
   renderReceitaItensList();
+  document.getElementById('ftDados').open = !r;
+  document.getElementById('ftEditar').open = !r;
+  document.getElementById('ftPercent').open = false;
   document.getElementById('modalReceita').classList.add('open');
+  document.querySelector('#modalReceita .modal').scrollTop = 0;
 }
 
 function onReceitaProdutoChange(){
@@ -8613,7 +8608,7 @@ function opcoesIngredienteHtml(produtoResultadoId, selecionadoId){
   const categorias = Array.from(new Set(candidatos.map(p => p.categoria || 'Sem categoria'))).sort((a,b) => a.localeCompare(b));
   const opt = p => {
     const custoG = precoPorGrama(p);
-    const label = custoG != null ? `${p.nome} (${custoG.toFixed(4)}€/g)` : `${p.nome} (sem embalagem definida)`;
+    const label = custoG != null ? `${p.nome} (${precoDeCompra(p)})` : `${p.nome} (sem embalagem definida)`;
     return `<option value="${p.id}" ${selecionadoId===p.id?'selected':''}>${label}</option>`;
   };
   const placeholder = `<option value="" ${!selecionadoId ? 'selected' : ''}>— ESCOLHE O INGREDIENTE —</option>`;
@@ -8819,14 +8814,6 @@ function atualizarPreviewCustoReceita(){
   const custoExtraDeliveryPorcao = custoExtraDeliveryTotal / util;
   const custoPorcaoDelivery = custoPorcao + custoExtraDeliveryPorcao;
 
-  document.getElementById('receitaCustoTotal').textContent = eur(custoTotal);
-  document.getElementById('receitaCustoPorGrama').textContent = custoPorGrama.toFixed(4) + '€';
-  document.getElementById('receitaCustoPorcao').textContent = eur(custoPorcao);
-  document.getElementById('receitaPesoPorcao').textContent = (rendimentoG / porcoes).toFixed(0) + ' g';
-  document.getElementById('receitaPorcoesUteis').textContent = [
-    perdaPct > 0 ? (util.toFixed(1) + ' porções úteis (de ' + porcoes + ')') : '',
-    custoExtraDeliveryPorcao > 0 ? ('+ ' + eur(custoExtraDeliveryPorcao) + '/porção só no delivery (embalagem)') : ''
-  ].filter(Boolean).join(' · ');
   document.getElementById('receitaRendimentoAuto').style.display = document.getElementById('receitaRendimentoG').value ? 'none' : 'block';
   document.getElementById('receitaRendimentoAuto').textContent = 'Rendimento calculado: ' + rendimentoG.toFixed(0) + ' g (soma dos ingredientes)';
 
@@ -8835,75 +8822,109 @@ function atualizarPreviewCustoReceita(){
     cmvPct: num('receitaCmvPct'), participacaoPct: num('receitaPartPct'), ivaPct: num('receitaIvaPct'),
     deliveryTaxaPct: num('receitaDelTaxaPct'), deliveryIvaTaxaPct: num('receitaDelIvaTaxaPct')
   };
-  const pr = calcularPrecificacao(custoPorcao, x);
   ultimoPreviewReceita = { custoPorcao, custoExtraDeliveryPorcao, x };
-  const set = (id, v) => { document.getElementById(id).textContent = eur(v); };
-  set('precSIva', pr.sIva); set('precPart', pr.participacao); set('precFinal', pr.final); set('precMargem', pr.margem);
-  // resumo fixo no topo da ficha: o resultado fica à vista enquanto se edita
-  const rs = id => document.getElementById(id);
-  rs('rsCusto').textContent = eur(custoPorcao);
-  rs('rsMin').textContent = custoPorcao > 0 ? eur(pr.final) : '—';
+  document.getElementById('receitaPorcoesUteis').textContent = perdaPct > 0 ? (pctPt(util) + ' porções úteis (de ' + porcoes + ')') : '';
 
-  // "O que vais cobrar de verdade" — só faz sentido para um prato que se vende diretamente
-  const ehPratoFinal = (() => { const p = produtos.find(pp => pp.id === document.getElementById('receitaProdutoId').value); return p && p.tipo === 'prato_final'; })();
-  document.getElementById('receitaRetornoWrap').style.display = ehPratoFinal ? 'block' : 'none';
-  rs('rsPratoWrap').style.display = ehPratoFinal ? 'contents' : 'none';
-  if(ehPratoFinal){
-    const cmvAlerta = parseFloat(document.getElementById('receitaCmvAlertaPct').value) || 35;
-    const precoLoja = parseFloat(document.getElementById('receitaPrecoVenda').value) || 0;
-    const precoDel = parseFloat(document.getElementById('receitaPrecoVendaDelivery').value) || 0;
-    const retLoja = calcularRetornoReal(custoPorcao, precoLoja, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: 0, ivaComissaoPct: 0 });
-    const retDel = calcularRetornoReal(custoPorcaoDelivery, precoDel, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: x.deliveryTaxaPct, ivaComissaoPct: x.deliveryIvaTaxaPct });
+  const el = id => document.getElementById(id);
+  const texto = (id, v) => { el(id).textContent = v; };
+  const prod = produtos.find(p => p.id === el('receitaProdutoId').value);
+  const ehPratoFinal = !!prod && prod.tipo === 'prato_final';
+  const grupo = el('receitaGrupo').value.trim();
+  texto('ftNome', prod ? prod.nome : 'Nova ficha técnica');
+  texto('ftSub', ['Ficha técnica', grupo, porcoes + (porcoes === 1 ? ' porção' : ' porções'), rendimentoG > 0 ? rendimentoG.toFixed(0) + ' g' : ''].filter(Boolean).join(' · '));
 
-    // Sugestão de delivery: preço que dá o MESMO RETORNO LÍQUIDO que a loja está a dar,
-    // já cobrindo o custo extra do delivery (ex.: caixa de pizza), se houver.
-    // Se já publicaste um preço de loja, usa esse (o retorno real de agora); senão usa
-    // o mínimo teórico do CMV alvo.
-    // O custo do delivery inclui a caixa, e o CMV alvo é calculado sobre esse custo — assim
-    // o CMV real do delivery fica igual ao alvo (e a taxa de retorno igual à da loja).
-    const sIvaMinimoDelivery = calcularPrecificacao(custoPorcaoDelivery, x).sIva;
-    const sIvaReferencia = precoLoja > 0 ? (precoLoja / (1 + (Number(x.ivaPct) || 0) / 100)) + custoExtraDeliveryPorcao : sIvaMinimoDelivery;
-    const sugestaoDel = precoDeliveryParaMesmoCmv(sIvaReferencia, x);
-    const minimoDelCmv = precoDeliveryParaMesmoCmv(sIvaMinimoDelivery, x);
-    const notaEmbalagem = custoExtraDeliveryPorcao > 0 ? ` (já com ${eur(custoExtraDeliveryPorcao)} de embalagem incluído)` : '';
-    document.getElementById('receitaDelSugestao').textContent = sugestaoDel > 0
-      ? (precoLoja > 0
-          ? `💡 Para manter o mesmo retorno líquido da loja (a ${eur(precoLoja)}), publica no delivery a ${eur(sugestaoDel)} (c/ IVA)${notaEmbalagem}. Só para bater o CMV alvo de ${x.cmvPct}% no delivery, o mínimo é ${eur(minimoDelCmv)}.`
-          : `💡 Para manter o CMV alvo (${x.cmvPct}%) no delivery, publica a ${eur(sugestaoDel)} (c/ IVA)${notaEmbalagem}.`)
-      : '';
+  // ingredientes: o que entra, a que preço se compra e quanto custa
+  el('ftIngredientes').innerHTML = receitaItensAtuais.length ? `<table class="ft-tab">
+    <thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Preço de compra</th><th>Custo</th></tr></thead>
+    <tbody>${receitaItensAtuais.map(ri => {
+      const p = produtos.find(y => y.id === ri.ingredienteProdutoId);
+      if(!p) return '';
+      const unit = unidadeDoIngrediente(p);
+      return `<tr><td>${p.nome.replace(/</g,'&lt;')}</td><td>${ri.quantidadeG || 0} ${unit}</td><td>${precoDeCompra(p)}</td><td>${eur(custoDoItem(ri))}</td></tr>`;
+    }).join('')}<tr class="ft-total"><td>Total</td><td></td><td></td><td>${eur(custoTotal)}</td></tr></tbody></table>`
+    : '<div class="save-note">Ainda sem ingredientes.</div>';
 
-    const cmvColor = v => v > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)';
-
-    document.getElementById('retLojaSIva').textContent = precoLoja > 0 ? eur(retLoja.sIva) : '—';
-    document.getElementById('retLojaPart').textContent = precoLoja > 0 ? eur(retLoja.participacao) : '—';
-    document.getElementById('retLojaCusto').textContent = precoLoja > 0 ? eur(custoPorcao) : '—';
-    const retLojaEl = document.getElementById('retLojaRetorno');
-    retLojaEl.textContent = precoLoja > 0 ? eur(retLoja.retorno) : '—';
-    retLojaEl.style.color = precoLoja > 0 ? (retLoja.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
-    const retLojaCmvEl = document.getElementById('retLojaCmv');
-    retLojaCmvEl.textContent = precoLoja > 0 ? retLoja.cmvReal.toFixed(1) + '%' : '—';
-    retLojaCmvEl.style.color = precoLoja > 0 ? cmvColor(retLoja.cmvReal) : '';
-
-    // na ficha, "Preço s/ IVA" é o preço sem o IVA do prato; a comissão aparece a seguir, a descontar
-    document.getElementById('retDelSIva').textContent = precoDel > 0 ? eur(precoDel / (1 + (Number(x.ivaPct) || 0) / 100)) : '—';
-    document.getElementById('retDelComissao').textContent = precoDel > 0 ? eur(retDel.comissao) : '—';
-    document.getElementById('retDelIvaComissao').textContent = precoDel > 0 ? eur(retDel.ivaComissao) : '—';
-    document.getElementById('retDelPart').textContent = precoDel > 0 ? eur(retDel.participacao) : '—';
-    document.getElementById('retDelCusto').textContent = precoDel > 0 ? eur(custoPorcaoDelivery) : '—';
-    const retDelEl = document.getElementById('retDelRetorno');
-    retDelEl.textContent = precoDel > 0 ? eur(retDel.retorno) : '—';
-    retDelEl.style.color = precoDel > 0 ? (retDel.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)') : '';
-    const retDelCmvEl = document.getElementById('retDelCmv');
-    retDelCmvEl.textContent = precoDel > 0 ? retDel.cmvReal.toFixed(1) + '%' : '—';
-    retDelCmvEl.style.color = precoDel > 0 ? cmvColor(retDel.cmvReal) : '';
-
-    const resumo = (preco, r, el) => {
-      el.textContent = preco > 0 ? `${eur(preco)} → retorno ${eur(r.retorno)} · CMV ${r.cmvReal.toFixed(1)}%` : 'sem preço';
-      el.style.color = preco > 0 ? ((r.retorno < 0 || r.cmvReal > cmvAlerta) ? 'var(--danger-text)' : 'var(--ok-text)') : '';
-    };
-    resumo(precoLoja, retLoja, rs('rsLoja'));
-    resumo(precoDel, retDel, rs('rsDel'));
+  // semi-preparado: só interessa o custo; o preço decide-se no prato onde entra
+  el('ftPrecos').style.display = ehPratoFinal ? '' : 'none';
+  el('ftPercent').style.display = ehPratoFinal ? '' : 'none';
+  if(!ehPratoFinal){
+    texto('ftQ1t', 'Custo total'); texto('ftQ1', eur(custoTotal)); texto('ftQ1n', '');
+    texto('ftQ2t', 'Custo por quilo'); texto('ftQ2', eur(custoPorGrama * 1000)); texto('ftQ2n', 'é o que o prato paga');
+    texto('ftQ3t', 'Rende'); texto('ftQ3', pesoUtil.toFixed(0) + ' g'); texto('ftQ3n', perdaPct > 0 ? 'já sem a perda' : '');
+    el('ftQ2').style.color = ''; el('ftQ3').style.color = '';
+    return;
   }
+
+  const cmvAlerta = parseFloat(el('receitaCmvAlertaPct').value) || 35;
+  const alvo = parseFloat(x.cmvPct) || 0;
+  const iva = (Number(x.ivaPct) || 0) / 100;
+  const acima = v => v > 0 ? Math.ceil(v * 100 - 1e-6) / 100 : 0;
+  const minLoja = acima(calcularPrecificacao(custoPorcao, x).final);
+  const minDel = acima(precoDeliveryParaMesmoCmv(calcularPrecificacao(custoPorcaoDelivery, x).sIva, x));
+  const usar = (campo, v) => `<a href="#" title="Usar este preço" onclick="usarPrecoReceita('${campo}',${v.toFixed(2)});return false;">${eur(v)}</a>`;
+  el('ftMinimos').innerHTML = custoPorcao > 0 && alvo > 0
+    ? `Mínimo para um CMV de ${alvo}%: <b>loja ${usar('receitaPrecoVenda', minLoja)}</b> · <b>delivery ${usar('receitaPrecoVendaDelivery', minDel)}</b>` : '';
+
+  const precoLoja = parseFloat(el('receitaPrecoVenda').value) || 0;
+  const precoDel = parseFloat(el('receitaPrecoVendaDelivery').value) || 0;
+  el('receitaPrecoVenda').placeholder = minLoja > 0 ? minLoja.toFixed(2) : '';
+  el('receitaPrecoVendaDelivery').placeholder = minDel > 0 ? minDel.toFixed(2) : '';
+
+  const coluna = (L, preco, custo, extra, comPct, ivaComPct) => {
+    const r = calcularRetornoReal(custo + extra, preco, { ivaPct: x.ivaPct, participacaoPct: x.participacaoPct, comissaoPct: comPct, ivaComissaoPct: ivaComPct });
+    const menos = v => v > 0.004 ? '− ' + eur(v) : '—';
+    const ha = preco > 0;
+    texto(L + 'iva', ha ? menos(preco - preco / (1 + iva)) : '—');
+    texto(L + 'com', ha ? menos(r.comissao) : '—');
+    texto(L + 'ivacom', ha ? menos(r.ivaComissao) : '—');
+    texto(L + 'part', ha ? menos(r.participacao) : '—');
+    texto(L + 'custo', ha ? menos(custo) : '—');
+    texto(L + 'emb', ha ? menos(extra) : '—');
+    texto(L + 'sobra', ha ? eur(r.retorno) : '—');
+    el(L + 'sobra').style.color = !ha ? '' : r.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)';
+    texto(L + 'margem', ha && r.sIva > 0 ? pctPt(r.retorno / r.sIva * 100) + '%' : '—');
+    texto(L + 'cmv', ha && r.sIva > 0 ? pctPt(r.cmvReal) + '%' : '—');
+    el(L + 'cmv').style.color = !ha ? '' : r.cmvReal > cmvAlerta ? 'var(--danger-text)' : 'var(--ok-text)';
+    return r;
+  };
+  const loja = coluna('ftL_', precoLoja || minLoja, custoPorcao, 0, 0, 0);
+  const del = coluna('ftD_', precoDel || minDel, custoPorcao, custoExtraDeliveryPorcao, x.deliveryTaxaPct, x.deliveryIvaTaxaPct);
+  el('ftLinhaIvaCom').style.display = del.ivaComissao > 0.004 ? '' : 'none';
+
+  texto('ftQ1t', 'Custo dos ingredientes'); texto('ftQ1', eur(custoPorcao)); texto('ftQ1n', porcoes > 1 ? 'por porção' : '');
+  const quadro = (n, titulo, r, escrito, usado) => {
+    texto(n + 't', titulo);
+    texto(n, usado > 0 ? eur(r.retorno) : '—');
+    el(n).style.color = !(usado > 0) ? '' : (r.retorno < 0 || r.cmvReal > cmvAlerta) ? 'var(--danger-text)' : 'var(--ok-text)';
+    texto(n + 'n', !(usado > 0) ? 'sem preço' : escrito > 0 ? 'a ' + eur(escrito) + ' · CMV ' + pctPt(r.cmvReal) + '%' : 'simulado ao mínimo');
+  };
+  quadro('ftQ2', 'Sobra na loja', loja, precoLoja, precoLoja || minLoja);
+  quadro('ftQ3', 'Sobra no delivery', del, precoDel, precoDel || minDel);
+
+  // preço no delivery que deixa (quase) a mesma sobra que a loja
+  const mesmo = precoLoja > 0 ? acima(precoDeliveryParaMesmoCmv(precoLoja / (1 + iva) + custoExtraDeliveryPorcao, x)) : 0;
+  el('receitaDelSugestao').innerHTML = mesmo > 0 ? 'Para sobrar o mesmo que na loja, delivery a ' + usar('receitaPrecoVendaDelivery', mesmo) + '.' : '';
+}
+
+// números como se escrevem em Portugal (vírgula) e o preço de compra por quilo, litro ou unidade
+function pctPt(v){ return (Number(v) || 0).toFixed(1).replace('.', ','); }
+function unidadeDoIngrediente(p){
+  if(receitas.some(r => r.produtoId === p.id)) return 'g';
+  const emb = embalagemBase(p);
+  return emb && emb.unidade === 'unidade' ? 'un' : emb && emb.unidade === 'ml' ? 'ml' : 'g';
+}
+function precoDeCompra(p){
+  const temFicha = receitas.some(r => r.produtoId === p.id);
+  const custoG = temFicha ? custoPorGramaProduto(p.id) : precoPorGrama(p);
+  if(custoG == null) return 'sem preço';
+  const unit = unidadeDoIngrediente(p);
+  if(unit === 'un') return eur(custoG) + '/un';
+  if(unit === 'ml') return eur(custoG * 1000 * (p.densidade || 1)) + '/L';
+  return eur(custoG * 1000) + '/kg';
+}
+function usarPrecoReceita(campo, v){
+  document.getElementById(campo).value = Number(v).toFixed(2);
+  atualizarPreviewCustoReceita();
 }
 
 async function saveReceita(){
