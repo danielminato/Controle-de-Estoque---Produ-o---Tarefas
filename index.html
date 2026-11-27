@@ -9366,6 +9366,7 @@ const MENUS = (function(){
   ];
   const vazio = () => ({ id:null, nome:'', canal:'loja', preco:'', itens:{ entrada:[], principal:[], bebida:[], sobremesa:[], cafe:[] } });
   let guardados = [], tabelaOk = true, atual = vazio(), montado = false;
+  const escolha = {}; // quando uma parte tem várias opções: qual está à vista nas contas
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const pct = v => (Number(v)||0).toFixed(1).replace('.', ',') + '%';
 
@@ -9523,40 +9524,68 @@ const MENUS = (function(){
     const nCombos = listas.reduce((n, l) => n * l.length, 1);
     if(nCombos > 5000){ el.innerHTML = '<div class="empty">Demasiadas combinações: reduz as opções por parte.</div>'; return; }
     const precoMenu = parseFloat(atual.preco) > 0 ? parseFloat(atual.preco) : null;
-    const combos = produtoCartesiano(listas).map(c => ({ itens:c, r:calcCombo(c.map(x => x.d), precoMenu) }));
-    combos.sort((a, b) => a.r.retorno - b.r.retorno);
-    const pior = combos[0], melhor = combos[combos.length - 1];
-    const media = {};
-    ['soma','preco','custo','extra','cmv','retorno','retPct','desconto','comissao','ivaCom','custoDelivery'].forEach(k => { media[k] = combos.reduce((s, c) => s + c.r[k], 0) / combos.length; });
-    const colunas = combos.length > 1 ? [['Pior caso', pior.r], ['Média', media], ['Melhor caso', melhor.r]] : [['Este menu', pior.r]];
+    // uma só conta, da combinação à vista (a opção escolhida em cada parte; por omissão a primeira):
+    // uma coluna por item, o total do menu, e cada custo na sua linha, até ao retorno
+    const sel = listas.map(l => l.find(x => x.it.id === escolha[x.slot.key]) || l[0]);
+    const tot = calcCombo(sel.map(x => x.d), precoMenu);
+    const cols = sel.map(x => {
+      const preco = tot.soma > 0 ? tot.preco * x.d.preco / tot.soma : 0;
+      const r = retItem(x.d, preco);
+      return { nome:x.it.nome, preco, comissao:r.comissao, ivaCom:r.ivaComissao, iva: preco - r.comissao - r.ivaComissao - r.sIva,
+               part:r.participacao, custo:x.d.custo, extra:x.d.extra, retorno:r.retorno, sIva:r.sIva };
+    });
+    const total = { nome:'Total do menu' };
+    ['preco','comissao','ivaCom','iva','part','custo','extra','retorno','sIva'].forEach(k => { total[k] = cols.reduce((s, c) => s + c[k], 0); });
+    const cmvDe = c => c.sIva > 0 ? (c.custo + c.extra) / c.sIva * 100 : 0;
+    const margemDe = c => c.sIva > 0 ? c.retorno / c.sIva * 100 : 0;
     const cmvCor = v => v > 35 ? 'var(--danger-text)' : 'var(--ok-text)';
-    const linha = (rot, f, estilo) => `<tr><td>${rot}</td>${colunas.map(([, r]) => `<td style="text-align:right;${estilo ? estilo(r) : ''}">${f(r)}</td>`).join('')}</tr>`;
-    const nomes = c => c.itens.map(x => esc(x.it.nome)).join(' + ');
-    let html = `<div class="card" style="margin-bottom:10px;">
+    const retCor = v => v < 0 ? 'var(--danger-text)' : 'var(--ok-text)';
+    const todas = cols.concat([total]);
+    const fixa = 'position:sticky;left:0;background:var(--card);'; // no telemóvel, o nome da linha fica à vista ao deslizar
+    const linha = (rot, f, estilo) => `<tr><td style="${fixa}">${rot}</td>${todas.map(c => `<td style="text-align:right;white-space:nowrap;${c === total ? 'font-weight:700;' : ''}${estilo ? estilo(c) : ''}">${f(c)}</td>`).join('')}</tr>`;
+    const menos = (rot, k) => total[k] > 0.004 ? linha(rot, c => c[k] > 0.004 ? '− ' + eur(c[k]) : '—') : '';
+    const custosDelivery = total.comissao + total.ivaCom + total.extra;
+    const quadro = (rot, valor, nota, cor) => `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+      <div class="save-note">${rot}</div><div style="font-size:20px;font-weight:700;${cor ? 'color:' + cor + ';' : ''}">${valor}</div><div class="save-note">${nota}</div></div>`;
+
+    const escolhas = listas.filter(l => l.length > 1).map(l => {
+      const s = l[0].slot, ativo = sel.find(x => x.slot === s);
+      return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><span class="save-note">${s.label.split(' (')[0]}:</span>${l.map(x =>
+        `<button class="btn small${x === ativo ? '' : ' secondary'}" onclick="MENUS.escolher('${s.key}','${esc(x.it.id)}')">${esc(x.it.nome)}</button>`).join('')}</div>`;
+    }).join('');
+
+    let html = `<div class="card">
       <h3 style="font-size:16px;margin:0 0 4px;">${esc(atual.nome || 'Menu sem nome')} · ${delivery ? 'delivery' : 'loja (almoço)'}</h3>
-      <div class="save-note" style="margin-bottom:10px;">${precoMenu ? 'Preço do menu: ' + eur(precoMenu) : 'Sem preço do menu: calculado ao preço avulso de cada item (sem desconto)'} · ${combos.length} combinaç${combos.length === 1 ? 'ão' : 'ões'} possíve${combos.length === 1 ? 'l' : 'is'}.</div>
-      <div style="overflow-x:auto;"><table><thead><tr><th></th>${colunas.map(([n]) => `<th style="text-align:right;">${n}</th>`).join('')}</tr></thead><tbody>
-        ${linha('Preço avulso (soma dos itens)', r => eur(r.soma))}
-        ${linha('Preço do menu (c/ IVA)', r => eur(r.preco))}
-        ${linha('Desconto do menu', r => pct(r.desconto))}
-        ${linha('Custo dos ingredientes', r => eur(r.custo))}
-        ${linha('CMV', r => pct(r.cmv), r => 'font-weight:700;color:' + cmvCor(r.cmv))}
-        ${linha('Retorno do menu', r => eur(r.retorno), r => 'font-weight:700;color:' + (r.retorno < 0 ? 'var(--danger-text)' : 'var(--ok-text)'))}
-        ${linha('Taxa de retorno', r => pct(r.retPct))}
-        ${delivery ? linha('Comissão da plataforma', r => eur(r.comissao)) + linha('IVA da comissão', r => eur(r.ivaCom)) + linha('Embalagem (caixa de pizza)', r => eur(r.extra)) + linha('<b>Custo do delivery</b>', r => '<b>' + eur(r.custoDelivery) + '</b>') : ''}
-      </tbody></table></div>`;
-    if(combos.length > 1) html += `<div class="save-note" style="margin-top:8px;"><b>Pior caso:</b> ${nomes(pior)}<br><b>Melhor caso:</b> ${nomes(melhor)}</div>`;
-    // o que o desconto custa face a vender os mesmos itens avulso
-    const avulso = c => c.itens.reduce((s, x) => s + retItem(x.d, x.d.preco).retorno, 0);
-    const retAvulsoMedio = combos.reduce((s, c) => s + avulso(c), 0) / combos.length;
-    html += `<div class="save-note" style="margin-top:8px;">Vendidos avulso, estes itens dariam em média ${eur(retAvulsoMedio)} de retorno; no menu dão ${eur(media.retorno)}. ${retAvulsoMedio - media.retorno > 0.005 ? 'O desconto custa ' + eur(retAvulsoMedio - media.retorno) + ' por menu: só compensa se trouxer clientes que não viriam, ou se encher lugares vazios.' : 'Sem desconto face ao preço avulso.'}</div></div>`;
-    // detalhe por item
-    html += `<div class="card"><div style="font-weight:700;margin-bottom:6px;">Itens do menu, ao preço avulso</div><div style="overflow-x:auto;"><table>
-      <thead><tr><th>Parte</th><th>Item</th><th style="text-align:right;">Preço</th><th style="text-align:right;">Custo${delivery ? ' (c/ embalagem)' : ''}</th><th style="text-align:right;">CMV</th><th style="text-align:right;">Retorno</th></tr></thead><tbody>
-      ${listas.flat().map(x => { const r = retItem(x.d, x.d.preco); return `<tr><td>${x.slot.label.split(' (')[0]}</td><td>${esc(x.it.nome)}</td><td style="text-align:right;">${eur(x.d.preco)}</td><td style="text-align:right;">${eur(x.d.custo + x.d.extra)}</td><td style="text-align:right;color:${cmvCor(r.cmvReal)};">${pct(r.cmvReal)}</td><td style="text-align:right;">${eur(r.retorno)}</td></tr>`; }).join('')}
-      </tbody></table></div></div>`;
-    el.innerHTML = html;
+      <div class="save-note" style="margin-bottom:10px;">${precoMenu ? 'Preço do menu ' + eur(precoMenu) + ' · avulso ' + eur(tot.soma) + ' · desconto ' + pct(tot.desconto) : 'Sem preço do menu: soma dos preços avulsos.'}</div>
+      ${escolhas}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
+        ${quadro('O cliente paga', eur(total.preco), 'com IVA')}
+        ${quadro('Ingredientes', eur(total.custo), 'custo dos itens')}
+        ${delivery ? quadro('Custos do delivery', eur(custosDelivery), 'comissão e embalagem') : ''}
+        ${quadro('CMV total', pct(cmvDe(total)), delivery ? 'com embalagem' : 'do menu', cmvCor(cmvDe(total)))}
+        ${quadro('Retorno', eur(total.retorno), 'margem ' + pct(margemDe(total)), retCor(total.retorno))}
+      </div>
+      <div style="overflow-x:auto;"><table><thead><tr><th style="${fixa}"></th>${todas.map(c => `<th style="text-align:right;white-space:normal;min-width:76px;">${esc(c.nome)}</th>`).join('')}</tr></thead><tbody>
+        ${linha('O cliente paga', c => eur(c.preco))}
+        ${menos('Comissão da plataforma', 'comissao')}
+        ${menos('IVA da comissão', 'ivaCom')}
+        ${menos('IVA da venda', 'iva')}
+        ${menos('Participação', 'part')}
+        ${menos('Ingredientes', 'custo')}
+        ${menos('Embalagem', 'extra')}
+        ${linha('<b>Retorno</b>', c => '<b>' + eur(c.retorno) + '</b>', c => 'color:' + retCor(c.retorno))}
+        ${linha('Margem de retorno', c => pct(margemDe(c)))}
+        ${linha('CMV', c => pct(cmvDe(c)), c => 'color:' + cmvCor(cmvDe(c)))}
+      </tbody></table></div>
+      <div class="save-note" style="margin-top:8px;">Margem e CMV sobre o que te fica sem IVA${delivery ? ', já depois da comissão' : ''}.</div>`;
+    if(nCombos > 1){
+      const rs = produtoCartesiano(listas).map(c => calcCombo(c.map(x => x.d), precoMenu));
+      const faixa = (k, f) => { const v = rs.map(r => r[k]); return f(Math.min(...v)) + ' a ' + f(Math.max(...v)); };
+      html += `<div class="save-note" style="margin-top:4px;">Entre as ${nCombos} combinações possíveis: retorno de ${faixa('retorno', eur)} · CMV de ${faixa('cmv', pct)}.</div>`;
+    }
+    el.innerHTML = html + '</div>';
   }
+  function escolher(slot, id){ escolha[slot] = id; renderResultado(); }
 
   function tudo(){
     if(!montado || !document.getElementById('menusSlots')) montar();
@@ -9630,7 +9659,7 @@ const MENUS = (function(){
     return out;
   }
 
-  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, guardar, apagar, resumos };
+  return { abrir, novo, abrirGuardado, setCanal, setNome, setPreco, juntar, tirar, escolher, guardar, apagar, resumos };
 })();
 
 // ---------- MODO OPERACIONAL (colaboradores) ----------
