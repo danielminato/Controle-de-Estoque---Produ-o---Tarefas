@@ -689,10 +689,7 @@
       <div class="save-note">Fichas técnicas dos semi-preparados e pratos finais. O custo é calculado automaticamente a partir dos ingredientes — incluindo semi-preparados que sejam eles próprios ingredientes de outra receita.</div>
       <button class="btn" onclick="openReceitaModal()">+ Nova receita</button>
     </div>
-    <div class="row" style="gap:10px;margin-bottom:14px;align-items:center;">
-      <label style="font-size:13px;color:var(--ink-soft);">Grupo</label>
-      <select id="receitaFiltroGrupo" onchange="renderReceitas()" style="max-width:260px;"></select>
-    </div>
+    <div id="receitaAbas" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
     <div id="receitasContent"></div>
   </div>
 
@@ -8204,7 +8201,8 @@ function custoPorGramaProduto(produtoId, visitados){
   visitados.add(produtoId);
 
   const receita = receitas.find(r => r.produtoId === produtoId);
-  if(receita && receita.rendimentoG > 0){
+  // ficha ainda por preencher: vale o preço de compra do produto, se o tiver
+  if(receita && receita.rendimentoG > 0 && !fichaVazia(receita)){
     const custoTotal = custoTotalDaReceita(receita, visitados);
     const pesoUtil = pesoUtilDaReceita(receita);
     return pesoUtil > 0 ? custoTotal / pesoUtil : 0;
@@ -8213,6 +8211,39 @@ function custoPorGramaProduto(produtoId, visitados){
   const p = produtos.find(x => x.id === produtoId);
   if(!p) return 0;
   return precoPorGrama(p) || 0;
+}
+
+// Quantidade 0,01 (ou vazia) = ingrediente já na ficha mas com a porção por preencher.
+// Uma ficha assim não mostra sobra, margem nem entra em menus, para não dar números falsos.
+const QTD_POR_PREENCHER = 0.01;
+function porPreencher(ri){ return !((Number(ri.quantidadeG) || 0) > QTD_POR_PREENCHER); }
+function fichaVazia(receita){
+  const itens = receitaItens.filter(ri => ri.receitaId === receita.id);
+  return itens.length > 0 && itens.every(porPreencher);
+}
+// o que falta nestes ingredientes: porções, preços ou a ficha de uma preparação
+function faltasDosItens(itens, vistos){
+  vistos = vistos || new Set();
+  const faltas = [];
+  itens.forEach(ri => {
+    const p = produtos.find(x => x.id === ri.ingredienteProdutoId);
+    if(!p) return;
+    if(porPreencher(ri)){ faltas.push(p.nome); return; }
+    const temPreco = (p.precos || []).length > 0;
+    const sub = receitas.find(r => r.produtoId === p.id);
+    if(sub && !(fichaVazia(sub) && temPreco)){
+      if(!vistos.has(p.id) && faltasDaFicha(sub, new Set(vistos).add(p.id)).length) faltas.push(p.nome + ' (ficha por completar)');
+    }else if(!temPreco){
+      faltas.push(p.nome + ' (sem preço)');
+    }
+  });
+  return faltas;
+}
+function faltasDaFicha(receita, vistos){
+  return faltasDosItens(receitaItens.filter(ri => ri.receitaId === receita.id), vistos);
+}
+function resumoFaltas(faltas){
+  return faltas.slice(0, 3).join(', ') + (faltas.length > 3 ? ' e mais ' + (faltas.length - 3) : '');
 }
 
 function rendPctDoItem(receita, ri){
@@ -8317,6 +8348,7 @@ function receitaItemFromDb(ri){ return {
 // ids das receitas abertas (expandidas) na lista — fecha por padrão para a lista
 // ficar um índice de nomes fácil de rolar, como no seletor de produto da ficha.
 let receitasAbertas = new Set();
+let abaReceitas = '';
 function toggleReceitaAberta(id){
   if(receitasAbertas.has(id)) receitasAbertas.delete(id); else receitasAbertas.add(id);
   renderReceitas();
@@ -8332,17 +8364,23 @@ function renderReceitas(){
   }
 
   const SEM_GRUPO = 'Sem grupo';
-  const grupoDaReceita = r => (r.extra && r.extra.grupo && r.extra.grupo.trim()) || SEM_GRUPO;
-
-  // popula o filtro com os grupos que já existem, sem perder a escolha atual
-  const filtroSel = document.getElementById('receitaFiltroGrupo');
-  const grupoAtualFiltro = filtroSel ? filtroSel.value : '';
-  const gruposExistentes = Array.from(new Set(receitas.map(grupoDaReceita))).sort((a,b) => a===SEM_GRUPO ? 1 : b===SEM_GRUPO ? -1 : a.localeCompare(b));
-  if(filtroSel){
-    filtroSel.innerHTML = '<option value="">Todos os grupos</option>' + gruposExistentes.map(g => `<option value="${g}">${g}</option>`).join('');
-    filtroSel.value = gruposExistentes.includes(grupoAtualFiltro) ? grupoAtualFiltro : '';
+  const PREPARACOES = 'Preparações da casa';
+  // as abas seguem a ordem do menu; os semi-preparados ficam todos juntos, à parte dos pratos
+  const ORDEM = ['Entradas', 'Pizzas', 'Massas', 'Sobremesas'];
+  const grupoDaReceita = r => {
+    const p = produtos.find(x => x.id === r.produtoId);
+    if(p && p.tipo === 'semi_preparado') return PREPARACOES;
+    return (r.extra && r.extra.grupo && r.extra.grupo.trim()) || SEM_GRUPO;
+  };
+  const posicao = g => g === SEM_GRUPO ? 100 : g === PREPARACOES ? 99 : ORDEM.includes(g) ? ORDEM.indexOf(g) : 50;
+  const gruposExistentes = Array.from(new Set(receitas.map(grupoDaReceita))).sort((a,b) => posicao(a) - posicao(b) || a.localeCompare(b));
+  const filtroAtivo = gruposExistentes.includes(abaReceitas) ? abaReceitas : '';
+  const abas = document.getElementById('receitaAbas');
+  if(abas){
+    abas.innerHTML = [''].concat(gruposExistentes).map((g, i) =>
+      `<button type="button" class="btn small${g === filtroAtivo ? '' : ' secondary'}" data-aba="${g.replace(/"/g,'&quot;')}">${g || 'Todas'} (${g ? receitas.filter(r => grupoDaReceita(r) === g).length : receitas.length})</button>`).join('');
+    abas.querySelectorAll('button').forEach(b => b.onclick = () => { abaReceitas = b.dataset.aba; renderReceitas(); });
   }
-  const filtroAtivo = filtroSel ? filtroSel.value : '';
 
   const cardDeReceita = r => {
     const p = produtos.find(x => x.id === r.produtoId);
@@ -8371,13 +8409,17 @@ function renderReceitas(){
             </div>`;
     const aberto = receitasAbertas.has(r.id);
 
-    const resumoLinha = `${eur(custoPorcao)}/porção` +
-      (retLoja ? ' · loja ' + eur(r.precoVenda) + ' → sobra ' + eur(retLoja.retorno) : '') +
-      (retDel ? ' · delivery ' + eur(precoDelivery) + ' → sobra ' + eur(retDel.retorno) : '');
+    const faltas = faltasDaFicha(r);
+    const completa = faltas.length === 0;
+    const resumoLinha = !completa
+      ? `<span class="badge warn">por completar: ${faltas.length}</span> ${resumoFaltas(faltas)}`
+      : `${eur(custoPorcao)}/porção` +
+        (retLoja ? ' · loja ' + eur(r.precoVenda) + ' → sobra ' + eur(retLoja.retorno) : '') +
+        (retDel ? ' · delivery ' + eur(precoDelivery) + ' → sobra ' + eur(retDel.retorno) : '');
 
     const detalhe = !aberto ? '' : `
         <div style="padding:0 18px 18px;border-top:1px solid var(--line);">
-          <div class="save-note" style="margin:12px 0;">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''}${custoExtraDeliveryTotal > 0 ? ' · +' + eur(custoExtraDeliveryTotal / util) + ' só no delivery' : ''}${pr ? ' · Mínimo sugerido c/ IVA: ' + eur(pr.final) : ''}</div>
+          <div class="save-note" style="margin:12px 0;">Rende ${r.rendimentoG}g · ${porcoes} porção(ões)${perdaPct > 0 ? ' · ' + perdaPct + '% de perda ⇒ ' + util.toFixed(1) + ' úteis' : ''}${custoExtraDeliveryTotal > 0 ? ' · +' + eur(custoExtraDeliveryTotal / util) + ' só no delivery' : ''}${pr && completa ? ' · Mínimo sugerido c/ IVA: ' + eur(pr.final) : ''}${completa ? '' : '<br><strong>Custo ainda incompleto.</strong> Falta: ' + faltas.join(', ')}</div>
           <div class="row" style="gap:20px;margin-bottom:12px;">
             <div style="text-align:right;">
               <div class="stat-label">Custo total</div>
@@ -8387,8 +8429,8 @@ function renderReceitas(){
               <div class="stat-label">Custo/kg</div>
               <div class="stat" style="font-size:17px;">${eur(custoPorGrama * 1000)}</div>
             </div>
-            ${retLoja ? cmvBadge('CMV loja', retLoja.cmvReal) : ''}
-            ${retDel ? cmvBadge('CMV delivery', retDel.cmvReal) : ''}
+            ${retLoja && completa ? cmvBadge('CMV loja', retLoja.cmvReal) : ''}
+            ${retDel && completa ? cmvBadge('CMV delivery', retDel.cmvReal) : ''}
           </div>
           <table><thead><tr><th>Ingrediente</th><th>Quantidade</th><th title="Rendimento: % do ingrediente que sobra depois de preparar. 100% = sem perda.">Rend. ⓘ</th><th>Preço de compra</th><th>Custo</th></tr></thead>
           <tbody>${(() => {
@@ -8406,7 +8448,7 @@ function renderReceitas(){
               camadaAnterior = camadaAtual;
               return cabecalho + `<tr${ehBaseAqui ? ' style="background:var(--cream);"' : ''}>
                 <td>${ip ? ip.nome : '(produto removido)'}${receitas.find(x=>x.produtoId===ri.ingredienteProdutoId) ? ' <span class="badge ok" style="font-size:10px;">semi-prep.</span>' : ''}${ehBaseAqui ? ' <span class="badge" style="font-size:10px;">⚖️ base</span>' : ''}</td>
-                <td>${ri.quantidadeG} ${ip ? unidadeDoIngrediente(ip) : 'g'}</td>
+                <td>${porPreencher(ri) ? '<span class="badge warn">por preencher</span>' : ri.quantidadeG + ' ' + (ip ? unidadeDoIngrediente(ip) : 'g')}</td>
                 <td>${rend}%</td>
                 <td>${ip ? precoDeCompra(ip) : '—'}</td>
                 <td>${eur(custoG * ri.quantidadeG / (rend / 100))}</td>
@@ -8525,7 +8567,7 @@ function openReceitaModal(id){
   onReceitaProdutoChange();
   renderReceitaItensList();
   document.getElementById('ftDados').open = !r;
-  document.getElementById('ftEditar').open = !r;
+  document.getElementById('ftEditar').open = !r || faltasDosItens(receitaItensAtuais).length > 0;
   document.getElementById('ftPercent').open = false;
   document.getElementById('modalReceita').classList.add('open');
   document.querySelector('#modalReceita .modal').scrollTop = 0;
@@ -8761,6 +8803,7 @@ function mediaDelivery(){
   receitas.forEach(r => {
     const p = produtos.find(x => x.id === r.produtoId); if(!p || p.tipo !== 'prato_final') return;
     const ex = r.extra || {}, R = Number(ex.precoVendaDelivery) || 0; if(!(R > 0)) return;
+    if(faltasDaFicha(r).length) return;
     const itens = receitaItens.filter(ri => ri.receitaId === r.id);
     const custoTotal = itens.reduce((s, ri) => s + custoPorGramaProduto(ri.ingredienteProdutoId) * (ri.quantidadeG || 0) / (rendPctDoItem(r, ri) / 100), 0);
     const util = porcoesUteis(ex.porcoes || 1, ex.perdaPct || 0) || (ex.porcoes || 1);
@@ -8840,9 +8883,11 @@ function atualizarPreviewCustoReceita(){
       const p = produtos.find(y => y.id === ri.ingredienteProdutoId);
       if(!p) return '';
       const unit = unidadeDoIngrediente(p);
-      return `<tr><td>${p.nome.replace(/</g,'&lt;')}</td><td>${ri.quantidadeG || 0} ${unit}</td><td>${precoDeCompra(p)}</td><td>${eur(custoDoItem(ri))}</td></tr>`;
+      return `<tr><td>${p.nome.replace(/</g,'&lt;')}</td><td>${porPreencher(ri) ? '<span class="badge warn">por preencher</span>' : ri.quantidadeG + ' ' + unit}</td><td>${precoDeCompra(p)}</td><td>${eur(custoDoItem(ri))}</td></tr>`;
     }).join('')}<tr class="ft-total"><td>Total</td><td></td><td></td><td>${eur(custoTotal)}</td></tr></tbody></table>`
     : '<div class="save-note">Ainda sem ingredientes.</div>';
+
+  const faltas = faltasDosItens(receitaItensAtuais);
 
   // semi-preparado: só interessa o custo; o preço decide-se no prato onde entra
   el('ftPrecos').style.display = ehPratoFinal ? '' : 'none';
@@ -8852,6 +8897,10 @@ function atualizarPreviewCustoReceita(){
     texto('ftQ2t', 'Custo por quilo'); texto('ftQ2', eur(custoPorGrama * 1000)); texto('ftQ2n', 'é o que o prato paga');
     texto('ftQ3t', 'Rende'); texto('ftQ3', pesoUtil.toFixed(0) + ' g'); texto('ftQ3n', perdaPct > 0 ? 'já sem a perda' : '');
     el('ftQ2').style.color = ''; el('ftQ3').style.color = '';
+    if(faltas.length){
+      texto('ftQ1t', 'Custo (incompleto)'); texto('ftQ1n', 'falta: ' + resumoFaltas(faltas));
+      texto('ftQ2', '—'); texto('ftQ2n', 'por completar');
+    }
     return;
   }
 
@@ -8904,19 +8953,29 @@ function atualizarPreviewCustoReceita(){
   // preço no delivery que deixa (quase) a mesma sobra que a loja
   const mesmo = precoLoja > 0 ? acima(precoDeliveryParaMesmoCmv(precoLoja / (1 + iva) + custoExtraDeliveryPorcao, x)) : 0;
   el('receitaDelSugestao').innerHTML = mesmo > 0 ? 'Para sobrar o mesmo que na loja, delivery a ' + usar('receitaPrecoVendaDelivery', mesmo) + '.' : '';
+
+  // com porções por preencher não há mínimo nem sobra: só o custo do que já está
+  if(faltas.length){
+    texto('ftQ1t', 'Custo (incompleto)');
+    ['ftQ2', 'ftQ3'].forEach(n => { texto(n, '—'); texto(n + 'n', 'por completar'); el(n).style.color = ''; });
+    el('ftMinimos').innerHTML = `<span class="badge warn">por completar</span> ${faltas.join(', ').replace(/</g,'&lt;')}`;
+    el('receitaDelSugestao').innerHTML = '';
+    el('receitaPrecoVenda').placeholder = ''; el('receitaPrecoVendaDelivery').placeholder = '';
+    ['ftL_', 'ftD_'].forEach(L => ['iva','com','ivacom','part','custo','emb','sobra','margem','cmv'].forEach(k => { texto(L + k, '—'); el(L + k).style.color = ''; }));
+  }
 }
 
 // números como se escrevem em Portugal (vírgula) e o preço de compra por quilo, litro ou unidade
 function pctPt(v){ return (Number(v) || 0).toFixed(1).replace('.', ','); }
 function unidadeDoIngrediente(p){
-  if(receitas.some(r => r.produtoId === p.id)) return 'g';
+  if(receitas.some(r => r.produtoId === p.id && !fichaVazia(r))) return 'g';
   const emb = embalagemBase(p);
   return emb && emb.unidade === 'unidade' ? 'un' : emb && emb.unidade === 'ml' ? 'ml' : 'g';
 }
 function precoDeCompra(p){
   const temFicha = receitas.some(r => r.produtoId === p.id);
   const custoG = temFicha ? custoPorGramaProduto(p.id) : precoPorGrama(p);
-  if(custoG == null) return 'sem preço';
+  if(custoG == null || (temFicha && !(custoG > 0))) return 'sem preço';
   const unit = unidadeDoIngrediente(p);
   if(unit === 'un') return eur(custoG) + '/un';
   if(unit === 'ml') return eur(custoG * 1000 * (p.densidade || 1)) + '/L';
@@ -9282,10 +9341,12 @@ function renderRetorno(){
   if(!content) return;
 
   const linhas = [];
+  const porCompletar = [];
 
   receitas.forEach(r => {
     const p = produtos.find(x => x.id === r.produtoId);
     if(!p || p.tipo !== 'prato_final') return;
+    if(faltasDaFicha(r).length){ porCompletar.push(p.nome); return; }
     const grupo = (r.extra && r.extra.grupo && r.extra.grupo.trim()) || 'Sem grupo';
     const itens = receitaItens.filter(ri => ri.receitaId === r.id);
     const custoItem = ri => custoPorGramaProduto(ri.ingredienteProdutoId) * (ri.quantidadeG||0) / (rendPctDoItem(r, ri) / 100);
@@ -9363,7 +9424,9 @@ function renderRetorno(){
        </div>`
     : `<div style="text-align:right;color:var(--ink-soft);">—</div>`;
 
-  content.innerHTML = `<div style="overflow-x:auto;"><table>
+  const avisoFichas = porCompletar.length
+    ? `<div class="save-note" style="margin-bottom:10px;">Fora do ranking, ficha por completar (${porCompletar.length}): ${porCompletar.sort((a,b) => a.localeCompare(b)).join(', ')}.</div>` : '';
+  content.innerHTML = avisoFichas + `<div style="overflow-x:auto;"><table>
     <thead><tr><th>#</th><th>Item</th><th>Grupo</th><th>Retorno na loja</th><th>Retorno no delivery</th></tr></thead>
     <tbody>${ordenados.map((l, i) => `
       <tr>
@@ -9427,7 +9490,9 @@ const MENUS = (function(){
       const custo = custoTotal / util;
       const extra = (delivery && ex.incluirCaixaPizza) ? custoCaixaPizza() / util : 0;
       const preco = Number(delivery ? ex.precoVendaDelivery : r.precoVenda) || 0;
-      if(!(custo > 0)) avisos.push('a ficha técnica não tem custo calculado');
+      const faltas = faltasDaFicha(r);
+      if(faltas.length) avisos.push('ficha por completar (' + resumoFaltas(faltas) + ')');
+      else if(!(custo > 0)) avisos.push('a ficha técnica não tem custo calculado');
       if(!(preco > 0)) avisos.push(delivery ? 'sem preço de venda no delivery' : 'sem preço de venda na loja');
       return { ok: !avisos.length, avisos, custo, extra, preco, ivaPct:ex.ivaPct, part:ex.participacaoPct,
                comPct: delivery ? ex.deliveryTaxaPct : 0, comIva: delivery ? ex.deliveryIvaTaxaPct : 0 };
